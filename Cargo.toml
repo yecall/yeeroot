@@ -5,4 +5,11 @@ authors = ["Chang Ming <pkuchm@gmail.com>"]
 build = "build.rs"
 edition = "2018"
 
+[[bin]]
+name = "yee"
+path = "src/main.rs"
+
 [dependencies]
+
+[build-dependencies]
+vergen = "3"
