@@ -11,13 +11,13 @@ pub use substrate_cli::{VersionInfo, IntoExit, error};
 
 fn main() {
 	let version = VersionInfo {
-		name: "Substrate Node",
+		name: "Yee Root Node",
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "node-template",
-		author: "Anonymous",
-		description: "Template Node",
-		support_url: "support.anonymous.an",
+		executable_name: "YeeRoot",
+		author: "YeeCo",
+		description: "Yee Root Node",
+		support_url: "contact@yeefoundation.com",
 	};
 
 	if let Err(e) = cli::run(::std::env::args(), cli::Exit, version) {

@@ -1,5 +1,5 @@
 [package]
-name = "node-template-runtime-wasm"
+name = "yee-runtime-wasm"
 version = "2.0.0"
 authors = ["Anonymous"]
 edition = "2018"
@@ -8,12 +8,12 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-node-template-runtime = { path = "..", default-features = false }
+yee-runtime = { path = "..", default-features = false }
 
 [features]
 default = []
 std = [
-	"node-template-runtime/std",
+	"yee-runtime/std",
 ]
 
 [profile.release]
