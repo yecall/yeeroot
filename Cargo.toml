@@ -19,17 +19,17 @@ exit-future = "0.1"
 parking_lot = "0.8.0"
 parity-codec = "3.3"
 trie-root = "0.12.2"
-sr-io = { path = "../core/sr-io" }
-substrate-cli = { path = "../core/cli" }
-primitives = { package = "substrate-primitives", path = "../core/primitives" }
-substrate-executor = { path = "../core/executor" }
-substrate-service = { path = "../core/service" }
-inherents = { package = "substrate-inherents", path = "../core/inherents" }
-transaction-pool = { package = "substrate-transaction-pool", path = "../core/transaction-pool" }
-network = { package = "substrate-network", path = "../core/network" }
-consensus = { package = "substrate-consensus-aura", path = "../core/consensus/aura" }
-substrate-client = {  path = "../core/client" }
-basic-authorship = { package = "substrate-basic-authorship", path = "../core/basic-authorship" }
+sr-io = { git = "https://github.com/paritytech/substrate.git" }
+substrate-cli = { git = "https://github.com/paritytech/substrate.git" }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate.git" }
+substrate-executor = { git = "https://github.com/paritytech/substrate.git" }
+substrate-service = { git = "https://github.com/paritytech/substrate.git" }
+inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate.git" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/paritytech/substrate.git" }
+network = { package = "substrate-network", git = "https://github.com/paritytech/substrate.git" }
+consensus = { package = "substrate-consensus-aura", git = "https://github.com/paritytech/substrate.git" }
+substrate-client = { git = "https://github.com/paritytech/substrate.git" }
+basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/paritytech/substrate.git" }
 node-template-runtime = { path = "runtime" }
 
 [build-dependencies]
