@@ -9,7 +9,7 @@ mod cli;
 
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 
-fn main() {
+fn run() -> cli::error::Result<()> {
 	let version = VersionInfo {
 		name: "Substrate Node",
 		commit: env!("VERGEN_SHA_SHORT"),
@@ -19,9 +19,7 @@ fn main() {
 		description: "Template Node",
 		support_url: "support.anonymous.an",
 	};
-
-	if let Err(e) = cli::run(::std::env::args(), cli::Exit, version) {
-		eprintln!("Error starting the node: {}\n\n{:?}", e, e);
-		std::process::exit(1)
-	}
+	cli::run(::std::env::args(), cli::Exit, version)
 }
+
+error_chain::quick_main!(run);
