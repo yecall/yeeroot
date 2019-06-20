@@ -55,6 +55,9 @@ pub type BlockNumber = u64;
 /// Index of an account's extrinsic in the chain.
 pub type Nonce = u64;
 
+/// The type used for pow difficulty in block header.
+pub type Difficulty = primitives::U256;
+
 /// Yee module
 mod yee;
 
@@ -81,7 +84,7 @@ pub mod opaque {
 		}
 	}
 	/// Opaque block header type.
-	pub type Header = yee::Header<BlockNumber, BlakeTwo256, generic::DigestItem<Hash, AuthorityId, AuthoritySignature>>;
+	pub type Header = yee::Header<BlockNumber, BlakeTwo256, generic::DigestItem<Hash, AuthorityId, AuthoritySignature>, Difficulty, AccountId>;
 	/// Opaque block type.
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
@@ -125,7 +128,7 @@ impl system::Trait for Runtime {
 	/// The header digest type.
 	type Digest = generic::Digest<Log>;
 	/// The header type.
-	type Header = yee::Header<BlockNumber, BlakeTwo256, Log>;
+	type Header = yee::Header<BlockNumber, BlakeTwo256, Log, Difficulty, AccountId>;
 	/// The ubiquitous event type.
 	type Event = Event;
 	/// The ubiquitous log type.
@@ -208,7 +211,7 @@ type Context = system::ChainContext<Runtime>;
 /// The address format for describing accounts.
 type Address = <Indices as StaticLookup>::Source;
 /// Block header type as expected by this runtime.
-pub type Header = yee::Header<BlockNumber, BlakeTwo256, Log>;
+pub type Header = yee::Header<BlockNumber, BlakeTwo256, Log, Difficulty, AccountId>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// BlockId type as expected by this runtime.

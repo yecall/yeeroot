@@ -20,6 +20,8 @@ use runtime_primitives::{
 #[cfg(feature = "std")]
 use serde::Serialize;
 
+use super::WorkProof;
+
 #[cfg(feature = "std")]
 pub fn serialize_number<S, T: Copy + Into<u128>>(val: &T, s: S) -> Result<S::Ok, S::Error> where S: ::serde::Serializer {
     use primitives::uint::U256;
@@ -33,7 +35,7 @@ pub fn serialize_number<S, T: Copy + Into<u128>>(val: &T, s: S) -> Result<S::Ok,
 #[cfg_attr(feature = "std", derive(Debug, Serialize))]
 #[cfg_attr(feature = "std", serde(rename_all = "camelCase"))]
 #[cfg_attr(feature = "std", serde(deny_unknown_fields))]
-pub struct Header<Number: Copy + Into<u128>, Hash: HashT, DigestItem> {
+pub struct Header<Number: Copy + Into<u128>, Hash: HashT, DigestItem, Difficulty: Copy, AccountId: Clone> {
     /// The parent hash.
     pub parent_hash: <Hash as HashT>::Output,
     /// The block number.
@@ -45,13 +47,21 @@ pub struct Header<Number: Copy + Into<u128>, Hash: HashT, DigestItem> {
     pub extrinsics_root: <Hash as HashT>::Output,
     /// A chain-specific digest of data useful for light clients or referencing auxiliary data.
     pub digest: Digest<DigestItem>,
+    /// POW difficulty config
+    pub difficulty: Difficulty,
+    /// Block reward receiver
+    pub coinbase: AccountId,
+    /// POW work proof
+    pub work_proof: Option<WorkProof>,
 }
 
-impl<Number, Hash, DigestItem> Decode for Header<Number, Hash, DigestItem> where
+impl<Number, Hash, DigestItem, Difficulty, AccountId> Decode for Header<Number, Hash, DigestItem, Difficulty, AccountId> where
     Number: HasCompact + Copy + Into<u128>,
     Hash: HashT,
     Hash::Output: Decode,
     DigestItem: DigestItemT + Decode,
+    Difficulty: Decode + Copy,
+    AccountId: Decode + Clone,
 {
     fn decode<I: Input>(input: &mut I) -> Option<Self> {
         Some(Header {
@@ -60,15 +70,20 @@ impl<Number, Hash, DigestItem> Decode for Header<Number, Hash, DigestItem> where
             state_root: Decode::decode(input)?,
             extrinsics_root: Decode::decode(input)?,
             digest: Decode::decode(input)?,
+            difficulty: Decode::decode(input)?,
+            coinbase: Decode::decode(input)?,
+            work_proof: Decode::decode(input)?,
         })
     }
 }
 
-impl<Number, Hash, DigestItem> Encode for Header<Number, Hash, DigestItem> where
+impl<Number, Hash, DigestItem, Difficulty, AccountId> Encode for Header<Number, Hash, DigestItem, Difficulty, AccountId> where
     Number: HasCompact + Copy + Into<u128>,
     Hash: HashT,
     Hash::Output: Encode,
     DigestItem: DigestItemT + Encode,
+    Difficulty: Encode + Copy,
+    AccountId: Encode + Clone,
 {
     fn encode_to<T: Output>(&self, dest: &mut T) {
         dest.push(&self.parent_hash);
@@ -76,13 +91,18 @@ impl<Number, Hash, DigestItem> Encode for Header<Number, Hash, DigestItem> where
         dest.push(&self.state_root);
         dest.push(&self.extrinsics_root);
         dest.push(&self.digest);
+        dest.push(&self.difficulty);
+        dest.push(&self.coinbase);
+        dest.push(&self.work_proof);
     }
 }
 
-impl<Number, Hash, DigestItem> traits::Header for Header<Number, Hash, DigestItem> where
+impl<Number, Hash, DigestItem, Difficulty, AccountId> traits::Header for Header<Number, Hash, DigestItem, Difficulty, AccountId> where
     Number: Member + MaybeSerializeDebug + ::rstd::hash::Hash + MaybeDisplay + SimpleArithmetic + Codec + Copy + Into<u128>,
     Hash: HashT,
     DigestItem: DigestItemT<Hash = Hash::Output> + Codec,
+    Difficulty: Member + MaybeSerializeDebug + Codec + Copy + Default,
+    AccountId: Member + MaybeSerializeDebug + Codec + Default,
     Hash::Output: Default + ::rstd::hash::Hash + Copy + Member + MaybeSerializeDebugButNotDeserialize + MaybeDisplay + SimpleBitOps + Codec,
 {
     type Number = Number;
@@ -118,7 +138,10 @@ impl<Number, Hash, DigestItem> traits::Header for Header<Number, Hash, DigestIte
             extrinsics_root,
             state_root,
             parent_hash,
-            digest
+            digest,
+            difficulty: Default::default(),
+            coinbase: Default::default(),
+            work_proof: None,
         }
     }
 }
