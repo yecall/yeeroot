@@ -68,7 +68,7 @@ $ ./yee --dev
 ```
 
 ## Roadmap
-1. [In progress] PoC-3: PoW consensus, static sharding
+1. **[In progress]** PoC-3: PoW consensus, static sharding
 1. PoC-4: Multi-mining, cross-shard transactions
 1. PoC-5: Dynamic sharding
 1. PoC-6: Cross chain (interoperate with branch chain)
