@@ -18,20 +18,22 @@
 //! POW (Proof of Work) consensus in YeeChain
 
 use std::sync::Arc;
-
+use parity_codec::{
+    Decode, Encode,
+};
 use consensus_common::{
     import_queue::{
         BasicQueue,
         SharedBlockImport, SharedJustificationImport,
     },
 };
-use runtime_primitives::{
-    traits::{
-        AuthorityIdFor,
-        Block, Header,
-    }
-};
+use runtime_primitives::traits::{AuthorityIdFor, Block, Header};
 
+pub use digest::CompatibleDigestItem;
+pub use pow::WorkProof;
+
+mod digest;
+mod pow;
 mod verifier;
 
 type AuthorityId<B> = AuthorityIdFor<B>;

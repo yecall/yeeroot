@@ -1,0 +1,14 @@
+[package]
+name = "yee-consensus-pow-primitives"
+version = "0.1.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+[dependencies]
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
+
+[features]
+default = ["std"]
+std = [
+    "runtime_primitives/std"
+]

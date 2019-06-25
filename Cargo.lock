@@ -4631,9 +4631,18 @@ name = "yee-consensus-pow"
 version = "0.1.0"
 dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-consensus-common 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
+ "yee-consensus-pow-primitives 0.1.0",
+]
+
+[[package]]
+name = "yee-consensus-pow-primitives"
+version = "0.1.0"
+dependencies = [
+ "sr-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
 ]
 
 [[package]]

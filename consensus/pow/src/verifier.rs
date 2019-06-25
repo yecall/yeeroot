@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-/// Import Queue Verifier for POW chain
+//! Import Queue Verifier for POW chain
 
 use std::{sync::Arc};
 use futures::{Future, IntoFuture};
@@ -24,12 +24,12 @@ use consensus_common::{
     BlockOrigin, ImportBlock,
     import_queue::Verifier,
 };
-use runtime_primitives::Justification;
-
-use super::{
-    AuthorityId,
-    Block, Header,
+use runtime_primitives::{
+    Justification,
+    traits::{Block, Header},
 };
+
+use super::AuthorityId;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C, E> {
