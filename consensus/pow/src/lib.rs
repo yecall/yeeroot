@@ -50,16 +50,13 @@ pub fn import_queue<B, C, E>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
-    extra: E,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
     C: 'static + Send + Sync,
-    E: 'static + verifier::ExtraVerification<B>,
 {
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
-            extra,
         }
     );
     Ok(BasicQueue::new(verifier, block_import, justification_import))

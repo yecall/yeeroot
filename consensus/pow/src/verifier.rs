@@ -32,15 +32,13 @@ use runtime_primitives::{
 use super::AuthorityId;
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C, E> {
+pub struct PowVerifier<C> {
     pub client: Arc<C>,
-    pub extra: E,
 }
 
 #[forbid(deprecated)]
-impl<B: Block, C, E> Verifier<B> for PowVerifier<C, E> where
+impl<B: Block, C> Verifier<B> for PowVerifier<C> where
     C: Send + Sync,
-    E: ExtraVerification<B>,
 {
     fn verify(
         &self,
@@ -52,39 +50,7 @@ impl<B: Block, C, E> Verifier<B> for PowVerifier<C, E> where
         let hash = header.hash();
         let parent_hash = *header.parent_hash();
 
-        // extra verifier runs besides normal verification
-        let extra_verification = self.extra.verify(
-            &header,
-            body.as_ref().map(|x| &x[..]),
-        );
-
-        // wait and check extra verification result
-        extra_verification.into_future().wait()?;
-
+        // TODO:
         unimplemented!()
-    }
-}
-
-/// Extra verification for POW blocks in native code.
-pub trait ExtraVerification<B: Block>: Send + Sync {
-    /// Future for verification
-    type Verified: IntoFuture<Item=(), Error=String>;
-
-    /// extra verification implementation
-    fn verify(
-        &self,
-        header: &B::Header,
-        body: Option<&[B::Extrinsic]>,
-    ) -> Self::Verified;
-}
-
-/// No-op extra verification.
-pub struct NothingExtra;
-
-impl<B: Block> ExtraVerification<B> for NothingExtra {
-    type Verified = Result<(), String>;
-
-    fn verify(&self, _: &<B as Block>::Header, _: Option<&[<B as Block>::Extrinsic]>) -> Self::Verified {
-        Ok(())
     }
 }
