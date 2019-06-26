@@ -24,6 +24,7 @@ use consensus_common::{
     BlockOrigin, ImportBlock,
     import_queue::Verifier,
 };
+use inherents::InherentDataProviders;
 use runtime_primitives::{
     Justification,
     traits::{Block, Header},
@@ -34,6 +35,7 @@ use super::AuthorityId;
 /// Verifier for POW blocks.
 pub struct PowVerifier<C> {
     pub client: Arc<C>,
+    pub inherent_data_providers: InherentDataProviders,
 }
 
 #[forbid(deprecated)]

@@ -24,6 +24,7 @@ use consensus_common::{
         SharedBlockImport, SharedJustificationImport,
     },
 };
+use inherents::InherentDataProviders;
 use runtime_primitives::{
     codec::{
         Decode, Encode,
@@ -50,6 +51,7 @@ pub fn import_queue<B, C, E>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
+    inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
     C: 'static + Send + Sync,
@@ -57,6 +59,7 @@ pub fn import_queue<B, C, E>(
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
+            inherent_data_providers,
         }
     );
     Ok(BasicQueue::new(verifier, block_import, justification_import))
