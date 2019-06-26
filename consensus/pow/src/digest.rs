@@ -19,8 +19,12 @@
 //!
 //! Implements POW signature wrapped in block header DigestItem.
 
-use parity_codec::{Decode, Encode};
-use runtime_primitives::{generic::DigestItem};
+use runtime_primitives::{
+    codec::{
+        Decode, Encode,
+    },
+    generic::DigestItem,
+};
 
 use pow_primitives::YEE_POW_ENGINE_ID;
 use super::{pow::WorkProof};

@@ -17,19 +17,93 @@
 
 //! POW work proof used in block header digest
 
-use parity_codec::{Decode, Encode, Input, Output};
+use runtime_primitives::{
+    codec::{
+        Decode, Encode, Input, Output,
+    }
+};
 
+/// POW proof used in block header
 pub enum WorkProof {
+    Unknown,
+    Nonce(ProofNonce),
+}
+
+/// Referencing view for WorkProof
+pub enum WorkProofRef<'a> {
+    Unknown,
+    Nonce(&'a ProofNonce),
+}
+
+/// Type ID of WorkProof used for encoding/decoding
+#[repr(u32)]
+#[derive(Decode, Encode)]
+enum WorkProofType {
+    Unknown = 0,
+    Nonce = 1,
+}
+
+impl WorkProof {
+    fn wp_ref(&self) -> WorkProofRef {
+        match *self {
+            WorkProof::Unknown => WorkProofRef::Unknown,
+            WorkProof::Nonce(ref v) => WorkProofRef::Nonce(v),
+        }
+    }
+}
+
+impl<'a> Encode for WorkProofRef<'a> {
+    fn encode_to<T: Output>(&self, dest: &mut T) {
+        match *self {
+            WorkProofRef::Unknown => {
+                WorkProofType::Unknown.encode_to(dest);
+            }
+            WorkProofRef::Nonce(v) => {
+                WorkProofType::Nonce.encode_to(dest);
+                v.encode_to(dest);
+            }
+        }
+    }
 }
 
 impl Decode for WorkProof {
     fn decode<I: Input>(value: &mut I) -> Option<Self> {
-        unimplemented!()
+        let proof_type: WorkProofType = Decode::decode(value)?;
+        match proof_type {
+            WorkProofType::Unknown => Some(WorkProof::Unknown),
+            WorkProofType::Nonce => Some(WorkProof::Nonce(
+                Decode::decode(value)?,
+            )),
+        }
     }
 }
 
 impl Encode for WorkProof {
-    fn encode(&self) -> Vec<u8> {
-        unimplemented!()
+    fn encode_to<T: Output>(&self, dest: &mut T) {
+        self.wp_ref().encode_to(dest)
+    }
+}
+
+/// Classical pow proof with extra data entropy and 64b nonce
+pub struct ProofNonce {
+    /// Extra Data used to encode miner info AND more entropy
+    pub extra_data: Vec<u8>,
+    /// POW block nonce
+    pub nonce: u64,
+}
+
+impl Decode for ProofNonce {
+    fn decode<I: Input>(value: &mut I) -> Option<Self> {
+        Some(ProofNonce {
+            extra_data: Decode::decode(value)?,
+            nonce: Decode::decode(value)?,
+        })
+    }
+}
+
+impl Encode for ProofNonce {
+    fn encode_to<T: Output>(&self, dest: &mut T) {
+        dest.push(&self.extra_data);
+        dest.push(&self.nonce);
     }
 }
