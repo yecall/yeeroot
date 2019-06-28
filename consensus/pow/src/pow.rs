@@ -20,8 +20,14 @@
 use runtime_primitives::{
     codec::{
         Decode, Encode, Input, Output,
-    }
+    },
+    traits::{Block, Hash},
 };
+
+pub type DifficultyType = primitives::U256;
+
+/// Max length in bytes for pow extra data
+pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW proof used in block header
 pub enum WorkProof {
@@ -105,5 +111,24 @@ impl Encode for ProofNonce {
     fn encode_to<T: Output>(&self, dest: &mut T) {
         dest.push(&self.extra_data);
         dest.push(&self.nonce);
+    }
+}
+
+pub fn check_proof<B: Block>(
+    proof: WorkProof, hash: B::Hash, pre_hash: B::Hash, difficulty: DifficultyType,
+) -> Result<(), String> where
+{
+    match proof {
+        WorkProof::Unknown => Err(format!("invalid work proof")),
+        WorkProof::Nonce(proofNonce) => {
+            if proofNonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
+                return Err(format!("extra data too long"));
+            }
+            let proof_difficulty = DifficultyType::from(hash.as_ref());
+            if proof_difficulty > difficulty {
+                return Err(format!("difficulty not enough, need {}, got {}", difficulty, proof_difficulty));
+            }
+            Ok(())
+        }
     }
 }

@@ -22,15 +22,19 @@ use futures::{Future, IntoFuture};
 
 use consensus_common::{
     BlockOrigin, ImportBlock,
+    ForkChoiceStrategy,
     import_queue::Verifier,
 };
 use inherents::InherentDataProviders;
 use runtime_primitives::{
     Justification,
-    traits::{Block, Header},
+    traits::{
+        Block, Header,
+        Digest, DigestItem, DigestItemFor, HashFor,
+    },
 };
 
-use super::AuthorityId;
+use super::{AuthorityId, CompatibleDigestItem, WorkProof};
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C> {
@@ -40,6 +44,7 @@ pub struct PowVerifier<C> {
 
 #[forbid(deprecated)]
 impl<B: Block, C> Verifier<B> for PowVerifier<C> where
+    DigestItemFor<B>: CompatibleDigestItem,
     C: Send + Sync,
 {
     fn verify(
@@ -52,7 +57,52 @@ impl<B: Block, C> Verifier<B> for PowVerifier<C> where
         let hash = header.hash();
         let parent_hash = *header.parent_hash();
 
-        // TODO:
-        unimplemented!()
+        // check if header has a valid work proof
+        let (pre_header, seal) = check_header::<B>(
+            header,
+            hash,
+        )?;
+
+        // TODO: verify body
+        // TODO: log
+
+        let import_block = ImportBlock {
+            origin,
+            header: pre_header,
+            justification,
+            post_digests: vec![seal],
+            body,
+            finalized: false,
+            auxiliary: Vec::new(),
+            fork_choice: ForkChoiceStrategy::LongestChain,
+        };
+        Ok((import_block, None))
     }
+}
+
+/// Check if block header has a valid POW difficulty
+fn check_header<B: Block>(
+    mut header: B::Header,
+    hash: B::Hash,
+) -> Result<(B::Header, DigestItemFor<B>), String> where
+    DigestItemFor<B>: CompatibleDigestItem,
+{
+    // pow work proof MUST be last digest item
+    let digest_item = match header.digest_mut().pop() {
+        Some(x) => x,
+        None => return Err(format!("")),
+    };
+    let work_proof = digest_item.as_pow_seal().ok_or_else(|| {
+        // TODO: log
+        format!("Header {:?} not sealed", hash)
+    })?;
+
+    let pre_hash = header.hash();
+
+    // TODO: remove hardcoded
+    let difficulty = primitives::U256::from(0x0f_u128) << 120;
+
+    super::pow::check_proof::<B>(work_proof, hash, pre_hash, difficulty)?;
+
+    Ok((header, digest_item))
 }
