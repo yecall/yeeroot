@@ -12,7 +12,7 @@ use substrate_service::{
 	TaskExecutor,
 };
 use basic_authorship::ProposerFactory;
-use consensus::{import_queue, start_aura, AuraImportQueue, SlotDuration, NothingExtra};
+use consensus_pow::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
 use primitives::{ed25519::Pair, Pair as PairT};
 use inherents::InherentDataProviders;
@@ -65,9 +65,7 @@ construct_service_factory! {
 						inherents_pool: service.inherents_pool(),
 					});
 					let client = service.client();
-					executor.spawn(start_aura(
-						SlotDuration::get_or_compute(&*client)?,
-						key.clone(),
+					executor.spawn(start_pow::<Self::Block, _, _, _, _, _>(
 						client.clone(),
 						client,
 						proposer,
@@ -83,30 +81,22 @@ construct_service_factory! {
 		},
 		LightService = LightComponents<Self>
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
-		FullImportQueue = AuraImportQueue<
-			Self::Block,
-		>
+		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
-					import_queue::<_, _, _, Pair>(
-						SlotDuration::get_or_compute(&*client)?,
+					import_queue::<Self::Block, _>(
 						client.clone(),
 						None,
 						client,
-						NothingExtra,
 						config.custom.inherent_data_providers.clone(),
 					).map_err(Into::into)
 				}
 			},
-		LightImportQueue = AuraImportQueue<
-			Self::Block,
-		>
+		LightImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-					import_queue::<_, _, _, Pair>(
-						SlotDuration::get_or_compute(&*client)?,
+					import_queue::<Self::Block, _>(
 						client.clone(),
 						None,
 						client,
-						NothingExtra,
 						config.custom.inherent_data_providers.clone(),
 					).map_err(Into::into)
 				}

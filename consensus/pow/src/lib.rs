@@ -53,6 +53,7 @@ pub fn start_pow<B, C, E, I, SO, OnExit>(
     sync_oracle: SO,
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
+    force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
@@ -65,7 +66,7 @@ pub fn start_pow<B, C, E, I, SO, OnExit>(
 pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Start import queue for POW consensus
-pub fn import_queue<B, C, E>(
+pub fn import_queue<B, C>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
