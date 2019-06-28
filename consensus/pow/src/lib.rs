@@ -18,16 +18,24 @@
 //! POW (Proof of Work) consensus in YeeChain
 
 use std::sync::Arc;
-use parity_codec::{
-    Decode, Encode,
-};
+use futures::Future;
 use consensus_common::{
+    SyncOracle,
     import_queue::{
         BasicQueue,
         SharedBlockImport, SharedJustificationImport,
     },
 };
-use runtime_primitives::traits::{AuthorityIdFor, Block, Header};
+use inherents::InherentDataProviders;
+use runtime_primitives::{
+    codec::{
+        Decode, Encode,
+    },
+    traits::{
+        AuthorityIdFor, DigestItemFor,
+        Block, Header,
+    },
+};
 
 pub use digest::CompatibleDigestItem;
 pub use pow::WorkProof;
@@ -38,6 +46,21 @@ mod verifier;
 
 type AuthorityId<B> = AuthorityIdFor<B>;
 
+pub fn start_pow<B, C, E, I, SO, OnExit>(
+    client: Arc<C>,
+    block_import: Arc<I>,
+    env: Arc<E>,
+    sync_oracle: SO,
+    on_exit: OnExit,
+    inherent_data_providers: InherentDataProviders,
+) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
+    SO: SyncOracle + Send + Sync + Clone,
+    OnExit: Future<Item=(), Error=()>,
+{
+    // TODO: start pow worker
+    Ok(futures::future::ok(()))
+}
+
 /// POW chain import queue
 pub type PowImportQueue<B> = BasicQueue<B>;
 
@@ -46,16 +69,16 @@ pub fn import_queue<B, C, E>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
-    extra: E,
+    inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
+    DigestItemFor<B>: CompatibleDigestItem,
     C: 'static + Send + Sync,
-    E: 'static + verifier::ExtraVerification<B>,
 {
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
-            extra,
+            inherent_data_providers,
         }
     );
     Ok(BasicQueue::new(verifier, block_import, justification_import))

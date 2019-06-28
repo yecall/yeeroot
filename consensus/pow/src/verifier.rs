@@ -22,25 +22,30 @@ use futures::{Future, IntoFuture};
 
 use consensus_common::{
     BlockOrigin, ImportBlock,
+    ForkChoiceStrategy,
     import_queue::Verifier,
 };
+use inherents::InherentDataProviders;
 use runtime_primitives::{
     Justification,
-    traits::{Block, Header},
+    traits::{
+        Block, Header,
+        Digest, DigestItem, DigestItemFor, HashFor,
+    },
 };
 
-use super::AuthorityId;
+use super::{AuthorityId, CompatibleDigestItem, WorkProof};
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C, E> {
+pub struct PowVerifier<C> {
     pub client: Arc<C>,
-    pub extra: E,
+    pub inherent_data_providers: InherentDataProviders,
 }
 
 #[forbid(deprecated)]
-impl<B: Block, C, E> Verifier<B> for PowVerifier<C, E> where
+impl<B: Block, C> Verifier<B> for PowVerifier<C> where
+    DigestItemFor<B>: CompatibleDigestItem,
     C: Send + Sync,
-    E: ExtraVerification<B>,
 {
     fn verify(
         &self,
@@ -52,39 +57,52 @@ impl<B: Block, C, E> Verifier<B> for PowVerifier<C, E> where
         let hash = header.hash();
         let parent_hash = *header.parent_hash();
 
-        // extra verifier runs besides normal verification
-        let extra_verification = self.extra.verify(
-            &header,
-            body.as_ref().map(|x| &x[..]),
-        );
+        // check if header has a valid work proof
+        let (pre_header, seal) = check_header::<B>(
+            header,
+            hash,
+        )?;
 
-        // wait and check extra verification result
-        extra_verification.into_future().wait()?;
+        // TODO: verify body
+        // TODO: log
 
-        unimplemented!()
+        let import_block = ImportBlock {
+            origin,
+            header: pre_header,
+            justification,
+            post_digests: vec![seal],
+            body,
+            finalized: false,
+            auxiliary: Vec::new(),
+            fork_choice: ForkChoiceStrategy::LongestChain,
+        };
+        Ok((import_block, None))
     }
 }
 
-/// Extra verification for POW blocks in native code.
-pub trait ExtraVerification<B: Block>: Send + Sync {
-    /// Future for verification
-    type Verified: IntoFuture<Item=(), Error=String>;
+/// Check if block header has a valid POW difficulty
+fn check_header<B: Block>(
+    mut header: B::Header,
+    hash: B::Hash,
+) -> Result<(B::Header, DigestItemFor<B>), String> where
+    DigestItemFor<B>: CompatibleDigestItem,
+{
+    // pow work proof MUST be last digest item
+    let digest_item = match header.digest_mut().pop() {
+        Some(x) => x,
+        None => return Err(format!("")),
+    };
+    let work_proof = digest_item.as_pow_seal().ok_or_else(|| {
+        // TODO: log
+        format!("Header {:?} not sealed", hash)
+    })?;
 
-    /// extra verification implementation
-    fn verify(
-        &self,
-        header: &B::Header,
-        body: Option<&[B::Extrinsic]>,
-    ) -> Self::Verified;
-}
+    let pre_hash = header.hash();
 
-/// No-op extra verification.
-pub struct NothingExtra;
+    // TODO: remove hardcoded
+    let difficulty = primitives::U256::from(0x0f_u128) << 120;
 
-impl<B: Block> ExtraVerification<B> for NothingExtra {
-    type Verified = Result<(), String>;
+    super::pow::check_proof::<B>(work_proof, hash, pre_hash, difficulty)?;
 
-    fn verify(&self, _: &<B as Block>::Header, _: Option<&[<B as Block>::Extrinsic]>) -> Self::Verified {
-        Ok(())
-    }
+    Ok((header, digest_item))
 }
