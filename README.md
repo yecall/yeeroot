@@ -69,7 +69,7 @@ $ ./yee --dev
 
 ## Roadmap
 1. **[Done in [tetris_demo](https://github.com/yeeco/tetris_demo)]** PoC-1: Tetris cconsensus demo (2019-02)
-2. **[Done in [gyee](https://github.com/yeeco/gyee)]** PoC-1: Tetris cconsensus demo (2019-05)
+2. **[Done in [gyee](https://github.com/yeeco/gyee)]** PoC-2: Tetris cconsensus demo (2019-05)
 1. **[In progress]** PoC-3: PoW consensus, static sharding (2019-07)
 1. PoC-4: Multi-mining, cross-shard transactions (2019-09)
 1. PoC-5: Dynamic sharding (2019-11)
