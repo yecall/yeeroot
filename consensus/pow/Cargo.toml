@@ -1,0 +1,14 @@
+[package]
+name = "yee-consensus-pow"
+version = "0.1.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+[dependencies]
+futures = "0.1"
+parity-codec = "3.5"
+pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
+inherents = { package = "substrate-inherents", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
+primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
