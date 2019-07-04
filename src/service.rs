@@ -12,7 +12,7 @@ use substrate_service::{
 	TaskExecutor,
 };
 use basic_authorship::ProposerFactory;
-use consensus_pow::{import_queue, start_pow, PowImportQueue};
+use consensus::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
 use primitives::{ed25519::Pair, Pair as PairT};
 use inherents::InherentDataProviders;

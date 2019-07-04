@@ -1,7 +1,6 @@
 //! The Substrate Node Template runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(not(feature = "std"), feature(alloc))]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit="256"]
 
@@ -137,8 +136,8 @@ impl system::Trait for Runtime {
 	type Origin = Origin;
 }
 
-impl aura::Trait for Runtime {
-	type HandleReport = ();
+impl pow::Trait for Runtime {
+    //
 }
 
 impl consensus::Trait for Runtime {
@@ -166,7 +165,7 @@ impl indices::Trait for Runtime {
 impl timestamp::Trait for Runtime {
 	/// A timestamp: seconds since the unix epoch.
 	type Moment = u64;
-	type OnTimestampSet = Aura;
+	type OnTimestampSet = ();
 }
 
 impl balances::Trait for Runtime {
@@ -199,7 +198,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Aura: aura::{Module},
+		Pow: pow::{Module},
 		Indices: indices,
 		Balances: balances,
 		Sudo: sudo,
@@ -277,10 +276,8 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl consensus_aura::AuraApi<Block> for Runtime {
-		fn slot_duration() -> u64 {
-			Aura::slot_duration()
-		}
+	impl consensus_pow::YeePOWApi<Block> for Runtime {
+	    //
 	}
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {
