@@ -23,6 +23,7 @@ parity-codec = "3.2"
 trie-root = "0.12.0"
 yee-runtime = { path = "runtime" }
 consensus-pow = { package = "yee-consensus-pow", path = "consensus/pow" }
+yee-service = { path = "core/service" }
 sr-io = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 substrate-cli = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
@@ -34,6 +35,8 @@ network = { package = "substrate-network", git = "https://github.com/paritytech/
 consensus = { package = "substrate-consensus-aura", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 substrate-client = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
+structopt = "0.2"
+switch = { path = "switch" }
 
 [build-dependencies]
 vergen = "3"
