@@ -8,13 +8,14 @@ use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
-use yee_cli::CustomCommand;
+use crate::custom_command::{run_custom_command, CustomCommand};
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
-	E: IntoExit, {
+	E: IntoExit,
+{
 	parse_and_execute::<service::Factory, CustomCommand, NoCustom, _, _, _, _, _>(
 		load_spec, &version, "substrate-node", args, exit,
 	 	|exit, _custom_args, config| {
@@ -39,20 +40,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 				),
 			}.map_err(|e| format!("{:?}", e))
 		}
-	).map(|x| {
-		if let Some(x) = x {
-			match x{
-				CustomCommand::SwitchCommandCmd(switch_command_cmd) => println!("SwitchCommandCmd executed: {}", switch_command_cmd.switch_test.unwrap_or("".to_string())),
-				CustomCommand::NetCommandCmd(net_command_cmd) => println!("NetCommandCmd executed: {}", net_command_cmd.net_test.unwrap_or("".to_string())),
-
-				//CustomCommand::SwitchCommandCmd(switch_command_cmd) => println!("SwitchCommandCmd executed: {}", switch_command_cmd.miner),
-
-				CustomCommand::None => {},
-			}
-		}
-	}
-
-	).map_err(Into::into).map(|_| ())
+	).map(run_custom_command).map_err(Into::into).map(|_| ())
 }
 
 fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {

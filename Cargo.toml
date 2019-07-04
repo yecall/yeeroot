@@ -9,7 +9,7 @@ license = "GPL-3.0"
 [[bin]]
 name = "yee"
 path = "src/main.rs"
-#path = "core/cli/src/lib.rs"
+
 [dependencies]
 error-chain = "0.12"
 futures = "0.1"
@@ -24,7 +24,6 @@ trie-root = "0.12.0"
 yee-runtime = { path = "runtime" }
 consensus-pow = { package = "yee-consensus-pow", path = "consensus/pow" }
 yee-service = { path = "core/service" }
-yee-cli=  { path = "core/cli" }
 sr-io = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 substrate-cli = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
@@ -37,6 +36,7 @@ consensus = { package = "substrate-consensus-aura", git = "https://github.com/pa
 substrate-client = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
 structopt = "0.2"
+switch = { path = "switch" }
 
 [build-dependencies]
 vergen = "3"

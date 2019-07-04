@@ -16,28 +16,26 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 
-pub use structopt::clap::App;
-pub use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
+use structopt::clap::App;
+use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
 use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
 use std::num::ParseIntError;
 
 
 
 #[derive(Debug, StructOpt, Clone)]
-pub struct NetCommandCmd {
-    #[structopt(long = "net-test")]
-    pub net_test: Option<String>,
+pub struct SwitchCommandCmd {
+    #[structopt(long = "switch-test")]
+    pub switch_test: Option<String>,
 
-    // #[structopt(long = "miner", parse(try_from_str = "parse_hex"))]
-    //  pub miner: u32,
+   // #[structopt(long = "miner", parse(try_from_str = "parse_hex"))]
+  //  pub miner: u32,
 
 }
 
 fn parse_hex(src: &str) -> Result<u32, ParseIntError> {
     u32::from_str_radix(src, 16)
 }
-
-
 
 
 

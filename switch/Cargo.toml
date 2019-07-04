@@ -1,0 +1,13 @@
+[package]
+name = "switch"
+version = "0.1.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "~2.32"
+structopt = "0.2"
+substrate-cli = { git = "https://github.com/paritytech/substrate.git", branch = "v1.0" }
+
+
+
