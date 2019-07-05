@@ -3718,6 +3718,15 @@ version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "switch"
+version = "0.1.0"
+dependencies = [
+ "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "structopt 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "substrate-cli 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
+]
+
+[[package]]
 name = "syn"
 version = "0.15.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4518,6 +4527,7 @@ dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
+ "structopt 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "substrate-basic-authorship 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-cli 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
@@ -4527,11 +4537,13 @@ dependencies = [
  "substrate-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-service 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-transaction-pool 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
+ "switch 0.1.0",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "trie-root 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "vergen 3.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-consensus-pow 0.1.0",
  "yee-runtime 1.0.0",
+ "yee-service 0.1.0",
 ]
 
 [[package]]
@@ -4582,6 +4594,10 @@ dependencies = [
  "substrate-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "yee-consensus-pow-primitives 0.1.0",
 ]
+
+[[package]]
+name = "yee-service"
+version = "0.1.0"
 
 [[package]]
 name = "zeroize"

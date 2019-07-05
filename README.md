@@ -68,11 +68,15 @@ $ ./yee --dev
 ```
 
 ## Roadmap
-1. **[In progress]** PoC-3: PoW consensus, static sharding
-1. PoC-4: Multi-mining, cross-shard transactions
-1. PoC-5: Dynamic sharding
-1. PoC-6: Cross chain (interoperate with branch chain)
-1. PoC-7: Smart contract (on branch chain)
+1. **[Done in [tetris_demo](https://github.com/yeeco/tetris_demo)]** PoC-1: Tetris consensus demo (2019-02)
+2. **[Done in [gyee](https://github.com/yeeco/gyee)]** PoC-2: Transfer feature based on Tetris (2019-05)
+1. **[In progress]** PoC-3: PoW consensus, static sharding (2019-07)
+1. PoC-4: Multi-mining, cross-shard transactions (2019-09)
+1. PoC-5: Dynamic sharding (2019-11)
+1. PoC-6: Cross chain (interoperate with branch chain) (2019-12)
+1. PoC-7: Smart contract (on branch chain) (2020-01)
+1. Testnet (2020-03)
+1. Mainnet (2020-06)
 
 ## Contributing
 

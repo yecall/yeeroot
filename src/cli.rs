@@ -8,6 +8,7 @@ use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
+use crate::custom_command::{run_custom_command, CustomCommand};
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
@@ -15,7 +16,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
 {
-	parse_and_execute::<service::Factory, NoCustom, NoCustom, _, _, _, _, _>(
+	parse_and_execute::<service::Factory, CustomCommand, NoCustom, _, _, _, _, _>(
 		load_spec, &version, "substrate-node", args, exit,
 	 	|exit, _custom_args, config| {
 			info!("{}", version.name);
@@ -39,7 +40,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 				),
 			}.map_err(|e| format!("{:?}", e))
 		}
-	).map_err(Into::into).map(|_| ())
+	).map(run_custom_command).map_err(Into::into).map(|_| ())
 }
 
 fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
