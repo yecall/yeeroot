@@ -120,8 +120,8 @@ pub fn check_proof<B: Block>(
 {
     match proof {
         WorkProof::Unknown => Err(format!("invalid work proof")),
-        WorkProof::Nonce(proofNonce) => {
-            if proofNonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
+        WorkProof::Nonce(proof_nonce) => {
+            if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
                 return Err(format!("extra data too long"));
             }
             let proof_difficulty = DifficultyType::from(hash.as_ref());

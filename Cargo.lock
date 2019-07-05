@@ -4551,9 +4551,12 @@ name = "yee-consensus-pow"
 version = "0.1.0"
 dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
+ "srml-timestamp 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "srml-yee-pow 0.1.0",
+ "substrate-client 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-consensus-common 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-inherents 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/paritytech/substrate.git?branch=v1.0)",

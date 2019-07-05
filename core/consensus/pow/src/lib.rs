@@ -18,15 +18,16 @@
 //! POW (Proof of Work) consensus in YeeChain
 
 use std::sync::Arc;
-use futures::Future;
+use futures::{Future, IntoFuture};
+use client::ChainHead;
 use consensus_common::{
-    SyncOracle,
+    Environment, Proposer, SyncOracle,
     import_queue::{
         BasicQueue,
         SharedBlockImport, SharedJustificationImport,
     },
 };
-use inherents::InherentDataProviders;
+use inherents::{InherentDataProviders, RuntimeString};
 use runtime_primitives::{
     codec::{
         Decode, Encode,
@@ -43,6 +44,7 @@ pub use pow::WorkProof;
 mod digest;
 mod pow;
 mod verifier;
+mod worker;
 
 type AuthorityId<B> = AuthorityIdFor<B>;
 
@@ -55,11 +57,24 @@ pub fn start_pow<B, C, E, I, SO, OnExit>(
     inherent_data_providers: InherentDataProviders,
     force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
+    B: Block,
+    C: ChainHead<B>,
+    E: Environment<B> + 'static,
+//    <E as Environment<B>>::Proposer: Proposer<B>,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
 {
-    // TODO: start pow worker
-    Ok(futures::future::ok(()))
+    let worker = worker::DefaultWorker {
+        client: client.clone(),
+        env,
+        sync_oracle: sync_oracle.clone(),
+        inherent_data_providers: inherent_data_providers.clone(),
+    };
+    worker::start_worker(
+        client,
+        Arc::new(worker),
+        sync_oracle,
+        on_exit)
 }
 
 /// POW chain import queue
@@ -76,6 +91,8 @@ pub fn import_queue<B, C>(
     DigestItemFor<B>: CompatibleDigestItem,
     C: 'static + Send + Sync,
 {
+    register_inherent_data_provider(&inherent_data_providers);
+
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
@@ -85,10 +102,17 @@ pub fn import_queue<B, C>(
     Ok(BasicQueue::new(verifier, block_import, justification_import))
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+fn register_inherent_data_provider(
+    inherent_data_providers: &InherentDataProviders,
+) -> Result<(), consensus_common::Error> {
+    if !inherent_data_providers.has_provider(&srml_timestamp::INHERENT_IDENTIFIER) {
+        inherent_data_providers.register_provider(srml_timestamp::InherentDataProvider)
+            .map_err(inherent_to_common_error)
+    } else {
+        Ok(())
     }
+}
+
+fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
+    consensus_common::ErrorKind::InherentData(err.into()).into()
 }
