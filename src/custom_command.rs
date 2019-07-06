@@ -18,12 +18,12 @@
 pub use structopt::clap::App;
 pub use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
 use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
-use switch;
+use yee_switch;
 
-//use switch::SwitchCommandCmd;
+//use yee_switch::SwitchCommandCmd;
 #[derive(Clone, Debug)]
 pub enum CustomCommand {
-    SwitchCommandCmd(switch::params::SwitchCommandCmd),
+    SwitchCommandCmd(yee_switch::params::SwitchCommandCmd),
     None,
 }
 
@@ -31,14 +31,14 @@ impl StructOpt for CustomCommand {
     fn clap<'a, 'b>() -> App<'a, 'b> {
         App::new("SwitchCommandCmd")
             .subcommand(
-                switch::params::SwitchCommandCmd::augment_clap(SubCommand::with_name("switch"))
+                yee_switch::params::SwitchCommandCmd::augment_clap(SubCommand::with_name("switch"))
                     .about("yee switch model"))
     }
 
     fn from_clap(matches: &::structopt::clap::ArgMatches) -> Self {
         match matches.subcommand() {
             ("switch", Some(matches)) =>
-                CustomCommand::SwitchCommandCmd(switch::params::SwitchCommandCmd::from_clap(matches)),
+                CustomCommand::SwitchCommandCmd(yee_switch::params::SwitchCommandCmd::from_clap(matches)),
             (_, Some(_)) => CustomCommand::None,
             (_, None) => CustomCommand::None,
         }
@@ -55,7 +55,7 @@ impl GetLogFilter for CustomCommand {
 pub fn run_custom_command(custom_command: Option<CustomCommand>) {
     if let Some(custom_command) = custom_command {
         match custom_command {
-            CustomCommand::SwitchCommandCmd(switch_command_cmd) => switch::run_switch(switch_command_cmd),
+            CustomCommand::SwitchCommandCmd(switch_command_cmd) => yee_switch::run_switch(switch_command_cmd),
 
             CustomCommand::None => {}
         }
