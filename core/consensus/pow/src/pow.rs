@@ -98,6 +98,20 @@ pub struct ProofNonce {
     pub nonce: u64,
 }
 
+impl ProofNonce {
+    pub fn get_with_prefix_len(prefix: &str, extra_bytes: usize) -> Self {
+        let len = prefix.len() + extra_bytes;
+        assert!(len <= MAX_EXTRA_DATA_LENGTH);
+
+        let mut extra_data = prefix.as_bytes().to_vec();
+        extra_data.resize_with(len, Default::default);
+        Self {
+            extra_data,
+            nonce: 0,
+        }
+    }
+}
+
 impl Decode for ProofNonce {
     fn decode<I: Input>(value: &mut I) -> Option<Self> {
         Some(ProofNonce {

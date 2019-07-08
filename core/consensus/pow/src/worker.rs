@@ -20,11 +20,18 @@ use futures::{future, Future, IntoFuture};
 use log::{warn, debug, info};
 use client::ChainHead;
 use consensus_common::{
-    Environment, Proposer, SyncOracle,
+    Environment, Proposer, SyncOracle, ImportBlock,
+    BlockImport, BlockOrigin, ForkChoiceStrategy,
 };
 use inherents::InherentDataProviders;
 use runtime_primitives::{
-    traits::Block,
+    traits::{
+        Block, Header,
+        DigestItemFor,
+    },
+};
+use super::{
+    CompatibleDigestItem, WorkProof, ProofNonce,
 };
 
 pub trait PowWorker<B: Block> {
@@ -35,19 +42,22 @@ pub trait PowWorker<B: Block> {
     fn on_job(&self, chain_head: B::Header, iter: usize) -> Result<(), consensus_common::Error>;
 }
 
-pub struct DefaultWorker<C, E, SO> {
+pub struct DefaultWorker<C, I, E, SO> {
     pub(crate) client: Arc<C>,
+    pub(crate) block_import: Arc<I>,
     pub(crate) env: Arc<E>,
     pub(crate) sync_oracle: SO,
     pub(crate) inherent_data_providers: InherentDataProviders,
 }
 
-impl<B, C, E, SO> PowWorker<B> for DefaultWorker<C, E, SO> where
+impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
     B: Block,
+    I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
     E::Proposer: Proposer<B>,
 //    <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture,
     SO: SyncOracle,
+    DigestItemFor<B>: CompatibleDigestItem,
 {
     //type OnJob = Box<Future<Item=(), Error=consensus_common::Error>>;
 
@@ -60,6 +70,7 @@ impl<B, C, E, SO> PowWorker<B> for DefaultWorker<C, E, SO> where
               iter: usize,
     ) -> Result<(), consensus_common::Error> {
         let client = self.client.clone();
+        let block_import = self.block_import.clone();
         let env = self.env.clone();
 
         let proposer = match env.init(&chain_head, &Vec::new()) {
@@ -84,13 +95,32 @@ impl<B, C, E, SO> PowWorker<B> for DefaultWorker<C, E, SO> where
                 return Ok(());
             }
         };
-        info!("block template {:?}", block);
+        let (header, body) = block.deconstruct();
+        let header_num = header.number().clone();
+        info!("block template {} @ {:?}\n{:#?}::{:#?}", header_num, header.hash(), header, body);
+
+        const prefix: &str = "yeeroot-";
+        let mut proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(prefix, 12));
+        let mut seal = <DigestItemFor<B> as CompatibleDigestItem>::pow_seal(proof);
+
+        let import_block: ImportBlock<B> = ImportBlock {
+            origin: BlockOrigin::Own,
+            header,
+            justification: None,
+            post_digests: vec![seal],
+            body: Some(body),
+            finalized: false,
+            auxiliary: Vec::new(),
+            fork_choice: ForkChoiceStrategy::LongestChain,
+        };
+
+        block_import.import_block(import_block, Default::default())?;
 
         Ok(())
     }
 }
 
-pub fn start_worker<B, C, W, SO, OnExit>(
+pub fn start_worker<B, C, I, W, SO, OnExit>(
     client: Arc<C>,
     worker: Arc<W>,
     sync_oracle: SO,
@@ -98,6 +128,7 @@ pub fn start_worker<B, C, W, SO, OnExit>(
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     C: ChainHead<B>,
+    I: BlockImport<B>,
     W: PowWorker<B>,
 //W::OnJob: IntoFuture<Item=(), Error=consensus_common::Error>,
     SO: SyncOracle,

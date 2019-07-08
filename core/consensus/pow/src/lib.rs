@@ -21,7 +21,7 @@ use std::sync::Arc;
 use futures::{Future, IntoFuture};
 use client::ChainHead;
 use consensus_common::{
-    Environment, Proposer, SyncOracle,
+    BlockImport, Environment, Proposer, SyncOracle,
     import_queue::{
         BasicQueue,
         SharedBlockImport, SharedJustificationImport,
@@ -39,7 +39,7 @@ use runtime_primitives::{
 };
 
 pub use digest::CompatibleDigestItem;
-pub use pow::WorkProof;
+pub use pow::{WorkProof, ProofNonce};
 
 mod digest;
 mod pow;
@@ -48,7 +48,7 @@ mod worker;
 
 type AuthorityId<B> = AuthorityIdFor<B>;
 
-pub fn start_pow<B, C, E, I, SO, OnExit>(
+pub fn start_pow<B, C, I, E, SO, OnExit>(
     client: Arc<C>,
     block_import: Arc<I>,
     env: Arc<E>,
@@ -59,18 +59,21 @@ pub fn start_pow<B, C, E, I, SO, OnExit>(
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     C: ChainHead<B>,
+    I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
 //    <E as Environment<B>>::Proposer: Proposer<B>,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
+    DigestItemFor<B>: CompatibleDigestItem,
 {
     let worker = worker::DefaultWorker {
         client: client.clone(),
+        block_import,
         env,
         sync_oracle: sync_oracle.clone(),
         inherent_data_providers: inherent_data_providers.clone(),
     };
-    worker::start_worker(
+    worker::start_worker::<_, _, I, _, _, _>(
         client,
         Arc::new(worker),
         sync_oracle,
@@ -91,7 +94,7 @@ pub fn import_queue<B, C>(
     DigestItemFor<B>: CompatibleDigestItem,
     C: 'static + Send + Sync,
 {
-    register_inherent_data_provider(&inherent_data_providers);
+    register_inherent_data_provider(&inherent_data_providers)?;
 
     let verifier = Arc::new(
         verifier::PowVerifier {
