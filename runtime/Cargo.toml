@@ -8,24 +8,24 @@ edition = "2018"
 serde = { version = "1.0", optional = true, features = ["derive"] }
 safe-mix = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
-rstd = { package = "sr-std", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-runtime-io = { package = "sr-io", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-version = { package = "sr-version", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-support = { package = "srml-support", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-balances = { package = "srml-balances", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-consensus = { package = "srml-consensus", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-aura = { package = "srml-aura", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-executive = { package = "srml-executive", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-indices = { package = "srml-indices", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-system = { package = "srml-system", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-timestamp = { package = "srml-timestamp", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-sudo = { package = "srml-sudo", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-client = { package = "substrate-client", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-consensus-aura = { package = "substrate-consensus-aura-primitives", git = "https://github.com/paritytech/substrate.git", default_features = false, branch = "v1.0" }
-offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/paritytech/substrate.git", default-features = false, branch = "v1.0" }
-consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/paritytech/substrate.git", default-features = false, branch = "v1.0" }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+balances = { package = "srml-balances", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+aura = { package = "srml-aura", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+executive = { package = "srml-executive", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+indices = { package = "srml-indices", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+sudo = { package = "srml-sudo", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+consensus-aura = { package = "substrate-consensus-aura-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 
 [features]
 default = ["std"]
