@@ -34,7 +34,10 @@ use runtime_primitives::{
     },
 };
 
-use super::{AuthorityId, CompatibleDigestItem, WorkProof};
+use super::{
+    AuthorityId, CompatibleDigestItem, WorkProof,
+    pow::check_proof,
+};
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C> {
@@ -100,9 +103,9 @@ fn check_header<B: Block>(
     let pre_hash = header.hash();
 
     // TODO: remove hardcoded
-    let difficulty = primitives::U256::from(0x0f_u128) << 120;
+    let difficulty = primitives::U256::from(0x0000ffff) << 224;
 
-    super::pow::check_proof::<B>(work_proof, hash, pre_hash, difficulty)?;
+    check_proof::<B>(work_proof, hash, pre_hash, difficulty)?;
 
     Ok((header, digest_item))
 }

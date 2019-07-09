@@ -27,11 +27,12 @@ use inherents::InherentDataProviders;
 use runtime_primitives::{
     traits::{
         Block, Header,
-        DigestItemFor,
+        Digest, DigestItemFor,
     },
 };
 use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
+    pow::check_proof,
 };
 
 pub trait PowWorker<B: Block> {
@@ -39,7 +40,7 @@ pub trait PowWorker<B: Block> {
 
     fn on_start(&self) -> Result<(), consensus_common::Error>;
 
-    fn on_job(&self, chain_head: B::Header, iter: usize) -> Result<(), consensus_common::Error>;
+    fn on_job(&self, chain_head: B::Header, iter: u64) -> Result<(), consensus_common::Error>;
 }
 
 pub struct DefaultWorker<C, I, E, SO> {
@@ -52,10 +53,11 @@ pub struct DefaultWorker<C, I, E, SO> {
 
 impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
     B: Block,
+    <B::Header as Header>::Digest: Digest,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
-    E::Proposer: Proposer<B>,
-//    <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture,
+    <E as Environment<B>>::Proposer: Proposer<B>,
+    <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
     SO: SyncOracle,
     DigestItemFor<B>: CompatibleDigestItem,
 {
@@ -67,7 +69,7 @@ impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
 
     fn on_job(&self,
               chain_head: B::Header,
-              iter: usize,
+              iter: u64,
     ) -> Result<(), consensus_common::Error> {
         let client = self.client.clone();
         let block_import = self.block_import.clone();
@@ -88,7 +90,7 @@ impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
             inherent_data, remaining_duration,
         ).into_future();
 
-        let block = match proposal_work.wait() {
+        let block: B = match proposal_work.wait() {
             Ok(b) => b,
             Err(e) => {
                 warn!("block build failed {:?}", e);
@@ -97,24 +99,38 @@ impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
         };
         let (header, body) = block.deconstruct();
         let header_num = header.number().clone();
-        info!("block template {} @ {:?}\n{:#?}::{:#?}", header_num, header.hash(), header, body);
+        let header_pre_hash = header.hash();
+        info!("block template {} @ {:?}", header_num, header_pre_hash);
 
-        const prefix: &str = "yeeroot-";
-        let mut proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(prefix, 12));
-        let mut seal = <DigestItemFor<B> as CompatibleDigestItem>::pow_seal(proof);
+        // TODO: remove hardcoded
+        let difficulty = primitives::U256::from(0x0000ffff) << 224;
+        const PREFIX: &str = "yeeroot-";
 
-        let import_block: ImportBlock<B> = ImportBlock {
-            origin: BlockOrigin::Own,
-            header,
-            justification: None,
-            post_digests: vec![seal],
-            body: Some(body),
-            finalized: false,
-            auxiliary: Vec::new(),
-            fork_choice: ForkChoiceStrategy::LongestChain,
-        };
+        for i in 0_u64..iter {
+            let mut work_header = header.clone();
+            let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
+            let seal = <DigestItemFor<B> as CompatibleDigestItem>::pow_seal(proof.clone());
+            work_header.digest_mut().push(seal);
 
-        block_import.import_block(import_block, Default::default())?;
+            let post_hash = work_header.hash();
+            if let Ok(_) = check_proof::<B>(proof, post_hash, header_pre_hash, difficulty) {
+                let valid_seal = work_header.digest_mut().pop().expect("must exists");
+                let import_block: ImportBlock<B> = ImportBlock {
+                    origin: BlockOrigin::Own,
+                    header,
+                    justification: None,
+                    post_digests: vec![valid_seal],
+                    body: Some(body),
+                    finalized: false,
+                    auxiliary: Vec::new(),
+                    fork_choice: ForkChoiceStrategy::LongestChain,
+                };
+                block_import.import_block(import_block, Default::default())?;
+
+                info!("block mined @ {} {:?}", header_num, post_hash);
+                return Ok(());
+            }
+        }
 
         Ok(())
     }
@@ -157,15 +173,13 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
 
         let task = worker.on_job(chain_head, 10000).into_future();
         match task.wait() {
-            Ok(x) => {
+            Ok(_) => {
                 info!("succ worker on_job")
             }
             Err(e) => {
                 warn!("failed worker on_job {:?}", e);
             }
         }
-        std::thread::sleep(std::time::Duration::new(10, 0));
-
 
         Ok(future::Loop::Continue(()))
     });

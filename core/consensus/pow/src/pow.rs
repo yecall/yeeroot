@@ -30,6 +30,7 @@ pub type DifficultyType = primitives::U256;
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW proof used in block header
+#[derive(Clone)]
 pub enum WorkProof {
     Unknown,
     Nonce(ProofNonce),
@@ -91,6 +92,7 @@ impl Encode for WorkProof {
 }
 
 /// Classical pow proof with extra data entropy and 64b nonce
+#[derive(Clone)]
 pub struct ProofNonce {
     /// Extra Data used to encode miner info AND more entropy
     pub extra_data: Vec<u8>,
@@ -99,7 +101,7 @@ pub struct ProofNonce {
 }
 
 impl ProofNonce {
-    pub fn get_with_prefix_len(prefix: &str, extra_bytes: usize) -> Self {
+    pub fn get_with_prefix_len(prefix: &str, extra_bytes: usize, nonce: u64) -> Self {
         let len = prefix.len() + extra_bytes;
         assert!(len <= MAX_EXTRA_DATA_LENGTH);
 
@@ -107,7 +109,7 @@ impl ProofNonce {
         extra_data.resize_with(len, Default::default);
         Self {
             extra_data,
-            nonce: 0,
+            nonce,
         }
     }
 }
