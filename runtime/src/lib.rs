@@ -83,7 +83,7 @@ pub mod opaque {
 		}
 	}
 	/// Opaque block header type.
-	pub type Header = yee::Header<BlockNumber, BlakeTwo256, generic::DigestItem<Hash, AuthorityId, AuthoritySignature>, Difficulty, AccountId>;
+	pub type Header = generic::Header<BlockNumber, BlakeTwo256, generic::DigestItem<Hash, AuthorityId, AuthoritySignature>>;
 	/// Opaque block type.
 	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 	/// Opaque block identifier type.
@@ -127,7 +127,7 @@ impl system::Trait for Runtime {
 	/// The header digest type.
 	type Digest = generic::Digest<Log>;
 	/// The header type.
-	type Header = yee::Header<BlockNumber, BlakeTwo256, Log, Difficulty, AccountId>;
+	type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 	/// The ubiquitous event type.
 	type Event = Event;
 	/// The ubiquitous log type.
@@ -210,7 +210,7 @@ type Context = system::ChainContext<Runtime>;
 /// The address format for describing accounts.
 type Address = <Indices as StaticLookup>::Source;
 /// Block header type as expected by this runtime.
-pub type Header = yee::Header<BlockNumber, BlakeTwo256, Log, Difficulty, AccountId>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256, Log>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// BlockId type as expected by this runtime.
