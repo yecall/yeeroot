@@ -9,7 +9,7 @@ use yee_runtime::{self, GenesisConfig, opaque::Block, RuntimeApi};
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
 	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor,
-	TaskExecutor,
+	TaskExecutor, DefaultRpcHandlerConstructor,
 };
 use basic_authorship::ProposerFactory;
 use consensus::{import_queue, start_pow, PowImportQueue};
@@ -20,6 +20,7 @@ use network::construct_simple_protocol;
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use yee_runtime::{AccountId};
+use yee_rpc::CustomRpcHandlerConstructor;
 
 pub use substrate_executor::NativeExecutor;
 // Our native executor instance.
@@ -102,5 +103,7 @@ construct_service_factory! {
 					).map_err(Into::into)
 				}
 			},
+		FullRpcHandlerConstructor = CustomRpcHandlerConstructor,
+		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
 	}
 }
