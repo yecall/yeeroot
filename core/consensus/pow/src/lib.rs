@@ -61,7 +61,6 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     C: ChainHead<B>,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
-//    <E as Environment<B>>::Proposer: Proposer<B>,
     AccountId: Clone + Decode + Encode + Default,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
