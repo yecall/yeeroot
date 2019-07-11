@@ -17,7 +17,7 @@
 
 //! POW (Proof of Work) consensus in YeeChain
 
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 use futures::{Future, IntoFuture};
 use client::ChainHead;
 use consensus_common::{
@@ -39,7 +39,7 @@ use runtime_primitives::{
 };
 
 pub use digest::CompatibleDigestItem;
-pub use pow::{WorkProof, ProofNonce};
+pub use pow::{PowSeal, WorkProof, ProofNonce};
 
 mod digest;
 mod pow;
@@ -48,7 +48,7 @@ mod worker;
 
 type AuthorityId<B> = AuthorityIdFor<B>;
 
-pub fn start_pow<B, C, I, E, SO, OnExit>(
+pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     client: Arc<C>,
     block_import: Arc<I>,
     env: Arc<E>,
@@ -62,9 +62,10 @@ pub fn start_pow<B, C, I, E, SO, OnExit>(
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
 //    <E as Environment<B>>::Proposer: Proposer<B>,
+    AccountId: Clone + Decode + Encode + Default,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem,
+    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
 {
     let worker = worker::DefaultWorker {
         client: client.clone(),
@@ -72,6 +73,7 @@ pub fn start_pow<B, C, I, E, SO, OnExit>(
         env,
         sync_oracle: sync_oracle.clone(),
         inherent_data_providers: inherent_data_providers.clone(),
+        phantom: PhantomData,
     };
     worker::start_worker::<_, _, I, _, _, _>(
         client,
@@ -84,15 +86,16 @@ pub fn start_pow<B, C, I, E, SO, OnExit>(
 pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Start import queue for POW consensus
-pub fn import_queue<B, C>(
+pub fn import_queue<B, C, AccountId>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem,
+    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
     C: 'static + Send + Sync,
+    AccountId: Decode + Encode + Send + Sync + 'static,
 {
     register_inherent_data_provider(&inherent_data_providers)?;
 
@@ -100,6 +103,7 @@ pub fn import_queue<B, C>(
         verifier::PowVerifier {
             client,
             inherent_data_providers,
+            phantom: PhantomData,
         }
     );
     Ok(BasicQueue::new(verifier, block_import, justification_import))

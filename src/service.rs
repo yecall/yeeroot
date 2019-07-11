@@ -19,6 +19,7 @@ use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
+use yee_runtime::{AccountId};
 
 pub use substrate_executor::NativeExecutor;
 // Our native executor instance.
@@ -65,7 +66,7 @@ construct_service_factory! {
 						inherents_pool: service.inherents_pool(),
 					});
 					let client = service.client();
-					executor.spawn(start_pow::<Self::Block, _, _, _, _, _>(
+					executor.spawn(start_pow::<Self::Block, _, _, _, AccountId, _, _>(
 						client.clone(),
 						client,
 						proposer,
@@ -83,7 +84,7 @@ construct_service_factory! {
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
 		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
-					import_queue::<Self::Block, _>(
+					import_queue::<Self::Block, _, AccountId>(
 						client.clone(),
 						None,
 						client,
@@ -93,7 +94,7 @@ construct_service_factory! {
 			},
 		LightImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-					import_queue::<Self::Block, _>(
+					import_queue::<Self::Block, _, AccountId>(
 						client.clone(),
 						None,
 						client,

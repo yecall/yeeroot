@@ -27,23 +27,25 @@ use runtime_primitives::{
 };
 
 use pow_primitives::YEE_POW_ENGINE_ID;
-use super::WorkProof;
+use super::{PowSeal, WorkProof};
 
 /// Digest item acts as a valid POW consensus digest.
-pub trait CompatibleDigestItem: Sized {
+pub trait CompatibleDigestItem<AccountId: Decode + Encode>: Sized {
     /// construct digest item with work proof
-    fn pow_seal(proof: WorkProof) -> Self;
+    fn pow_seal(seal: PowSeal<AccountId>) -> Self;
 
     /// get work proof if digest item is pow item
-    fn as_pow_seal(&self) -> Option<WorkProof>;
+    fn as_pow_seal(&self) -> Option<PowSeal<AccountId>>;
 }
 
-impl<Hash, AuthorityId, SealSignature> CompatibleDigestItem for DigestItem<Hash, AuthorityId, SealSignature> {
-    fn pow_seal(proof: WorkProof) -> Self {
-        DigestItem::Consensus(YEE_POW_ENGINE_ID, proof.encode())
+impl<Hash, AuthorityId, SealSignature, AccountId> CompatibleDigestItem<AccountId> for DigestItem<Hash, AuthorityId, SealSignature> where
+    AccountId: Decode + Encode,
+{
+    fn pow_seal(seal: PowSeal<AccountId>) -> Self {
+        DigestItem::Consensus(YEE_POW_ENGINE_ID, seal.encode())
     }
 
-    fn as_pow_seal(&self) -> Option<WorkProof> {
+    fn as_pow_seal(&self) -> Option<PowSeal<AccountId>> {
         match self {
             DigestItem::Consensus(YEE_POW_ENGINE_ID, seal) => Decode::decode(&mut &seal[..]),
             _ => None

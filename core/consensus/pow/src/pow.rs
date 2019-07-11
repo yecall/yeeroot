@@ -29,6 +29,14 @@ pub type DifficultyType = primitives::U256;
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
+/// POW consensus seal
+#[derive(Clone, Decode, Encode)]
+pub struct PowSeal<AccountId: Decode + Encode> {
+    pub difficulty: DifficultyType,
+    pub coin_base: AccountId,
+    pub work_proof: WorkProof,
+}
+
 /// POW proof used in block header
 #[derive(Clone)]
 pub enum WorkProof {
@@ -130,19 +138,20 @@ impl Encode for ProofNonce {
     }
 }
 
-pub fn check_proof<B: Block>(
-    proof: WorkProof, hash: B::Hash, pre_hash: B::Hash, difficulty: DifficultyType,
+pub fn check_seal<B: Block, AccountId>(
+    seal: PowSeal<AccountId>, hash: B::Hash, pre_hash: B::Hash,
 ) -> Result<(), String> where
+    AccountId: Decode + Encode,
 {
-    match proof {
+    match seal.work_proof {
         WorkProof::Unknown => Err(format!("invalid work proof")),
         WorkProof::Nonce(proof_nonce) => {
             if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
                 return Err(format!("extra data too long"));
             }
             let proof_difficulty = DifficultyType::from(hash.as_ref());
-            if proof_difficulty > difficulty {
-                return Err(format!("difficulty not enough, need {}, got {}", difficulty, proof_difficulty));
+            if proof_difficulty > seal.difficulty {
+                return Err(format!("difficulty not enough, need {}, got {}", seal.difficulty, proof_difficulty));
             }
             Ok(())
         }

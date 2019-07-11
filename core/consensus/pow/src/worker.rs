@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::{sync::Arc, time::Duration};
+use std::{marker::PhantomData, sync::Arc, time::Duration};
 use futures::{future, Future, IntoFuture};
 use log::{warn, debug, info};
 use client::ChainHead;
@@ -25,6 +25,7 @@ use consensus_common::{
 };
 use inherents::InherentDataProviders;
 use runtime_primitives::{
+    codec::{Decode, Encode},
     traits::{
         Block, Header,
         Digest, DigestItemFor,
@@ -32,7 +33,7 @@ use runtime_primitives::{
 };
 use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
-    pow::check_proof,
+    pow::{check_seal, PowSeal},
 };
 
 pub trait PowWorker<B: Block> {
@@ -43,23 +44,25 @@ pub trait PowWorker<B: Block> {
     fn on_job(&self, chain_head: B::Header, iter: u64) -> Result<(), consensus_common::Error>;
 }
 
-pub struct DefaultWorker<C, I, E, SO> {
+pub struct DefaultWorker<C, I, E, AccountId, SO> {
     pub(crate) client: Arc<C>,
     pub(crate) block_import: Arc<I>,
     pub(crate) env: Arc<E>,
     pub(crate) sync_oracle: SO,
     pub(crate) inherent_data_providers: InherentDataProviders,
+    pub(crate) phantom: PhantomData<AccountId>,
 }
 
-impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
+impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountId, SO> where
     B: Block,
     <B::Header as Header>::Digest: Digest,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
     <E as Environment<B>>::Proposer: Proposer<B>,
     <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
+    AccountId: Clone + Decode + Encode + Default,
     SO: SyncOracle,
-    DigestItemFor<B>: CompatibleDigestItem,
+    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
 {
     //type OnJob = Box<Future<Item=(), Error=consensus_common::Error>>;
 
@@ -103,17 +106,21 @@ impl<B, C, I, E, SO> PowWorker<B> for DefaultWorker<C, I, E, SO> where
         info!("block template {} @ {:?}", header_num, header_pre_hash);
 
         // TODO: remove hardcoded
-        let difficulty = primitives::U256::from(0x0000ffff) << 224;
         const PREFIX: &str = "yeeroot-";
 
         for i in 0_u64..iter {
             let mut work_header = header.clone();
             let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
-            let seal = <DigestItemFor<B> as CompatibleDigestItem>::pow_seal(proof.clone());
-            work_header.digest_mut().push(seal);
+            let seal = PowSeal {
+                difficulty: primitives::U256::from(0x0000ffff) << 224,
+                coin_base: Default::default(),
+                work_proof: proof,
+            };
+            let item = <DigestItemFor<B> as CompatibleDigestItem<AccountId>>::pow_seal(seal.clone());
+            work_header.digest_mut().push(item);
 
             let post_hash = work_header.hash();
-            if let Ok(_) = check_proof::<B>(proof, post_hash, header_pre_hash, difficulty) {
+            if let Ok(_) = check_seal::<B, AccountId>(seal, post_hash, header_pre_hash) {
                 let valid_seal = work_header.digest_mut().pop().expect("must exists");
                 let import_block: ImportBlock<B> = ImportBlock {
                     origin: BlockOrigin::Own,
