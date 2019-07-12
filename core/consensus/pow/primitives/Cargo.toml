@@ -6,9 +6,11 @@ edition = "2018"
 
 [dependencies]
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 
 [features]
 default = ["std"]
 std = [
-    "runtime_primitives/std"
+    "runtime_primitives/std",
+    "substrate-client/std",
 ]

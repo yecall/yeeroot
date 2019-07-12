@@ -17,16 +17,25 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-///! Primitives for Yee POW
+///! Consensus extension module for POW consensus.
 
-use runtime_primitives::ConsensusEngineId;
-use substrate_client::decl_runtime_apis;
+use srml_support::{decl_module, decl_storage};
 
-/// `ConsensusEngineId` of Yee POW consensus.
-pub const YEE_POW_ENGINE_ID: ConsensusEngineId = [b'Y', b'e', b'e', b'!'];
 
-decl_runtime_apis! {
-    pub trait YeePOWApi {
+pub trait Trait: system::Trait {
+    //
+}
+
+decl_storage! {
+    trait Store for Module<T: Trait> as Pow {
         //
     }
+}
+
+decl_module! {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin { }
+}
+
+impl<T: Trait> Module<T> {
+    //
 }

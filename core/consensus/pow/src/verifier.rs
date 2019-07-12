@@ -17,7 +17,7 @@
 
 //! Import Queue Verifier for POW chain
 
-use std::{sync::Arc};
+use std::{marker::PhantomData, sync::Arc};
 use futures::{Future, IntoFuture};
 
 use consensus_common::{
@@ -27,6 +27,7 @@ use consensus_common::{
 };
 use inherents::InherentDataProviders;
 use runtime_primitives::{
+    codec::{Decode, Encode},
     Justification,
     traits::{
         Block, Header,
@@ -34,18 +35,23 @@ use runtime_primitives::{
     },
 };
 
-use super::{AuthorityId, CompatibleDigestItem, WorkProof};
+use super::{
+    AuthorityId, CompatibleDigestItem, WorkProof,
+    pow::check_seal,
+};
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C> {
+pub struct PowVerifier<C, AccountId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
+    pub phantom: PhantomData<AccountId>,
 }
 
 #[forbid(deprecated)]
-impl<B: Block, C> Verifier<B> for PowVerifier<C> where
-    DigestItemFor<B>: CompatibleDigestItem,
+impl<B: Block, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
+    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
     C: Send + Sync,
+    AccountId: Decode + Encode + Send + Sync,
 {
     fn verify(
         &self,
@@ -58,7 +64,7 @@ impl<B: Block, C> Verifier<B> for PowVerifier<C> where
         let parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<B>(
+        let (pre_header, seal) = check_header::<B, AccountId>(
             header,
             hash,
         )?;
@@ -81,28 +87,28 @@ impl<B: Block, C> Verifier<B> for PowVerifier<C> where
 }
 
 /// Check if block header has a valid POW difficulty
-fn check_header<B: Block>(
+fn check_header<B: Block, AccountId>(
     mut header: B::Header,
     hash: B::Hash,
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
-    DigestItemFor<B>: CompatibleDigestItem,
+    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
+    AccountId: Decode + Encode,
 {
     // pow work proof MUST be last digest item
     let digest_item = match header.digest_mut().pop() {
         Some(x) => x,
         None => return Err(format!("")),
     };
-    let work_proof = digest_item.as_pow_seal().ok_or_else(|| {
+    let seal = digest_item.as_pow_seal().ok_or_else(|| {
         // TODO: log
         format!("Header {:?} not sealed", hash)
     })?;
 
     let pre_hash = header.hash();
 
-    // TODO: remove hardcoded
-    let difficulty = primitives::U256::from(0x0f_u128) << 120;
+    // TODO: check seal.difficulty
 
-    super::pow::check_proof::<B>(work_proof, hash, pre_hash, difficulty)?;
+    check_seal::<B, AccountId>(seal, hash, pre_hash)?;
 
     Ok((header, digest_item))
 }

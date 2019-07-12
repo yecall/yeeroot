@@ -6,9 +6,13 @@ edition = "2018"
 
 [dependencies]
 futures = "0.1"
+log = "0.4"
 parity-codec = "3.5"
 pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
+srml-yee-pow = { path = "../../../srml/yee-pow" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
