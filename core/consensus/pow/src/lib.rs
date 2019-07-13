@@ -55,6 +55,7 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     sync_oracle: SO,
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
+    coin_base: AccountId,
     force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
@@ -72,6 +73,7 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
         env,
         sync_oracle: sync_oracle.clone(),
         inherent_data_providers: inherent_data_providers.clone(),
+        coin_base,
         phantom: PhantomData,
     };
     worker::start_worker::<_, _, I, _, _, _>(

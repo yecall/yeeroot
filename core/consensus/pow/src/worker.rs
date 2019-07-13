@@ -50,6 +50,7 @@ pub struct DefaultWorker<C, I, E, AccountId, SO> {
     pub(crate) env: Arc<E>,
     pub(crate) sync_oracle: SO,
     pub(crate) inherent_data_providers: InherentDataProviders,
+    pub(crate) coin_base: AccountId,
     pub(crate) phantom: PhantomData<AccountId>,
 }
 
@@ -113,7 +114,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
             let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
             let seal = PowSeal {
                 difficulty: primitives::U256::from(0x0000ffff) << 224,
-                coin_base: Default::default(),
+                coin_base: self.coin_base.clone(),
                 work_proof: proof,
             };
             let item = <DigestItemFor<B> as CompatibleDigestItem<AccountId>>::pow_seal(seal.clone());

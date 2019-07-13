@@ -8,7 +8,10 @@ use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
-use crate::custom_command::{run_custom_command, CustomCommand};
+use super::{
+    custom_command::{run_custom_command, CustomCommand},
+    custom_param::YeeCliConfig,
+};
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
@@ -16,15 +19,20 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 	T: Into<std::ffi::OsString> + Clone,
 	E: IntoExit,
 {
-	parse_and_execute::<service::Factory, CustomCommand, NoCustom, _, _, _, _, _>(
+	parse_and_execute::<service::Factory, CustomCommand, YeeCliConfig, _, _, _, _, _>(
 		load_spec, &version, "substrate-node", args, exit,
-	 	|exit, _custom_args, config| {
+	 	|exit, custom_args, mut config| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
 			info!("  by {}, 2017, 2018", version.author);
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
+            if let Some(coin_base) = custom_args.coin_base {
+                info!("Coin Base: {}", coin_base);
+                config.custom.parse_coin_base(coin_base)
+                    .map_err(|e| format!("Bad coinbase address {:?}", e))?;
+            }
 			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			let executor = runtime.executor();
 			match config.roles {

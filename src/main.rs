@@ -7,6 +7,7 @@ mod chain_spec;
 mod service;
 mod cli;
 mod custom_command;
+mod custom_param;
 
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 

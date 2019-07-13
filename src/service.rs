@@ -14,13 +14,17 @@ use substrate_service::{
 use basic_authorship::ProposerFactory;
 use consensus::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
-use primitives::{ed25519::Pair, Pair as PairT};
+use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
 use inherents::InherentDataProviders;
 use network::construct_simple_protocol;
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use yee_runtime::{AccountId};
 use yee_rpc::CustomRpcHandlerConstructor;
+use super::{
+    cli::error,
+    custom_param::YeeCliConfig,
+};
 
 pub use substrate_executor::NativeExecutor;
 // Our native executor instance.
@@ -31,9 +35,18 @@ native_executor_instance!(
 	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
+    coin_base: AccountId,
+}
+
+impl NodeConfig {
+    pub fn parse_coin_base(&mut self, input: String) -> error::Result<()> {
+        self.coin_base = <AccountId as Ss58Codec>::from_string(&input)
+            .map_err(|e| format!("{:?}", e))?;
+        Ok(())
+    }
 }
 
 construct_simple_protocol! {
@@ -67,13 +80,14 @@ construct_service_factory! {
 						inherents_pool: service.inherents_pool(),
 					});
 					let client = service.client();
-					executor.spawn(start_pow::<Self::Block, _, _, _, AccountId, _, _>(
+					executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _>(
 						client.clone(),
 						client,
 						proposer,
 						service.network(),
 						service.on_exit(),
 						service.config.custom.inherent_data_providers.clone(),
+						service.config.custom.coin_base.clone(),
 						service.config.force_authoring,
 					)?);
 				}
