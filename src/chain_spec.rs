@@ -2,6 +2,7 @@ use primitives::{ed25519, sr25519, Pair};
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig,
+    PowConfig,
 };
 use substrate_service;
 
@@ -100,6 +101,9 @@ fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<
 		timestamp: Some(TimestampConfig {
 			minimum_period: 5, // 10 second block time.
 		}),
+        pow: Some(PowConfig {
+            difficulty: primitives::U256::from(0x0000ffff) << 224,
+        }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
 		}),

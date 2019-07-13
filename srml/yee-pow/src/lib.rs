@@ -19,16 +19,23 @@
 
 ///! Consensus extension module for POW consensus.
 
-use srml_support::{decl_module, decl_storage};
+use {
+    srml_support::{
+        decl_module, decl_storage,
+        Parameter,
+    },
+};
 
 
 pub trait Trait: system::Trait {
-    //
+    /// Type used for block difficulty
+    type Difficulty: Parameter + Default;
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Pow {
-        //
+        /// Block POW Difficulty
+        pub Difficulty get(difficulty) config(): T::Difficulty;
     }
 }
 

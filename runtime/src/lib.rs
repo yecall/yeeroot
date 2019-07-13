@@ -137,7 +137,8 @@ impl system::Trait for Runtime {
 }
 
 impl pow::Trait for Runtime {
-    //
+    /// Type used for block difficulty
+    type Difficulty = Difficulty;
 }
 
 impl consensus::Trait for Runtime {
@@ -192,7 +193,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Pow: pow::{Module},
+		Pow: pow::{Module, Storage, Config<T>},
 		Indices: indices,
 		Balances: balances,
 	}
