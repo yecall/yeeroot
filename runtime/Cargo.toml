@@ -21,7 +21,6 @@ executive = { package = "srml-executive", git = "https://github.com/yeeco/substr
 indices = { package = "srml-indices", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-sudo = { package = "srml-sudo", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
@@ -45,7 +44,6 @@ std = [
 	"primitives/std",
 	"system/std",
 	"timestamp/std",
-	"sudo/std",
 	"version/std",
 	"serde",
 	"safe-mix/std",

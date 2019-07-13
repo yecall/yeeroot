@@ -183,12 +183,6 @@ impl balances::Trait for Runtime {
 	type TransferPayment = ();
 }
 
-impl sudo::Trait for Runtime {
-	/// The uniquitous event type.
-	type Event = Event;
-	type Proposal = Call;
-}
-
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
 		Block = Block,
@@ -201,7 +195,6 @@ construct_runtime!(
 		Pow: pow::{Module},
 		Indices: indices,
 		Balances: balances,
-		Sudo: sudo,
 	}
 );
 
