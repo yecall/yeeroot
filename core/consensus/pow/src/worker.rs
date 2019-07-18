@@ -29,11 +29,17 @@ use {
     inherents::InherentDataProviders,
     runtime_primitives::{
         codec::{Decode, Encode},
+        generic::BlockId,
         traits::{
             Block, Header,
             Digest, DigestItemFor,
+            ProvideRuntimeApi,
+            One,
         },
     },
+};
+use {
+    pow_primitives::YeePOWApi,
 };
 use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
@@ -61,6 +67,8 @@ pub struct DefaultWorker<C, I, E, AccountId, SO> {
 impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountId, SO> where
     B: Block,
     <B::Header as Header>::Digest: Digest,
+    C: ProvideRuntimeApi,
+    <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
     <E as Environment<B>>::Proposer: Proposer<B>,
@@ -86,7 +94,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
         let proposer = match env.init(&chain_head, &Vec::new()) {
             Ok(p) => p,
             Err(e) => {
-//                warn!("failed to create block {:?}", e);
+                // warn!("failed to create block {:?}", e);
                 return Ok(());
             }
         };
@@ -108,7 +116,15 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
         let (header, body) = block.deconstruct();
         let header_num = header.number().clone();
         let header_pre_hash = header.hash();
-        info!("block template {} @ {:?}", header_num, header_pre_hash);
+        let block_id = BlockId::number(header_num - One::one());
+        let difficulty = match client.runtime_api().calc_difficulty(&block_id) {
+            Ok(d) => d,
+            Err(e) => {
+                warn!("calc_difficulty failed @ {} : {:?}", header_num, e);
+                return Ok(());
+            }
+        };
+        info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
 
         // TODO: remove hardcoded
         const PREFIX: &str = "yeeroot-";
@@ -117,7 +133,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
             let mut work_header = header.clone();
             let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
             let seal = PowSeal {
-                difficulty: primitives::U256::from(0x0000ffff) << 224,
+                difficulty,
                 coin_base: self.coin_base.clone(),
                 work_proof: proof,
             };

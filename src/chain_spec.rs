@@ -101,6 +101,7 @@ fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<
 		}),
         pow: Some(PowConfig {
             difficulty: primitives::U256::from(0x0000ffff) << 224,
+            difficulty_adj: 60_u64.into(),
         }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),

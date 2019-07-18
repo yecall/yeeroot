@@ -36,6 +36,9 @@ decl_storage! {
     trait Store for Module<T: Trait> as Pow {
         /// Block POW Difficulty
         pub Difficulty get(difficulty) config(): T::Difficulty;
+
+        /// Difficulty adjust period in block number
+        pub DifficultyAdj get(difficulty_adj) config(): T::BlockNumber;
     }
 }
 

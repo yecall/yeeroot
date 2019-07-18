@@ -15,6 +15,25 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-mod executive;
+use {
+    rstd::marker::PhantomData,
+    runtime_primitives::traits::{
+        self, NumberFor,
+    },
+};
+use {
+    consensus_pow::DifficultyType,
+};
 
-pub use self::executive::Executive;
+pub struct Executive<System, Block> (
+    PhantomData<(System, Block)>,
+);
+
+impl<System, Block> Executive<System, Block> where
+    System: system::Trait,
+    Block: traits::Block<Header=System::Header, Hash=System::Hash>,
+{
+    pub fn calc_difficulty() -> DifficultyType {
+        primitives::U256::from(0x0000ffff) << 224
+    }
+}

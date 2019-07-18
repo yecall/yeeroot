@@ -23,6 +23,10 @@ use version::RuntimeVersion;
 #[cfg(feature = "std")]
 use version::NativeVersion;
 
+pub use {
+    consensus_pow::DifficultyType,
+};
+
 // A few exports that help ease life for downstream crates.
 #[cfg(any(feature = "std", test))]
 pub use runtime_primitives::BuildStorage;
@@ -216,6 +220,8 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Nonce, Call>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = executive::Executive<Runtime, Block, Context, Balances, AllModules>;
 
+pub type YeeExecutive = yee::Executive<Runtime, Block>;
+
 // Implement our runtime API endpoints. This is just a bunch of proxying.
 impl_runtime_apis! {
 	impl runtime_api::Core<Block> for Runtime {
@@ -271,7 +277,9 @@ impl_runtime_apis! {
 	}
 
 	impl consensus_pow::YeePOWApi<Block> for Runtime {
-	    //
+	    fn calc_difficulty() -> DifficultyType {
+	        YeeExecutive::calc_difficulty()
+	    }
 	}
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {

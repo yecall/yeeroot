@@ -38,8 +38,12 @@ use {
         traits::{
             AuthorityIdFor, DigestItemFor,
             Block, Header,
+            ProvideRuntimeApi,
         },
     },
+};
+use {
+    pow_primitives::YeePOWApi,
 };
 
 pub use digest::CompatibleDigestItem;
@@ -63,7 +67,8 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
-    C: ChainHead<B>,
+    C: ChainHead<B> + ProvideRuntimeApi,
+    <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
     AccountId: Clone + Decode + Encode + Default,

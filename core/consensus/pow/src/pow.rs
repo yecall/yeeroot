@@ -23,8 +23,9 @@ use runtime_primitives::{
     },
     traits::{Block, Hash},
 };
-
-pub type DifficultyType = primitives::U256;
+use {
+    pow_primitives::DifficultyType,
+};
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;

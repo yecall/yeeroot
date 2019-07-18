@@ -27,8 +27,11 @@ use {
 /// `ConsensusEngineId` of Yee POW consensus.
 pub const YEE_POW_ENGINE_ID: ConsensusEngineId = [b'Y', b'e', b'e', b'!'];
 
+pub type DifficultyType = primitives::U256;
+
 decl_runtime_apis! {
     pub trait YeePOWApi {
-        //
+        /// Calculate block difficulty at height
+        fn calc_difficulty() -> DifficultyType;
     }
 }
