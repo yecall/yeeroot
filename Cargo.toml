@@ -36,6 +36,7 @@ basic-authorship = { package = "substrate-basic-authorship", git = "https://gith
 structopt = "0.2"
 yee-switch = { package = "yee-switch", path = "switch" }
 yee-rpc = { package = "yee-rpc", path = "rpc" }
+yee-bootnodes-router = { package = "yee-bootnodes-router", path = "bootnodes-router" }
 
 [build-dependencies]
 vergen = "3"

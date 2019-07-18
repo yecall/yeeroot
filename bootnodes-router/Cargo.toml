@@ -1,0 +1,26 @@
+[package]
+name = "yee-bootnodes-router"
+version = "0.1.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+[dependencies]
+clap = "~2.32"
+structopt = "0.2"
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+log = "0.4"
+app_dirs = "1.2"
+jsonrpc-core = "10.0.1"
+jsonrpc-pubsub = "10.0.1"
+jsonrpc-derive = "10.0.2"
+jsonrpc-core-client = "12.0.0"
+jsonrpc-client-http = "0.5.0"
+jsonrpc-client-core = "0.5.0"
+jsonrpc-http-server = "10.0.1"
+toml = "0.4.5"
+serde_derive = "1.0.32"
+serde = "1.0.32"
+serde_json = "1.0"
+exit-future = "0.1"
+futures = "0.1"
+error-chain = "0.12"
