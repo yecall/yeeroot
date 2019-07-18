@@ -17,24 +17,28 @@
 
 //! POW (Proof of Work) consensus in YeeChain
 
-use std::{marker::PhantomData, sync::Arc};
-use futures::{Future, IntoFuture};
-use client::ChainHead;
-use consensus_common::{
-    BlockImport, Environment, Proposer, SyncOracle,
-    import_queue::{
-        BasicQueue,
-        SharedBlockImport, SharedJustificationImport,
-    },
+use {
+    std::{marker::PhantomData, sync::Arc},
+    futures::{Future, IntoFuture},
 };
-use inherents::{InherentDataProviders, RuntimeString};
-use runtime_primitives::{
-    codec::{
-        Decode, Encode,
+use {
+    client::ChainHead,
+    consensus_common::{
+        BlockImport, Environment, Proposer, SyncOracle,
+        import_queue::{
+            BasicQueue,
+            SharedBlockImport, SharedJustificationImport,
+        },
     },
-    traits::{
-        AuthorityIdFor, DigestItemFor,
-        Block, Header,
+    inherents::{InherentDataProviders, RuntimeString},
+    runtime_primitives::{
+        codec::{
+            Decode, Encode,
+        },
+        traits::{
+            AuthorityIdFor, DigestItemFor,
+            Block, Header,
+        },
     },
 };
 

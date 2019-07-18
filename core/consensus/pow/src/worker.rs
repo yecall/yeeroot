@@ -15,20 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::{marker::PhantomData, sync::Arc, time::Duration};
-use futures::{future, Future, IntoFuture};
-use log::{warn, debug, info};
-use client::ChainHead;
-use consensus_common::{
-    Environment, Proposer, SyncOracle, ImportBlock,
-    BlockImport, BlockOrigin, ForkChoiceStrategy,
+use {
+    std::{marker::PhantomData, sync::Arc, time::Duration},
+    futures::{future, Future, IntoFuture},
+    log::{warn, debug, info},
 };
-use inherents::InherentDataProviders;
-use runtime_primitives::{
-    codec::{Decode, Encode},
-    traits::{
-        Block, Header,
-        Digest, DigestItemFor,
+use {
+    client::ChainHead,
+    consensus_common::{
+        Environment, Proposer, SyncOracle, ImportBlock,
+        BlockImport, BlockOrigin, ForkChoiceStrategy,
+    },
+    inherents::InherentDataProviders,
+    runtime_primitives::{
+        codec::{Decode, Encode},
+        traits::{
+            Block, Header,
+            Digest, DigestItemFor,
+        },
     },
 };
 use super::{

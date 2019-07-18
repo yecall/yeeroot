@@ -17,21 +17,24 @@
 
 //! Import Queue Verifier for POW chain
 
-use std::{marker::PhantomData, sync::Arc};
-use futures::{Future, IntoFuture};
-
-use consensus_common::{
-    BlockOrigin, ImportBlock,
-    ForkChoiceStrategy,
-    import_queue::Verifier,
+use {
+    std::{marker::PhantomData, sync::Arc},
+    futures::{Future, IntoFuture},
 };
-use inherents::InherentDataProviders;
-use runtime_primitives::{
-    codec::{Decode, Encode},
-    Justification,
-    traits::{
-        Block, Header,
-        Digest, DigestItem, DigestItemFor, HashFor,
+use {
+    consensus_common::{
+        BlockOrigin, ImportBlock,
+        ForkChoiceStrategy,
+        import_queue::Verifier,
+    },
+    inherents::InherentDataProviders,
+    runtime_primitives::{
+        codec::{Decode, Encode},
+        Justification,
+        traits::{
+            Block, Header,
+            Digest, DigestItem, DigestItemFor, HashFor,
+        },
     },
 };
 

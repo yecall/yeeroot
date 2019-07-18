@@ -49,7 +49,6 @@ impl Alternative {
 				], vec![
 					account_key("Alice")
 				],
-					account_key("Alice")
 				),
 				vec![],
 				None,
@@ -71,7 +70,6 @@ impl Alternative {
 					account_key("Eve"),
 					account_key("Ferdie"),
 				],
-					account_key("Alice"),
 				),
 				vec![],
 				None,
@@ -91,7 +89,7 @@ impl Alternative {
 	}
 }
 
-fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>, root_key: AccountId) -> GenesisConfig {
+fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>) -> GenesisConfig {
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec(),

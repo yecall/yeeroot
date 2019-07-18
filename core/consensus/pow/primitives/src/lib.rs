@@ -19,8 +19,10 @@
 
 ///! Primitives for Yee POW
 
-use runtime_primitives::ConsensusEngineId;
-use substrate_client::decl_runtime_apis;
+use {
+    runtime_primitives::ConsensusEngineId,
+    substrate_client::decl_runtime_apis,
+};
 
 /// `ConsensusEngineId` of Yee POW consensus.
 pub const YEE_POW_ENGINE_ID: ConsensusEngineId = [b'Y', b'e', b'e', b'!'];
