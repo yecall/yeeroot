@@ -17,9 +17,17 @@
 
 pub mod params;
 use substrate_cli::{VersionInfo, error};
+use crate::params::SwitchRouterCommandCmd;
+use log::{info, trace};
 
 pub fn run_switch(cmd: params::SwitchCommandCmd) -> substrate_cli::error::Result<()> {
     println!("{}", cmd.switch_test.unwrap_or("".to_string()));
 
+    Ok(())
+}
+
+pub fn route_run(cmd: SwitchRouterCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
+
+   info!( "switch  router_conf={:?}", cmd);
     Ok(())
 }

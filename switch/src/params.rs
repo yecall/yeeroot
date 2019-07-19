@@ -20,6 +20,7 @@ use structopt::clap::App;
 use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
 use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
 use std::num::ParseIntError;
+use std::path::PathBuf;
 
 
 
@@ -40,3 +41,38 @@ fn parse_hex(src: &str) -> Result<u32, ParseIntError> {
 
 
 
+
+#[derive(Debug, StructOpt, Clone)]
+
+pub struct SwitchRouterCommandCmd {
+
+    /// Specify http port.
+    #[structopt(long = "http-port", short= "hp", value_name = "PORT",default_value = "9933")]
+    pub http_port: u16,
+
+    /// Specify ws port.
+    #[structopt(long = "ws-port", short = "wp" ,value_name = "PORT",default_value = "9944")]
+    pub ws_port: u16,
+
+    /// Specify custom base path.
+    #[structopt(long = "base-path", short = "b", value_name = "PATH", parse(from_os_str))]
+    pub base_path: Option<PathBuf>,
+
+    /// Sets a custom logging filter
+    #[structopt(short = "l", long = "log", value_name = "LOG_PATTERN")]
+    pub log: Option<String>,
+
+    ///Specify max connections
+    #[structopt(short = "m", long = "max connections", value_name = "MAX-CONNECTIONS" ,default_value = "100")]
+    pub max_connections: u16,
+
+
+
+}
+
+impl substrate_cli::GetLogFilter for SwitchRouterCommandCmd {
+
+    fn get_log_filter(&self) -> Option<String> {
+        self.log.clone()
+    }
+}
