@@ -28,11 +28,16 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
-            if let Some(coin_base) = custom_args.coin_base {
+
+			if let Some(coin_base) = custom_args.coin_base {
                 info!("Coin Base: {}", coin_base);
                 config.custom.parse_coin_base(coin_base)
                     .map_err(|e| format!("Bad coinbase address {:?}", e))?;
             }
+
+			config.custom.shard_num = custom_args.shard_num;
+			info!("Shard num: {}", config.custom.shard_num);
+
 			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			let executor = runtime.executor();
 			match config.roles {

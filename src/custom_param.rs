@@ -25,6 +25,10 @@ pub struct YeeCliConfig {
     /// Specify miner coin base for block authoring
     #[structopt(long = "coin-base", value_name = "COIN_BASE")]
     pub coin_base: Option<String>,
+
+    /// Specify shard number
+    #[structopt(long = "shard-num", value_name = "SHARD_NUM")]
+    pub shard_num: u16,
 }
 
 impl_augment_clap!(YeeCliConfig);

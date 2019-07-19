@@ -39,6 +39,7 @@ native_executor_instance!(
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
+    pub shard_num: u16,
 }
 
 impl NodeConfig {
