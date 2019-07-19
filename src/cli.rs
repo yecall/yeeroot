@@ -48,7 +48,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 				),
 			}.map_err(|e| format!("{:?}", e))
 		}
-	).map(run_custom_command).map_err(Into::into).map(|_| ())
+	).and_then(run_custom_command::<service::Factory, _, _>).map_err(Into::into).map(|_| ())
 }
 
 fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
