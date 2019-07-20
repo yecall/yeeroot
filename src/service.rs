@@ -16,7 +16,7 @@ use consensus::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
 use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
 use inherents::InherentDataProviders;
-use network::construct_simple_protocol;
+use network::{construct_simple_protocol, DefaultIdentifySpecialization};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use yee_runtime::{AccountId};
@@ -120,5 +120,6 @@ construct_service_factory! {
 			},
 		FullRpcHandlerConstructor = CustomRpcHandlerConstructor,
 		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
+		IdentifySpecialization = DefaultIdentifySpecialization { |config| Ok(DefaultIdentifySpecialization{}) },
 	}
 }
