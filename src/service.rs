@@ -21,6 +21,7 @@ use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use yee_runtime::{AccountId};
 use yee_rpc::CustomRpcHandlerConstructor;
+use yee_sharding::identify_specialization::ShardingIdentifySpecialization;
 use super::{
     cli::error,
     custom_param::YeeCliConfig,
@@ -120,6 +121,10 @@ construct_service_factory! {
 			},
 		FullRpcHandlerConstructor = CustomRpcHandlerConstructor,
 		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
-		IdentifySpecialization = DefaultIdentifySpecialization { |config| Ok(DefaultIdentifySpecialization{}) },
+		IdentifySpecialization = ShardingIdentifySpecialization
+		    { |config: &FactoryFullConfiguration<Self>| {
+		        Ok(ShardingIdentifySpecialization::new("/yee/1.0.0".to_string(), config.custom.shard_num))
+		        }
+		    },
 	}
 }
