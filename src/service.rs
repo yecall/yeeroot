@@ -41,12 +41,18 @@ pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
     pub shard_num: u16,
+    pub bootnodes_routers: Vec<String>,
 }
 
 impl NodeConfig {
     pub fn parse_coin_base(&mut self, input: String) -> error::Result<()> {
         self.coin_base = <AccountId as Ss58Codec>::from_string(&input)
             .map_err(|e| format!("{:?}", e))?;
+        Ok(())
+    }
+
+    pub fn set_bootnodes_routers(&mut self, input: Vec<String>) -> error::Result<()>{
+        self.bootnodes_routers = input;
         Ok(())
     }
 }
