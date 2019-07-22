@@ -30,7 +30,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
 
-			process_custom_args(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
+			process_custom_args::<service::Factory>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
 
 			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			let executor = runtime.executor();

@@ -53,7 +53,8 @@ fn get_native_bootnodes(bootnodes_router_conf: BootnodesRouterConf, shard_num: u
 
 }
 
-pub fn process_custom_args(config: &mut FactoryFullConfiguration<service::Factory>, custom_args: &YeeCliConfig) -> error::Result<()> {
+pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
+where F: ServiceFactory<Configuration=NodeConfig>{
 
     if let Some(coin_base) = &custom_args.coin_base {
         info!("Coin Base: {}", coin_base);
