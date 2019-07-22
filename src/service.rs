@@ -16,11 +16,12 @@ use consensus::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
 use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
 use inherents::InherentDataProviders;
-use network::construct_simple_protocol;
+use network::{construct_simple_protocol, DefaultIdentifySpecialization};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use yee_runtime::{AccountId};
 use yee_rpc::CustomRpcHandlerConstructor;
+use yee_sharding::identify_specialization::ShardingIdentifySpecialization;
 use super::{
     cli::error,
     custom_param::YeeCliConfig,
@@ -39,12 +40,19 @@ native_executor_instance!(
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
+    pub shard_num: u16,
+    pub bootnodes_routers: Vec<String>,
 }
 
 impl NodeConfig {
     pub fn parse_coin_base(&mut self, input: String) -> error::Result<()> {
         self.coin_base = <AccountId as Ss58Codec>::from_string(&input)
             .map_err(|e| format!("{:?}", e))?;
+        Ok(())
+    }
+
+    pub fn set_bootnodes_routers(&mut self, input: Vec<String>) -> error::Result<()>{
+        self.bootnodes_routers = input;
         Ok(())
     }
 }
@@ -119,5 +127,10 @@ construct_service_factory! {
 			},
 		FullRpcHandlerConstructor = CustomRpcHandlerConstructor,
 		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
+		IdentifySpecialization = ShardingIdentifySpecialization
+		    { |config: &FactoryFullConfiguration<Self>| {
+		        Ok(ShardingIdentifySpecialization::new("/yee/1.0.0".to_string(), config.custom.shard_num))
+		        }
+		    },
 	}
 }

@@ -33,9 +33,12 @@ use futures::future::Future;
 use error_chain::ChainedError;
 
 pub mod params;
+pub mod client;
+
+#[macro_use]
+extern crate jsonrpc_client_core;
 
 const TARGET : &str = "bootnodes-router";
-
 
 /// Run bootnodes router service
 /// # Configure file description

@@ -4,14 +4,15 @@ use std::cell::RefCell;
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 use substrate_cli::{informant, parse_and_execute, NoCustom};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles, FactoryFullConfiguration};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
 use super::{
     custom_command::{run_custom_command, CustomCommand},
-    custom_param::YeeCliConfig,
+    custom_param::{YeeCliConfig, process_custom_args},
 };
+use crate::service::NodeConfig;
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
@@ -20,7 +21,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 	E: IntoExit,
 {
 	parse_and_execute::<service::Factory, CustomCommand, YeeCliConfig, _, _, _, _, _>(
-		load_spec, &version, "substrate-node", args, exit,
+		load_spec, &version, "yee-node", args, exit,
 	 	|exit, custom_args, mut config| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
@@ -28,11 +29,9 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
-            if let Some(coin_base) = custom_args.coin_base {
-                info!("Coin Base: {}", coin_base);
-                config.custom.parse_coin_base(coin_base)
-                    .map_err(|e| format!("Bad coinbase address {:?}", e))?;
-            }
+
+			process_custom_args::<service::Factory>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
+
 			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			let executor = runtime.executor();
 			match config.roles {
