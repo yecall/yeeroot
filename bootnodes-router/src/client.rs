@@ -35,7 +35,7 @@ fn client(uri: &str) -> error::Result<BootnodesRouterClient<HttpHandle>> {
 
 pub fn call<F: FnOnce(BootnodesRouterClient<HttpHandle>) -> error::Result<R> + Copy, R>(f: F, bootnodes_routers: &Vec<String>) -> error::Result<R> {
 
-    let mut error : error::Error = error::ErrorKind::Msg("Bootnodes router client call error".to_string()).into();
+    let mut error : error::Error = "Bootnodes router client call error".into();
     for uri in bootnodes_routers {
         let mut client = client(uri.as_str());
 
