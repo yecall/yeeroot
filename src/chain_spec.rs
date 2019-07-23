@@ -100,8 +100,9 @@ fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<
 			minimum_period: 5, // 10 second block time.
 		}),
         pow: Some(PowConfig {
-            difficulty: primitives::U256::from(0x0000ffff) << 224,
+            genesis_difficulty: primitives::U256::from(0x0000ffff) << 224,
             difficulty_adj: 60_u64.into(),
+            target_block_time: 15_u64.into(),
         }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),

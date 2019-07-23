@@ -220,8 +220,6 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Nonce, Call>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = executive::Executive<Runtime, Block, Context, Balances, AllModules>;
 
-pub type YeeExecutive = yee::Executive<Runtime, Block>;
-
 // Implement our runtime API endpoints. This is just a bunch of proxying.
 impl_runtime_apis! {
 	impl runtime_api::Core<Block> for Runtime {
@@ -277,9 +275,17 @@ impl_runtime_apis! {
 	}
 
 	impl consensus_pow::YeePOWApi<Block> for Runtime {
-	    fn calc_difficulty() -> DifficultyType {
-	        YeeExecutive::calc_difficulty()
+	    fn genesis_difficulty() -> DifficultyType {
+	        Pow::genesis_difficulty()
 	    }
+
+        fn difficulty_adj() -> NumberFor<Block> {
+            Pow::difficulty_adj()
+        }
+
+        fn target_block_time() -> u64 {
+            Pow::target_block_time()
+        }
 	}
 
 	impl offchain_primitives::OffchainWorkerApi<Block> for Runtime {

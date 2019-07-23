@@ -20,7 +20,10 @@
 ///! Primitives for Yee POW
 
 use {
-    runtime_primitives::ConsensusEngineId,
+    runtime_primitives::{
+        ConsensusEngineId,
+        traits::NumberFor,
+    },
     substrate_client::decl_runtime_apis,
 };
 
@@ -31,7 +34,13 @@ pub type DifficultyType = primitives::U256;
 
 decl_runtime_apis! {
     pub trait YeePOWApi {
-        /// Calculate block difficulty at height
-        fn calc_difficulty() -> DifficultyType;
+        /// POW difficulty config used for genesis block
+        fn genesis_difficulty() -> DifficultyType;
+
+        /// In-Chain config for Difficulty Adjust period
+        fn difficulty_adj() -> NumberFor<Block>;
+
+        /// Target block time in seconds
+        fn target_block_time() -> u64;
     }
 }

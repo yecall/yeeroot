@@ -18,11 +18,14 @@
 //! POW (Proof of Work) consensus in YeeChain
 
 use {
-    std::{marker::PhantomData, sync::Arc},
+    std::{fmt::Debug, marker::PhantomData, sync::Arc},
     futures::{Future, IntoFuture},
 };
 use {
-    client::ChainHead,
+    client::{
+        ChainHead,
+        blockchain::HeaderBackend,
+    },
     consensus_common::{
         BlockImport, Environment, Proposer, SyncOracle,
         import_queue::{
@@ -67,11 +70,11 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
-    C: ChainHead<B> + ProvideRuntimeApi,
+    C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
-    AccountId: Clone + Decode + Encode + Default,
+    AccountId: Clone + Debug + Decode + Encode + Default,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<AccountId>,

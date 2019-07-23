@@ -31,15 +31,16 @@ use {
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW consensus seal
-#[derive(Clone, Decode, Encode)]
+#[derive(Clone, Debug, Decode, Encode)]
 pub struct PowSeal<AccountId: Decode + Encode> {
-    pub difficulty: DifficultyType,
     pub coin_base: AccountId,
+    pub difficulty: DifficultyType,
+    pub timestamp: u64,
     pub work_proof: WorkProof,
 }
 
 /// POW proof used in block header
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum WorkProof {
     Unknown,
     Nonce(ProofNonce),
@@ -101,7 +102,7 @@ impl Encode for WorkProof {
 }
 
 /// Classical pow proof with extra data entropy and 64b nonce
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProofNonce {
     /// Extra Data used to encode miner info AND more entropy
     pub extra_data: Vec<u8>,

@@ -35,10 +35,13 @@ pub trait Trait: system::Trait {
 decl_storage! {
     trait Store for Module<T: Trait> as Pow {
         /// Block POW Difficulty
-        pub Difficulty get(difficulty) config(): T::Difficulty;
+        pub GenesisDifficulty get(genesis_difficulty) config(): T::Difficulty;
 
         /// Difficulty adjust period in block number
         pub DifficultyAdj get(difficulty_adj) config(): T::BlockNumber;
+
+        /// Target block time in seconds
+        pub TargetBlockTime get(target_block_time) config(): u64;
     }
 }
 

@@ -16,12 +16,20 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 use {
-    std::{marker::PhantomData, sync::Arc, time::Duration},
+    std::{
+        fmt::Debug,
+        marker::PhantomData,
+        sync::Arc,
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    },
     futures::{future, Future, IntoFuture},
     log::{warn, debug, info},
 };
 use {
-    client::ChainHead,
+    client::{
+        ChainHead,
+        blockchain::HeaderBackend,
+    },
     consensus_common::{
         Environment, Proposer, SyncOracle, ImportBlock,
         BlockImport, BlockOrigin, ForkChoiceStrategy,
@@ -29,17 +37,17 @@ use {
     inherents::InherentDataProviders,
     runtime_primitives::{
         codec::{Decode, Encode},
-        generic::BlockId,
+        generic::{BlockId, DigestItem},
         traits::{
             Block, Header,
-            Digest, DigestItemFor,
+            Digest, DigestItem as DigestItemT, DigestFor, DigestItemFor, NumberFor,
             ProvideRuntimeApi,
-            One,
+            As, SimpleArithmetic, Zero, One,
         },
     },
 };
 use {
-    pow_primitives::YeePOWApi,
+    pow_primitives::{YeePOWApi, DifficultyType},
 };
 use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
@@ -66,14 +74,14 @@ pub struct DefaultWorker<C, I, E, AccountId, SO> {
 
 impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountId, SO> where
     B: Block,
-    <B::Header as Header>::Digest: Digest,
-    C: ProvideRuntimeApi,
+    DigestFor<B>: Digest,
+    C: HeaderBackend<B> + ProvideRuntimeApi,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error>,
     E: Environment<B> + 'static,
     <E as Environment<B>>::Proposer: Proposer<B>,
     <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
-    AccountId: Clone + Decode + Encode + Default,
+    AccountId: Clone + Debug + Decode + Encode + Default,
     SO: SyncOracle,
     DigestItemFor<B>: CompatibleDigestItem<AccountId>,
 {
@@ -116,14 +124,8 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
         let (header, body) = block.deconstruct();
         let header_num = header.number().clone();
         let header_pre_hash = header.hash();
-        let block_id = BlockId::number(header_num - One::one());
-        let difficulty = match client.runtime_api().calc_difficulty(&block_id) {
-            Ok(d) => d,
-            Err(e) => {
-                warn!("calc_difficulty failed @ {} : {:?}", header_num, e);
-                return Ok(());
-            }
-        };
+        let timestamp = timestamp_now()?;
+        let difficulty = calc_difficulty(client.clone(), &header, timestamp)?;
         info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
 
         // TODO: remove hardcoded
@@ -133,8 +135,9 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
             let mut work_header = header.clone();
             let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
             let seal = PowSeal {
-                difficulty,
                 coin_base: self.coin_base.clone(),
+                difficulty,
+                timestamp,
                 work_proof: proof,
             };
             let item = <DigestItemFor<B> as CompatibleDigestItem<AccountId>>::pow_seal(seal.clone());
@@ -162,6 +165,80 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
 
         Ok(())
     }
+}
+
+fn calc_difficulty<B, C, AccountId>(
+    client: Arc<C>, header: &<B as Block>::Header, timestamp: u64,
+) -> Result<DifficultyType, consensus_common::Error> where
+    B: Block,
+    NumberFor<B>: SimpleArithmetic,
+    DigestFor<B>: Digest,
+    DigestItemFor<B>: super::CompatibleDigestItem<AccountId>,
+    C: HeaderBackend<B> + ProvideRuntimeApi,
+    <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
+    AccountId: Encode + Decode + Debug,
+{
+    let curr_block_id = BlockId::hash(*header.parent_hash());
+    let api = client.runtime_api();
+    let genesis_difficulty = api.genesis_difficulty(&curr_block_id)
+        .map_err(to_common_error)?;
+    let adj = api.difficulty_adj(&curr_block_id)
+        .map_err(to_common_error)?;
+    let curr_header = client.header(curr_block_id)
+        .expect("parent block must exist for sealer; qed")
+        .expect("parent block must exist for sealer; qed");
+
+    // not on adjustment, reuse parent difficulty
+    if *header.number() % adj != Zero::zero() {
+        let curr_difficulty = curr_header.digest().logs().iter().rev()
+            .filter_map(CompatibleDigestItem::as_pow_seal).next()
+            .and_then(|seal| Some(seal.difficulty))
+            .unwrap_or(genesis_difficulty);
+        return Ok(curr_difficulty);
+    }
+
+    let mut curr_header = curr_header;
+    let mut curr_seal = curr_header.digest().logs().iter().rev()
+        .filter_map(CompatibleDigestItem::as_pow_seal).next()
+        .expect("Seal must exist when adjustment comes; qed");
+    let curr_difficulty = curr_seal.difficulty;
+    let (last_num, last_time) = loop {
+        let prev_header = client.header(BlockId::hash(*curr_header.parent_hash()))
+            .expect("parent block must exist for sealer; qed")
+            .expect("parent block must exist for sealer; qed");
+        assert!(*prev_header.number() + One::one() == *curr_header.number());
+        let prev_seal = prev_header.digest().logs().iter().rev()
+            .filter_map(CompatibleDigestItem::as_pow_seal).next();
+        if *prev_header.number() % adj == Zero::zero() {
+            break (curr_header.number(), curr_seal.timestamp);
+        }
+        if let Some(prev_seal) = prev_seal {
+            curr_header = prev_header;
+            curr_seal = prev_seal;
+        } else {
+            break (curr_header.number(), curr_seal.timestamp);
+        }
+    };
+
+    let target_block_time = api.target_block_time(&curr_block_id)
+        .map_err(to_common_error)?;
+    let block_gap = As::<u64>::as_(*header.number() - *last_num);
+    let time_gap = (timestamp - last_time);
+    let expected_gap = target_block_time * 1000 * block_gap;
+    let new_difficulty = (curr_difficulty / expected_gap) * time_gap;
+    info!("difficulty adjustment: gap {} time {}", block_gap, time_gap);
+    info!("    new difficulty {:#x}", new_difficulty);
+
+    Ok(new_difficulty)
+}
+
+fn timestamp_now() -> Result<u64, consensus_common::Error> {
+    Ok(SystemTime::now().duration_since(UNIX_EPOCH)
+        .map_err(to_common_error)?.as_millis() as u64)
+}
+
+fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
+    consensus_common::ErrorKind::ClientImport(format!("{:?}", e)).into()
 }
 
 pub fn start_worker<B, C, I, W, SO, OnExit>(
