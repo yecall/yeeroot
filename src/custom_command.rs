@@ -27,7 +27,6 @@ use substrate_cli::VersionInfo;
 pub enum CustomCommand {
     SwitchCommandCmd(yee_switch::params::SwitchCommandCmd),
     BootnodesRouterCommandCmd(yee_bootnodes_router::params::BootnodesRouterCommandCmd),
-    SwitchRouterCommandCmd(yee_switch::params::SwitchRouterCommandCmd),
     None,
 }
 
@@ -40,10 +39,6 @@ impl StructOpt for CustomCommand {
             .subcommand(
                 yee_bootnodes_router::params::BootnodesRouterCommandCmd::augment_clap(SubCommand::with_name("bootnodes-router"))
                     .about("Yee bootnodes router"))
-            .subcommand(
-                yee_switch::params::SwitchRouterCommandCmd::augment_clap(SubCommand::with_name("switch-router"))
-            .about("Yee switch router"))
-
     }
 
     fn from_clap(matches: &::structopt::clap::ArgMatches) -> Self {
@@ -52,8 +47,6 @@ impl StructOpt for CustomCommand {
                 CustomCommand::SwitchCommandCmd(yee_switch::params::SwitchCommandCmd::from_clap(matches)),
             ("bootnodes-router", Some(matches)) =>
                 CustomCommand::BootnodesRouterCommandCmd((yee_bootnodes_router::params::BootnodesRouterCommandCmd::from_clap(matches))),
-            ("switch-router",Some(matches))=>
-                CustomCommand::SwitchRouterCommandCmd((yee_switch::params::SwitchRouterCommandCmd::from_clap(matches))),
             (_, Some(_)) => CustomCommand::None,
             (_, None) => CustomCommand::None,
         }
@@ -63,9 +56,8 @@ impl StructOpt for CustomCommand {
 impl GetLogFilter for CustomCommand {
     fn get_log_filter(&self) -> Option<String> {
         match self {
-            CustomCommand::SwitchCommandCmd(cmd) => None,
+            CustomCommand::SwitchCommandCmd(cmd) => cmd.get_log_filter(),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => cmd.get_log_filter(),
-            CustomCommand::SwitchRouterCommandCmd(cmd)=> cmd.get_log_filter(),
             CustomCommand::None => None
         }
     }
@@ -75,9 +67,8 @@ pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, Version
 
     match params{
         Some((custom_command, spec_factory, exit, version))=> match custom_command{
-            CustomCommand::SwitchCommandCmd(cmd) => yee_switch::run_switch(cmd),
+            CustomCommand::SwitchCommandCmd(cmd) => yee_switch::route_run(cmd,version),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => yee_bootnodes_router::run(cmd, version),
-            CustomCommand::SwitchRouterCommandCmd(cmd)=>yee_switch::route_run(cmd,version),
             CustomCommand::None => Ok(())
         },
         None => Ok(())

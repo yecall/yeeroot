@@ -16,42 +16,22 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 
-use structopt::clap::App;
-use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
-use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
-use std::num::ParseIntError;
+use substrate_cli::{AugmentClap};
+use structopt::StructOpt;
 use std::path::PathBuf;
 
 
 
 #[derive(Debug, StructOpt, Clone)]
+
 pub struct SwitchCommandCmd {
-    #[structopt(long = "switch-test")]
-    pub switch_test: Option<String>,
-
-   // #[structopt(long = "miner", parse(try_from_str = "parse_hex"))]
-  //  pub miner: u32,
-
-}
-
-fn parse_hex(src: &str) -> Result<u32, ParseIntError> {
-    u32::from_str_radix(src, 16)
-}
-
-
-
-
-
-#[derive(Debug, StructOpt, Clone)]
-
-pub struct SwitchRouterCommandCmd {
 
     /// Specify http port.
-    #[structopt(long = "http-port", short= "hp", value_name = "PORT",default_value = "9933")]
+    #[structopt(long = "http-port", short= "hp", value_name = "PORT",default_value = "9833")]
     pub http_port: u16,
 
     /// Specify ws port.
-    #[structopt(long = "ws-port", short = "wp" ,value_name = "PORT",default_value = "9944")]
+    #[structopt(long = "ws-port", short = "wp" ,value_name = "PORT",default_value = "9844")]
     pub ws_port: u16,
 
     /// Specify custom base path.
@@ -70,7 +50,7 @@ pub struct SwitchRouterCommandCmd {
 
 }
 
-impl substrate_cli::GetLogFilter for SwitchRouterCommandCmd {
+impl substrate_cli::GetLogFilter for SwitchCommandCmd {
 
     fn get_log_filter(&self) -> Option<String> {
         self.log.clone()
