@@ -34,9 +34,6 @@ pub type WsServer = ws::Server;
 
 /// Construct rpc `IoHandler`
 pub fn rpc_handler<Block: BlockT,ExHash,Y>(
-//	state: S,
-//	chain: C,
-	//author: A,
 	system: Y,
 ) -> RpcHandler where
 	Block: BlockT + 'static,

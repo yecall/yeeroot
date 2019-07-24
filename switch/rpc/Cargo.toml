@@ -15,27 +15,19 @@ parity-codec = "3.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-
 substrate-executor = { package = "substrate-executor", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-
 state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-
 transaction_pool =  { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-
 runtime_version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-
 tokio = "0.1.7"
 yee-runtime = { path = "../../runtime" }
 futures = "0.1.17"
 sr-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 hex-literal = "0.1"
 rustc-hex = "2.0"
-
-
 
 client-db = { package = "substrate-client-db", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 jsonrpc-client-http = "0.5.0"

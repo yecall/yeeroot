@@ -37,8 +37,7 @@ use primitives::storage::{self, StorageKey, StorageData, StorageChangeSet};
 use primitives::{Bytes, Blake2Hasher, H256};
 use yee_runtime::Hash;
 use super::get_client;
-use super::author::error as authorerr;
-use super::state::error as stateerr;
+
 
 /// Substrate system RPC API
 #[rpc]
@@ -48,8 +47,7 @@ pub trait SystemApi<Hash, Number> {
     fn submit_extrinsic(&self, extrinsic: Bytes) -> Result<yee_runtime::Hash>;
     /// Returns a storage entry at a specific block's state.
     #[rpc(name = "state_getStorage", alias("state_getStorageAt"))]
-    fn storage(&self, key: StorageKey, bh: Hash) -> Result<Option<StorageData>>;
-
+    fn storage(&self, key: StorageKey, hash: Option<Hash>) -> Result<Option<StorageData>>;
 
     /// Get the node's implementation name. Plain old string.
     #[rpc(name = "system_name")]
@@ -153,23 +151,16 @@ impl<B: traits::Block> SystemApi<B::Hash, <B::Header as HeaderT>::Number> for Sy
         info! {"this is submit_extrinsic  ---{:?}", &extrinsic};
         let mut client = get_client();
 
-
         let result = client.author_submitExtrinsic(extrinsic).call();
         info!("submit_extrinsic_send--{:?}", &result);
-        //result.unwrap_or_else(|e| authorerr::ErrorKind::Verification(Box::new(e)).into())?
-        // result.map_err(|e| format!("{:?}", e));
+
          Ok(H256::random())
     }
 
-    fn storage(&self, key: StorageKey, block: B::Hash) -> Result<Option<StorageData>> {
+    fn storage(&self, key: StorageKey, block: Option<B::Hash>) -> Result<Option<StorageData>> {
         info! {"thsi is storage --key-{:?}", &key};
         info! {"thsi is storage --block-{:?}", &block};
         let mut client = get_client();
-
-//        let result = client.state_getStorage(key, block).call();
-//        println!("author_send--{:?}", &result);
-//        result.map_err(|e| format!("{:?}", e));
-
 
         Ok(Some(StorageData(vec![232, 3, 0, 0, 0, 0, 0, 0])))
     }

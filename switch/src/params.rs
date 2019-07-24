@@ -16,11 +16,8 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 
-use substrate_cli::{AugmentClap};
 use structopt::StructOpt;
 use std::path::PathBuf;
-
-
 
 #[derive(Debug, StructOpt, Clone)]
 
@@ -45,8 +42,6 @@ pub struct SwitchCommandCmd {
     ///Specify max connections
     #[structopt(short = "m", long = "max connections", value_name = "MAX-CONNECTIONS" ,default_value = "100")]
     pub max_connections: u16,
-
-
 
 }
 

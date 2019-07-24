@@ -36,6 +36,5 @@ sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/sub
 yee-runtime = { path = "../runtime" }
 route-rpc-servers = { package = "route-rpc-servers", path = "rpc-servers" }
 route-rpc = { package = "route-rpc", path = "rpc" }
-#pool-graph = { package = "substrate-transaction-graph", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 tokio = "0.1.7"
 transaction_pool =  { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
