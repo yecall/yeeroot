@@ -2,7 +2,7 @@ use primitives::{ed25519, sr25519, Pair};
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig,
-    PowConfig,
+    PowConfig, ShardingConfig,
 };
 use substrate_service;
 
@@ -116,5 +116,9 @@ fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<
 			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
 			vesting: vec![],
 		}),
+        sharding: Some(ShardingConfig {
+            _genesis_phantom_data: Default::default(),
+            sharding_count: 4,
+        }),
 	}
 }

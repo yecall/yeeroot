@@ -35,6 +35,7 @@ parity-codec = "3.2"
 trie-root = "0.12.0"
 yee-runtime = { path = "runtime" }
 consensus = { package = "yee-consensus-pow", path = "core/consensus/pow" }
+sharding_primitives = { package = "yee-sharding-primitives", path = "sharding/primitives" }
 sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
@@ -45,6 +46,8 @@ transaction-pool = { package = "substrate-transaction-pool", git = "https://gith
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 structopt = "0.2"
 yee-switch = { package = "yee-switch", path = "switch" }
 yee-rpc = { package = "yee-rpc", path = "rpc" }

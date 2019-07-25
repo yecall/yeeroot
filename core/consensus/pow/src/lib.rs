@@ -122,7 +122,7 @@ pub fn import_queue<B, C, AccountId>(
     Ok(BasicQueue::new(verifier, block_import, justification_import))
 }
 
-fn register_inherent_data_provider(
+pub fn register_inherent_data_provider(
     inherent_data_providers: &InherentDataProviders,
 ) -> Result<(), consensus_common::Error> {
     if !inherent_data_providers.has_provider(&srml_timestamp::INHERENT_IDENTIFIER) {

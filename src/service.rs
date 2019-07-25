@@ -5,24 +5,33 @@
 use std::sync::Arc;
 use log::info;
 use transaction_pool::{self, txpool::{Pool as TransactionPool}};
-use yee_runtime::{self, GenesisConfig, opaque::Block, RuntimeApi};
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
 	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor,
 	TaskExecutor,
 };
 use basic_authorship::ProposerFactory;
-use consensus::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
 use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
 use inherents::InherentDataProviders;
 use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
-use yee_runtime::{AccountId};
-use yee_rpc::CustomRpcHandlerConstructor;
-use yee_sharding::identify_specialization::ShardingIdentifySpecialization;
-use super::cli::error;
+use {
+    consensus::{import_queue, start_pow, PowImportQueue},
+    yee_runtime::{
+        self, GenesisConfig, opaque::Block, RuntimeApi,
+        AccountId,
+    },
+    yee_rpc::CustomRpcHandlerConstructor,
+    yee_sharding::identify_specialization::ShardingIdentifySpecialization,
+};
+use super::{
+    cli::error,
+};
+
+mod sharding;
+use sharding::prepare_sharding;
 
 pub use substrate_executor::NativeExecutor;
 // Our native executor instance.
@@ -104,6 +113,7 @@ construct_service_factory! {
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
 		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
+			        prepare_sharding::<Self, _, _>(&config.custom, client.clone(), client.backend().to_owned())?;
 					import_queue::<Self::Block, _, AccountId>(
 						client.clone(),
 						None,
@@ -114,6 +124,7 @@ construct_service_factory! {
 			},
 		LightImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
+			        prepare_sharding::<Self, _, _>(&config.custom, client.clone(), client.backend().to_owned())?;
 					import_queue::<Self::Block, _, AccountId>(
 						client.clone(),
 						None,

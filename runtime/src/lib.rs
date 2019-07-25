@@ -62,7 +62,11 @@ pub type Nonce = u64;
 pub type Difficulty = primitives::U256;
 
 /// Yee module
+mod sharding;
 mod yee;
+
+#[cfg(feature = "std")]
+pub use sharding::GenesisConfig as ShardingGenesisConfig;
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -188,6 +192,10 @@ impl balances::Trait for Runtime {
 	type TransferPayment = ();
 }
 
+impl sharding::Trait for Runtime {
+    //
+}
+
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
 		Block = Block,
@@ -200,6 +208,7 @@ construct_runtime!(
 		Pow: pow::{Module, Storage, Config<T>},
 		Indices: indices,
 		Balances: balances,
+		Sharding: sharding::{Module, Storage, Config<T>},
 	}
 );
 
@@ -298,5 +307,15 @@ impl_runtime_apis! {
 		fn authorities() -> Vec<AuthorityId> {
 			Consensus::authorities()
 		}
+	}
+
+	impl sharding_primitives::ShardingAPI<Block> for Runtime {
+        fn get_curr_shard() -> Option<u32> {
+            Sharding::current_shard()
+        }
+
+        fn get_shard_count() -> u32 {
+            Sharding::sharding_count()
+        }
 	}
 }
