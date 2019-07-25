@@ -9,23 +9,20 @@ use yee_runtime::{self, GenesisConfig, opaque::Block, RuntimeApi};
 use substrate_service::{
 	FactoryFullConfiguration, LightComponents, FullComponents, FullBackend,
 	FullClient, LightClient, LightBackend, FullExecutor, LightExecutor,
-	TaskExecutor, DefaultRpcHandlerConstructor,
+	TaskExecutor,
 };
 use basic_authorship::ProposerFactory;
 use consensus::{import_queue, start_pow, PowImportQueue};
 use substrate_client as client;
 use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
 use inherents::InherentDataProviders;
-use network::{construct_simple_protocol, DefaultIdentifySpecialization};
+use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use yee_runtime::{AccountId};
 use yee_rpc::CustomRpcHandlerConstructor;
 use yee_sharding::identify_specialization::ShardingIdentifySpecialization;
-use super::{
-    cli::error,
-    custom_param::YeeCliConfig,
-};
+use super::cli::error;
 
 pub use substrate_executor::NativeExecutor;
 // Our native executor instance.

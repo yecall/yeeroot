@@ -3,8 +3,8 @@ use futures::{future, Future, sync::oneshot};
 use std::cell::RefCell;
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
-use substrate_cli::{informant, parse_and_execute, NoCustom};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles, FactoryFullConfiguration};
+use substrate_cli::{informant, parse_and_execute};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
@@ -12,7 +12,6 @@ use super::{
     custom_command::{run_custom_command, CustomCommand},
     custom_param::{YeeCliConfig, process_custom_args},
 };
-use crate::service::NodeConfig;
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where

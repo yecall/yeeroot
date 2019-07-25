@@ -17,13 +17,12 @@
 
 use {
     structopt::StructOpt,
-    substrate_cli::{impl_augment_clap, AugmentClap},
+    substrate_cli::{impl_augment_clap},
 };
 use log::info;
-use substrate_service::{FactoryFullConfiguration, ServiceFactory, Configuration};
+use substrate_service::{FactoryFullConfiguration, ServiceFactory};
 use crate::error;
-use crate::service::{self, NodeConfig};
-use yee_runtime::BuildStorage;
+use crate::service::{NodeConfig};
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 
@@ -65,7 +64,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
     config.custom.shard_num = custom_args.shard_num;
     info!("Shard num: {}", config.custom.shard_num);
 
-    config.custom.set_bootnodes_routers(custom_args.bootnodes_routers.to_owned());
+    config.custom.set_bootnodes_routers(custom_args.bootnodes_routers.to_owned())?;
     info!("Bootnodes routers: {:?}", config.custom.bootnodes_routers);
 
     if config.custom.bootnodes_routers.len() > 0{

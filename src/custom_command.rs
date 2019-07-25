@@ -17,7 +17,7 @@
 
 pub use structopt::clap::App;
 pub use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
-use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
+use structopt::{StructOpt, clap::{SubCommand}};
 use yee_switch;
 use yee_bootnodes_router;
 use substrate_cli::VersionInfo;
@@ -46,7 +46,7 @@ impl StructOpt for CustomCommand {
             ("switch", Some(matches)) =>
                 CustomCommand::SwitchCommandCmd(yee_switch::params::SwitchCommandCmd::from_clap(matches)),
             ("bootnodes-router", Some(matches)) =>
-                CustomCommand::BootnodesRouterCommandCmd((yee_bootnodes_router::params::BootnodesRouterCommandCmd::from_clap(matches))),
+                CustomCommand::BootnodesRouterCommandCmd(yee_bootnodes_router::params::BootnodesRouterCommandCmd::from_clap(matches)),
             (_, Some(_)) => CustomCommand::None,
             (_, None) => CustomCommand::None,
         }
@@ -66,7 +66,7 @@ impl GetLogFilter for CustomCommand {
 pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, VersionInfo)>) -> substrate_cli::error::Result<()> {
 
     match params{
-        Some((custom_command, spec_factory, exit, version))=> match custom_command{
+        Some((custom_command, _spec_factory, _exit, version))=> match custom_command{
             CustomCommand::SwitchCommandCmd(cmd) => yee_switch::run(cmd, version),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => yee_bootnodes_router::run(cmd, version),
             CustomCommand::None => Ok(())
