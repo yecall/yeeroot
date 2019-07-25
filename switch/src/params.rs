@@ -16,27 +16,46 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 
-use structopt::clap::App;
-use substrate_cli::{GetLogFilter, AugmentClap, CoreParams};
-use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
-use std::num::ParseIntError;
-
-
+use structopt::StructOpt;
+use std::path::PathBuf;
 
 #[derive(Debug, StructOpt, Clone)]
+
 pub struct SwitchCommandCmd {
-    #[structopt(long = "switch-test")]
-    pub switch_test: Option<String>,
 
-   // #[structopt(long = "miner", parse(try_from_str = "parse_hex"))]
-  //  pub miner: u32,
+    /// Specify HTTP RPC server TCP port
+    #[structopt(long = "rpc-port", value_name = "PORT")]
+    pub rpc_port: Option<u16>,
+
+    /// Specify WebSockets RPC server TCP port
+    #[structopt(long = "ws-port", value_name = "PORT")]
+    pub ws_port: Option<u16>,
+
+    /// Listen to all RPC interfaces (default is local)
+    #[structopt(long = "rpc-external")]
+    pub rpc_external: bool,
+
+    /// Listen to all Websocket interfaces (default is local)
+    #[structopt(long = "ws-external")]
+    pub ws_external: bool,
+
+    /// Specify custom base path.
+    #[structopt(long = "base-path", short = "b", value_name = "PATH", parse(from_os_str))]
+    pub base_path: Option<PathBuf>,
+
+    /// Sets a custom logging filter
+    #[structopt(short = "l", long = "log", value_name = "LOG_PATTERN")]
+    pub log: Option<String>,
+
+    ///Specify max connections
+    #[structopt(short = "m", long = "max connections", value_name = "MAX-CONNECTIONS" ,default_value = "100")]
+    pub max_connections: u16,
 
 }
 
-fn parse_hex(src: &str) -> Result<u32, ParseIntError> {
-    u32::from_str_radix(src, 16)
+impl substrate_cli::GetLogFilter for SwitchCommandCmd {
+
+    fn get_log_filter(&self) -> Option<String> {
+        self.log.clone()
+    }
 }
-
-
-
-
