@@ -15,18 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use std::sync::Arc;
-
-use log::{warn, info};
-use parity_codec::{Encode, Decode};
+use log::{info};
 use jsonrpc_derive::rpc;
-use jsonrpc_pubsub::{typed::Subscriber, SubscriptionId};
-use primitives::{Bytes, Blake2Hasher, H256};
-use runtime_primitives::{generic, traits};
-
-pub mod error;
-
-use self::error::Result;
+use primitives::{Bytes};
+use crate::Config;
+use crate::client::RpcClient;
+use serde::{Serialize};
+use serde::de::DeserializeOwned;
 
 /// Substrate authoring RPC API
 #[rpc]
@@ -34,28 +29,31 @@ pub trait AuthorApi<Hash> {
 
 	/// Submit hex-encoded extrinsic for inclusion in block.
 	#[rpc(name = "author_submitExtrinsic")]
-	fn submit_extrinsic(&self, extrinsic: Bytes) -> Result<Hash>;
+	fn submit_extrinsic(&self, extrinsic: Bytes) -> jsonrpc_core::Result<Hash>;
 }
 
 /// Authoring API
 pub struct Author {
-
+	config : Config,
+	rpc_client: RpcClient,
 }
 
-impl Author{
-	/// Create new instance of Authoring API.
-	pub fn new() -> Self {
-		Author {}
+impl Author {
+	/// Create new State API RPC handler.
+	pub fn new(config: Config) -> Self {
+		Self {
+			config: config.clone(),
+			rpc_client: RpcClient::new(config)
+		}
 	}
 }
 
 impl<Hash> AuthorApi<Hash> for Author
+	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn submit_extrinsic(&self, ext: Bytes) -> Result<Hash> {
+	fn submit_extrinsic(&self, extrinsic: Bytes) -> jsonrpc_core::Result<Hash> {
 
-		info!("submit_extrinsic");
-
-		unimplemented!("");
+		self.rpc_client.call_method("author_submitExtrinsic", "Hash", (extrinsic, ))
 	}
 
 }

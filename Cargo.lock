@@ -1098,6 +1098,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "hyper-tls"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.12.30 (registry+https://github.com/rust-lang/crates.io-index)",
+ "native-tls 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-io 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "idna"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1202,11 +1214,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper 0.12.30 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hyper-tls 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core 12.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-pubsub 12.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "websocket 0.22.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5084,25 +5100,22 @@ dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "jsonrpc-client-core 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "jsonrpc-client-http 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jsonrpc-client-transports 12.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "jsonrpc-core-client 12.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-derive 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-pubsub 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.6.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-hex 2.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-version 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-executor 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-network 0.1.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-cli 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-state-machine 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-transaction-pool 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -5251,6 +5264,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum hyper 0.10.16 (registry+https://github.com/rust-lang/crates.io-index)" = "0a0652d9a2609a968c14be1a9ea00bf4b1d64e2e1f53a1b51b6fff3a6e829273"
 "checksum hyper 0.11.27 (registry+https://github.com/rust-lang/crates.io-index)" = "34a590ca09d341e94cddf8e5af0bbccde205d5fbc2fa3c09dd67c7f85cea59d7"
 "checksum hyper 0.12.30 (registry+https://github.com/rust-lang/crates.io-index)" = "40e7692b2009a70b1e9b362284add4d8b75880fefddb4acaa5e67194e843f219"
+"checksum hyper-tls 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "3a800d6aa50af4b5850b2b0f659625ce9504df908e9733b635720483be26174f"
 "checksum idna 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "38f09e0f0b1fb55fdee1f17470ad800da77af5186a1a76c026b679358b7e844e"
 "checksum impl-codec 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d2050d823639fbeae26b2b5ba09aca8907793117324858070ade0673c49f793b"
 "checksum impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "5158079de9d4158e0ce1de3ae0bd7be03904efc40b3d7dd8b8c301cbf6b52b56"

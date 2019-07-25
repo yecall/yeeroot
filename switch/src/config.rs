@@ -34,12 +34,11 @@ use log::trace;
 /// ```
 /// [shards]
 /// [shards.0]
-/// rpc = ["192.168.1.0,192.168.1.1,192.168.1.2"]
+/// rpc = ["http://127.0.0.1:9933"]
 ///
 /// [shards.1]
-/// rpc = ["202.168.1.0,202.168.1.1,202.168.1.2"]
+/// rpc = ["http://127.0.0.1:19933"]
 /// ```
-
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct Shard {
@@ -52,6 +51,23 @@ pub struct SwitchConf {
     pub shards: HashMap<String, Shard>,
 }
 
+impl From<SwitchConf> for yee_switch_rpc::Config {
+    fn from(conf: SwitchConf) -> Self {
+        let mut shards: HashMap<String, yee_switch_rpc::Shard> = HashMap::new();
+
+        for (k, v) in conf.shards {
+            let shard = yee_switch_rpc::Shard{
+                rpc: v.rpc,
+            };
+            shards.insert(k, shard);
+        }
+
+        yee_switch_rpc::Config{
+            shards
+        }
+    }
+}
+
 pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cli::error::Result<SwitchConf> {
     let conf_path = conf_path(&base_path(cmd, version));
 
@@ -59,7 +75,7 @@ pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cl
 
     trace!(target: crate::TARGET, "conf_path:{}", conf_path.to_string_lossy());
 
-    let mut file = File::open(&conf_path).map_err(|e|"Non-existed conf file")?;
+    let mut file = File::open(&conf_path).map_err(|e| "Non-existed conf file")?;
 
     let mut str_val = String::new();
     file.read_to_string(&mut str_val)?;

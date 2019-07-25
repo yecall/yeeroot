@@ -16,7 +16,7 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod params;
-mod config;
+pub mod config;
 use substrate_cli::{VersionInfo};
 use crate::params::SwitchCommandCmd;
 use log::{info, warn, debug, trace};
@@ -26,10 +26,16 @@ use std::net::SocketAddr;
 use yee_switch_rpc::author::Author;
 use substrate_primitives::H256;
 use yee_switch_rpc::state::State;
+use crate::config::get_config;
 
 pub const TARGET : &str = "switch";
 
 pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
+
+    let config = get_config(&cmd, &version)?;
+
+    let rpc_config : yee_switch_rpc::Config = config.into();
+
 
     let rpc_interface: &str = if cmd.rpc_external { "0.0.0.0" } else { "127.0.0.1" };
 
@@ -40,8 +46,9 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
     let rpc_address_ws = parse_address(&format!("{}:{}", ws_interface, 9944), cmd.ws_port)?;
 
     let handler = || {
-        let author = Author::new();
-        let state = State::new();
+
+        let author = Author::new(rpc_config.clone());
+        let state = State::new(rpc_config.clone());
         yee_switch_rpc_servers::rpc_handler::<_, _, H256>(
             author,
             state,
@@ -50,24 +57,15 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
 
     let (signal, exit) = exit_future::signal();
 
-    thread::Builder::new().name("switch_rpc_http".to_string()).spawn(move || {
 
-        let server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler()).unwrap();
+    let server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler()).unwrap();
 
-        info!(target: TARGET, "Switch rpc http listen on: {}", rpc_address_http);
+    info!(target: TARGET, "Switch rpc http listen on: {}", rpc_address_http);
 
-        server.wait();
-    });
+    let server = yee_switch_rpc_servers::start_ws(&rpc_address_ws, handler()).unwrap();
 
+    info!(target: TARGET, "Switch rpc ws listen on: {}", rpc_address_ws);
 
-    thread::Builder::new().name("switch_rpc_ws".to_string()).spawn(move || {
-
-        let server = yee_switch_rpc_servers::start_ws(&rpc_address_ws, handler()).unwrap();
-
-        info!(target: TARGET, "Switch rpc ws listen on: {}", rpc_address_ws);
-
-        server.wait();
-    });
 
     exit.wait().unwrap();
 

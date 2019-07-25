@@ -17,11 +17,20 @@
 
 #![warn(missing_docs)]
 
-mod errors;
 pub mod metadata;
 pub mod author;
 pub mod state;
+mod errors;
+mod client;
 use jsonrpc_core as rpc;
+use parity_codec::alloc::collections::HashMap;
 
-#[macro_use]
-extern crate jsonrpc_client_core;
+#[derive(Clone)]
+pub struct Config{
+    pub shards: HashMap<String, Shard>,
+}
+
+#[derive(Clone)]
+pub struct Shard {
+    pub rpc: Vec<String>,
+}
