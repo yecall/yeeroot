@@ -25,10 +25,23 @@ use jsonrpc_core::*;
 use yee_runtime::opaque::Block;
 use route_rpc_servers::{self};
 use yee_runtime::Hash;
+use std::path::{PathBuf, Path};
+use app_dirs::{AppDataType, AppInfo};
+use std::fs::File;
+use std::io::Read;
+use std::collections::HashMap;
+use serde_derive::{Deserialize, Serialize};
 
-
-pub fn route_run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
+pub fn switch_run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
     info!("switch cmd is :{:?}", cmd);
+
+
+    let conf: SwitchRouterConf = get_shard_config(&cmd, &version)?;
+
+    info!(target: TARGET, "switch router_conf={:?}", &conf);
+
+
+
     let http_port = cmd.http_port.to_string();
 
     let ws_port = cmd.ws_port.to_string();
@@ -79,6 +92,71 @@ pub fn route_run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::
     Ok(())
 }
 
+
+const TARGET : &str = "switch";
+
+/// Run switch  service
+/// # Configure file description
+/// ### Path
+/// <base_path>/conf/switch-rpc-router.toml
+///
+/// ### Content
+/// ```
+/// [shards]
+/// [shards.0]
+/// rpc = ["192.168.1.0,192.168.1.1,192.168.1.2"]
+///
+/// [shards.1]
+/// rpc = ["202.168.1.0,202.168.1.1,202.168.1.2"]
+/// ```
+
+#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+pub struct Shard {
+    pub rpc: Vec<String>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+pub struct SwitchRouterConf {
+    pub shards: HashMap<String, Shard>,
+}
+
+fn get_shard_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cli::error::Result<SwitchRouterConf> {
+    let conf_path = conf_path(&base_path(cmd, version));
+
+    let conf_path = conf_path.join("switch-rpc-router.toml");
+
+    trace!(target: TARGET, "conf_path:{}", conf_path.to_string_lossy());
+
+    let mut file = File::open(&conf_path).map_err(|e|"Non-existed conf file")?;
+
+    let mut str_val = String::new();
+    file.read_to_string(&mut str_val)?;
+
+    let conf: SwitchRouterConf = toml::from_str(&str_val).map_err(|e| "Error reading conf file")?;
+
+    Ok(conf)
+}
+
+pub fn conf_path(base_path: &Path) -> PathBuf {
+    let mut path = base_path.to_owned();
+    path.push("conf");
+    path
+}
+
+fn base_path(cli: &SwitchCommandCmd, version: &VersionInfo) -> PathBuf {
+    cli.base_path.clone()
+        .unwrap_or_else(||
+            app_dirs::get_app_root(
+                AppDataType::UserData,
+                &AppInfo {
+                    name: version.executable_name,
+                    author: version.author,
+                },
+            ).expect("app directories exist on all supported platforms; qed")
+        )
+}
 
 
 

@@ -67,7 +67,7 @@ pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, Version
 
     match params{
         Some((custom_command, spec_factory, exit, version))=> match custom_command{
-            CustomCommand::SwitchCommandCmd(cmd) => yee_switch::route_run(cmd,version),
+            CustomCommand::SwitchCommandCmd(cmd) => yee_switch::switch_run(cmd,version),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => yee_bootnodes_router::run(cmd, version),
             CustomCommand::None => Ok(())
         },
