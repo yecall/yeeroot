@@ -18,7 +18,6 @@
 #![warn(missing_docs)]
 
 mod errors;
-mod helpers;
 pub mod metadata;
 pub mod author;
 pub mod state;
