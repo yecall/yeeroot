@@ -16,6 +16,7 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod params;
+mod config;
 use substrate_cli::{VersionInfo};
 use crate::params::SwitchCommandCmd;
 use log::{info, warn, debug, trace};
@@ -25,7 +26,7 @@ use std::net::SocketAddr;
 use yee_switch_rpc::author::Author;
 use substrate_primitives::H256;
 
-const TARGET : &str = "switch";
+pub const TARGET : &str = "switch";
 
 pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
 
@@ -86,7 +87,3 @@ fn parse_address(
 
     Ok(address)
 }
-
-
-
-
