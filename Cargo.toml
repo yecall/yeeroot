@@ -9,8 +9,20 @@ license = "GPL-3.0"
 [[bin]]
 name = "yee"
 path = "src/main.rs"
-
 [dependencies]
+hyper = "0.11"
+tokio-proto = "0.1"
+serde = "1.0"
+serde_json = "1.0"
+http = { package = "jsonrpc-http-server", version = "12.1.0" }
+pubsub = { package = "jsonrpc-pubsub", version = "12.1.0" }
+ws = { package = "jsonrpc-ws-server", version = "12.1.0" }
+jsonrpc-core  = { package = "jsonrpc-core", version = "12.1.0" }
+jsonrpc-core-client  = { package = "jsonrpc-core-client", version = "12.1.0" }
+jsonrpc-derive  = { package = "jsonrpc-derive", version = "12.1.0" }
+jsonrpc-ipc-server = { package = "jsonrpc-ipc-server", version = "12.1.0" }
+jsonrpc-tcp-server  = { package = "jsonrpc-tcp-server", version = "12.1.0" }
+jsonrpc-server-utils = { package = "jsonrpc-server-utils", version = "12.1.0" }
 error-chain = "0.12"
 futures = "0.1"
 ctrlc = { version = "3.0", features = ["termination"] }

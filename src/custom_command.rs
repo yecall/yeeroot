@@ -56,7 +56,7 @@ impl StructOpt for CustomCommand {
 impl GetLogFilter for CustomCommand {
     fn get_log_filter(&self) -> Option<String> {
         match self {
-            CustomCommand::SwitchCommandCmd(cmd) => None,
+            CustomCommand::SwitchCommandCmd(cmd) => cmd.get_log_filter(),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => cmd.get_log_filter(),
             CustomCommand::None => None
         }
@@ -67,7 +67,7 @@ pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, Version
 
     match params{
         Some((custom_command, spec_factory, exit, version))=> match custom_command{
-            CustomCommand::SwitchCommandCmd(cmd) => yee_switch::run_switch(cmd),
+            CustomCommand::SwitchCommandCmd(cmd) => yee_switch::run(cmd, version),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => yee_bootnodes_router::run(cmd, version),
             CustomCommand::None => Ok(())
         },
