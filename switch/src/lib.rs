@@ -25,6 +25,7 @@ use futures::future::Future;
 use std::net::SocketAddr;
 use yee_switch_rpc::author::Author;
 use substrate_primitives::H256;
+use yee_switch_rpc::state::State;
 
 pub const TARGET : &str = "switch";
 
@@ -40,13 +41,14 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
 
     let handler = || {
         let author = Author::new();
-        yee_switch_rpc_servers::rpc_handler::<_, H256>(
+        let state = State::new();
+        yee_switch_rpc_servers::rpc_handler::<_, _, H256>(
             author,
+            state,
         )
     };
 
     let (signal, exit) = exit_future::signal();
-
 
     thread::Builder::new().name("switch_rpc_http".to_string()).spawn(move || {
 

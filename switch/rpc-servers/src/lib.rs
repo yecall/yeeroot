@@ -1,27 +1,26 @@
-// Copyright 2017-2019 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
-
-// Substrate is free software: you can redistribute it and/or modify
+// Copyright (C) 2019 Yee Foundation.
+//
+// This file is part of YeeChain.
+//
+// YeeChain is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
+//
+// YeeChain is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
-
-//! Substrate RPC servers.
+// along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 #[warn(missing_docs)]
 
 use std::io;
 use log::error;
 use sr_primitives;
-use yee_switch_rpc::{author::AuthorApi, self};
+use yee_switch_rpc::{self, author::AuthorApi, state::StateApi};
 
 /// Maximal payload accepted by RPC servers
 const MAX_PAYLOAD: usize = 15 * 1024 * 1024;
@@ -32,13 +31,16 @@ pub type HttpServer = http::Server;
 pub type WsServer = ws::Server;
 
 /// Construct rpc `IoHandler`
-pub fn rpc_handler<A, Hash>(
+pub fn rpc_handler<A, S, Hash>(
 	author: A,
+	state: S,
 ) -> RpcHandler where
 	A: AuthorApi<Hash>,
+	S: StateApi<Hash>,
 	Hash: Send + Sync + 'static + sr_primitives::Serialize + sr_primitives::DeserializeOwned,
 {   let mut io = pubsub::PubSubHandler::default();
 	io.extend_with(author.to_delegate());
+	io.extend_with(state.to_delegate());
 	io
 }
 

@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-
 use structopt::StructOpt;
 use std::path::PathBuf;
 
