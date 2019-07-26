@@ -18,7 +18,6 @@
 use error_chain::*;
 use crate::rpc;
 use log::warn;
-use jsonrpc_client_transports::RpcError;
 
 error_chain! {
 	errors {
@@ -26,6 +25,10 @@ error_chain! {
 		Unimplemented {
 			description("not yet implemented"),
 			display("Method Not Implemented"),
+		}
+		InvalidShard {
+			description("invalid shard"),
+			display("Invalid shard"),
 		}
 	}
 }
@@ -35,6 +38,7 @@ impl From<Error> for rpc::Error {
 	fn from(e: Error) -> Self {
 		match e {
 			Error(ErrorKind::Unimplemented, _) =>unimplemented(),
+			Error(ErrorKind::InvalidShard, _) =>invalid_shard(),
 			e => internal(e),
 		}
 	}
@@ -44,6 +48,14 @@ pub fn unimplemented() -> rpc::Error {
 	rpc::Error {
 		code: rpc::ErrorCode::ServerError(1),
 		message: "Not implemented yet".into(),
+		data: None,
+	}
+}
+
+pub fn invalid_shard() -> rpc::Error {
+	rpc::Error {
+		code: rpc::ErrorCode::InvalidParams,
+		message: "Invalid shard".into(),
 		data: None,
 	}
 }

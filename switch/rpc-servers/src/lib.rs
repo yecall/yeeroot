@@ -21,6 +21,7 @@ use std::io;
 use log::error;
 use sr_primitives;
 use yee_switch_rpc::{self, author::AuthorApi, state::StateApi};
+use yee_switch_rpc::system::SystemApi;
 
 /// Maximal payload accepted by RPC servers
 const MAX_PAYLOAD: usize = 15 * 1024 * 1024;
@@ -31,16 +32,19 @@ pub type HttpServer = http::Server;
 pub type WsServer = ws::Server;
 
 /// Construct rpc `IoHandler`
-pub fn rpc_handler<A, S, Hash>(
+pub fn rpc_handler<A, S, Y, Hash>(
 	author: A,
 	state: S,
+	system: Y
 ) -> RpcHandler where
 	A: AuthorApi<Hash>,
 	S: StateApi<Hash>,
+	Y: SystemApi,
 	Hash: Send + Sync + 'static + sr_primitives::Serialize + sr_primitives::DeserializeOwned,
 {   let mut io = pubsub::PubSubHandler::default();
 	io.extend_with(author.to_delegate());
 	io.extend_with(state.to_delegate());
+	io.extend_with(system.to_delegate());
 	io
 }
 

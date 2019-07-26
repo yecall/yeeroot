@@ -15,17 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_cli;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use jsonrpc_core_client::TypedClient;
-use std::time::Duration;
-use crate::rpc::futures::{Future, Sink, Stream};
+use crate::rpc::futures::{Future};
 use crate::Config;
-use crate::errors;
 use crate::rpc;
 use rand::Rng;
 use jsonrpc_client_transports::RpcError;
+use impl_serde::serialize;
+use num_bigint::BigUint;
 
 pub struct RpcClient{
     config: Config,
@@ -64,9 +63,10 @@ impl RpcClient{
         &self, method: &str,
         returns: &'static str,
         args: T,
+        shard_num: u16,
     ) -> rpc::Result<R> {
 
-        let uri = self.get_random_rpc_uri(0u16)?;
+        let uri = self.get_random_rpc_uri(shard_num)?;
 
         let result = jsonrpc_core_client::transports::http::connect(&uri)
             .and_then(|client: TypedClient| {
@@ -89,5 +89,20 @@ fn parse_error(error: RpcError) -> jsonrpc_core::Error{
             message: rpc::ErrorCode::InternalError.description(),
             data: Some(format!("{:?}", other).into()),
         },
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Hex(#[serde(with="serialize")] pub Vec<u8>);
+
+impl From<u32> for Hex{
+    fn from(t: u32) -> Self{
+        Hex(t.to_be_bytes().to_vec().iter().filter(|b|**b!=0).map(|x|x.to_owned()).collect())
+    }
+}
+
+impl From<BigUint> for Hex{
+    fn from(t: BigUint) -> Self{
+        Hex(t.to_bytes_be())
     }
 }
