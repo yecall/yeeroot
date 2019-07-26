@@ -74,6 +74,10 @@ pub fn prepare_sharding<F, C, B>(
 
     if let Some(curr_shard) = api.get_curr_shard(&last_block_id)? {
         info!("chain data in shard {}", curr_shard);
+        if curr_shard != target_shard_num {
+            let msg = format!("in chain shard {} while configured {}", curr_shard, target_shard_num);
+            return Err(substrate_service::ErrorKind::Msg(msg).into());
+        }
     } else {
         info!("build sharding block");
         let storage_key = twox_128("Sharding CurrentShard".as_bytes()).to_vec();
