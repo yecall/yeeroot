@@ -27,7 +27,7 @@ use runtime_primitives::{
 };
 
 use pow_primitives::YEE_POW_ENGINE_ID;
-use super::{PowSeal, WorkProof};
+use super::PowSeal;
 
 /// Digest item acts as a valid POW consensus digest.
 pub trait CompatibleDigestItem<AccountId: Decode + Encode>: Sized {

@@ -19,7 +19,6 @@
 
 use {
     std::{marker::PhantomData, sync::Arc},
-    futures::{Future, IntoFuture},
 };
 use {
     consensus_common::{
@@ -33,13 +32,13 @@ use {
         Justification,
         traits::{
             Block, Header,
-            Digest, DigestItem, DigestItemFor, HashFor,
+            Digest, DigestItemFor,
         },
     },
 };
 
 use super::{
-    AuthorityId, CompatibleDigestItem, WorkProof,
+    AuthorityId, CompatibleDigestItem,
     pow::check_seal,
 };
 
@@ -51,7 +50,8 @@ pub struct PowVerifier<C, AccountId> {
 }
 
 #[forbid(deprecated)]
-impl<B: Block, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
+impl<B, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
+    B: Block,
     DigestItemFor<B>: CompatibleDigestItem<AccountId>,
     C: Send + Sync,
     AccountId: Decode + Encode + Send + Sync,
@@ -64,7 +64,7 @@ impl<B: Block, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
         body: Option<Vec<<B as Block>::Extrinsic>>,
     ) -> Result<(ImportBlock<B>, Option<Vec<AuthorityId<B>>>), String> {
         let hash = header.hash();
-        let parent_hash = *header.parent_hash();
+        let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
         let (pre_header, seal) = check_header::<B, AccountId>(
@@ -90,10 +90,11 @@ impl<B: Block, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
 }
 
 /// Check if block header has a valid POW difficulty
-fn check_header<B: Block, AccountId>(
+fn check_header<B, AccountId>(
     mut header: B::Header,
     hash: B::Hash,
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
+    B: Block,
     DigestItemFor<B>: CompatibleDigestItem<AccountId>,
     AccountId: Decode + Encode,
 {

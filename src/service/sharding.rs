@@ -35,18 +35,17 @@ use {
     sr_io::twox_128,
     state_machine::backend::Backend as StateBackend,
     substrate_client::{
-        ChainHead, Client,
+        ChainHead,
         backend::{
             Backend as ClientBackend,
             BlockImportOperation,
             NewBlockState,
         },
     },
-    substrate_service::{ServiceFactory, FactoryBlock, FullClient, LightClient},
+    substrate_service::{ServiceFactory, FactoryBlock},
 };
 use {
     sharding_primitives::ShardingAPI,
-    yee_runtime::ShardingGenesisConfig,
 };
 use super::NodeConfig;
 
@@ -98,7 +97,7 @@ pub fn prepare_sharding<F, C, B>(
             last_block_header.hash(),
             Default::default(),
         );
-        op.set_block_data(header, Some(vec![]), None, NewBlockState::Final);
+        op.set_block_data(header, Some(vec![]), None, NewBlockState::Final)?;
         backend.commit_operation(op)?;
     }
 

@@ -19,7 +19,7 @@
 
 use {
     std::{fmt::Debug, marker::PhantomData, sync::Arc},
-    futures::{Future, IntoFuture},
+    futures::Future,
 };
 use {
     client::{
@@ -27,7 +27,7 @@ use {
         blockchain::HeaderBackend,
     },
     consensus_common::{
-        BlockImport, Environment, Proposer, SyncOracle,
+        BlockImport, Environment, SyncOracle,
         import_queue::{
             BasicQueue,
             SharedBlockImport, SharedJustificationImport,
@@ -40,7 +40,7 @@ use {
         },
         traits::{
             AuthorityIdFor, DigestItemFor,
-            Block, Header,
+            Block,
             ProvideRuntimeApi,
         },
     },
@@ -67,7 +67,7 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
-    force_authoring: bool,
+    _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi,

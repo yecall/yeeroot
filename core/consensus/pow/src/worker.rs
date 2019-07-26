@@ -23,7 +23,7 @@ use {
         time::{Duration, SystemTime, UNIX_EPOCH},
     },
     futures::{future, Future, IntoFuture},
-    log::{warn, debug, info},
+    log::{warn, info},
 };
 use {
     client::{
@@ -37,10 +37,10 @@ use {
     inherents::InherentDataProviders,
     runtime_primitives::{
         codec::{Decode, Encode},
-        generic::{BlockId, DigestItem},
+        generic::BlockId,
         traits::{
             Block, Header,
-            Digest, DigestItem as DigestItemT, DigestFor, DigestItemFor, NumberFor,
+            Digest, DigestFor, DigestItemFor, NumberFor,
             ProvideRuntimeApi,
             As, SimpleArithmetic, Zero, One,
         },
@@ -101,7 +101,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
 
         let proposer = match env.init(&chain_head, &Vec::new()) {
             Ok(p) => p,
-            Err(e) => {
+            Err(_) => {
                 // warn!("failed to create block {:?}", e);
                 return Ok(());
             }
@@ -223,7 +223,7 @@ fn calc_difficulty<B, C, AccountId>(
     let target_block_time = api.target_block_time(&curr_block_id)
         .map_err(to_common_error)?;
     let block_gap = As::<u64>::as_(*header.number() - *last_num);
-    let time_gap = (timestamp - last_time);
+    let time_gap = timestamp - last_time;
     let expected_gap = target_block_time * 1000 * block_gap;
     let new_difficulty = (curr_difficulty / expected_gap) * time_gap;
     info!("difficulty adjustment: gap {} time {}", block_gap, time_gap);
@@ -251,7 +251,6 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
     C: ChainHead<B>,
     I: BlockImport<B>,
     W: PowWorker<B>,
-//W::OnJob: IntoFuture<Item=(), Error=consensus_common::Error>,
     SO: SyncOracle,
     OnExit: Future<Item=(), Error=()>,
 {

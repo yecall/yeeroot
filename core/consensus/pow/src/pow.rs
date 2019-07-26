@@ -21,7 +21,7 @@ use runtime_primitives::{
     codec::{
         Decode, Encode, Input, Output,
     },
-    traits::{Block, Hash},
+    traits::Block,
 };
 use {
     pow_primitives::DifficultyType,
@@ -141,7 +141,7 @@ impl Encode for ProofNonce {
 }
 
 pub fn check_seal<B: Block, AccountId>(
-    seal: PowSeal<AccountId>, hash: B::Hash, pre_hash: B::Hash,
+    seal: PowSeal<AccountId>, hash: B::Hash, _pre_hash: B::Hash,
 ) -> Result<(), String> where
     AccountId: Decode + Encode,
 {
