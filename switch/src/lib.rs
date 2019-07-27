@@ -60,11 +60,11 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
     let (signal, exit) = exit_future::signal();
 
 
-    let _server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler()).unwrap();
+    let _server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler())?;
 
     info!(target: TARGET, "Switch rpc http listen on: {}", rpc_address_http);
 
-    let _server = yee_switch_rpc_servers::start_ws(&rpc_address_ws, handler()).unwrap();
+    let _server = yee_switch_rpc_servers::start_ws(&rpc_address_ws, handler())?;
 
     info!(target: TARGET, "Switch rpc ws listen on: {}", rpc_address_ws);
 
