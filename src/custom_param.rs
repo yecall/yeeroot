@@ -20,7 +20,7 @@ use {
     substrate_cli::{impl_augment_clap},
 };
 use log::info;
-use substrate_service::{FactoryFullConfiguration, ServiceFactory};
+use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles};
 use crate::error;
 use crate::service::{NodeConfig};
 use yee_bootnodes_router;
@@ -55,10 +55,12 @@ fn get_native_bootnodes(bootnodes_router_conf: BootnodesRouterConf, shard_num: u
 pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
 where F: ServiceFactory<Configuration=NodeConfig>{
 
-    if let Some(coin_base) = &custom_args.coin_base {
-        info!("Coin Base: {}", coin_base);
+
+    if config.roles == Roles::AUTHORITY{
+        let coin_base = custom_args.coin_base.clone().ok_or(error::ErrorKind::Input("Coin base not found".to_string().into()))?;
+        info!("Coin base: {}", coin_base);
         config.custom.parse_coin_base(coin_base.to_owned())
-            .map_err(|e| format!("Bad coinbase address {:?}", e))?;
+            .map_err(|e| format!("Bad coin base address: {:?}", e))?;
     }
 
     config.custom.shard_num = custom_args.shard_num;
