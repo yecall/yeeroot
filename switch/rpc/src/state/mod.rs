@@ -34,6 +34,9 @@ use crate::errors;
 pub trait StateApi<Hash> {
 	#[rpc(name = "state_getBalance")]
 	fn balance(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex>;
+
+	#[rpc(name = "state_getNonce")]
+	fn nonce(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex>;
 }
 
 /// State API with subscriptions support.
@@ -64,29 +67,54 @@ impl<Hash> StateApi<Hash> for State
 		let shard_count = self.get_shard_count();
 
 		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or::<errors::Error>(errors::ErrorKind::InvalidShard.into())?;
+		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
 
 		//free balance
 		let key = get_storage_key(&account_id, StorageKeyId::FreeBalance);
+		log::debug!("free balance key: {}", hex::encode(key.clone().0));
 
 		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
+		log::debug!("free balance storage: {}", storage.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
 
 		let free_balance = storage.map(|x|{
-			BigUint::from_bytes_be(&x.0)
+			BigUint::from_bytes_le(&x.0)
 		}).unwrap_or(BigUint::from(0u64));
 
 		//reserved balance
 		let key = get_storage_key(&account_id, StorageKeyId::ReservedBalance);
+		log::debug!("reserved balance key: {}", hex::encode(key.clone().0));
 
 		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
+		log::debug!("free reserved storage: {}", storage.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
 
 		let reserved_balance = storage.map(|x|{
-			BigUint::from_bytes_be(&x.0)
+			BigUint::from_bytes_le(&x.0)
 		}).unwrap_or(BigUint::from(0u64));
 
 		//sum
 		let balance = free_balance + &reserved_balance;
 
 		Ok(balance.into())
+	}
+
+	fn nonce(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex> {
+
+		let shard_count = self.get_shard_count();
+
+		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or::<errors::Error>(errors::ErrorKind::InvalidShard.into())?;
+		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
+
+		let key = get_storage_key(&account_id, StorageKeyId::AccountNonce);
+		log::debug!("nonce key: {}", hex::encode(key.clone().0));
+
+		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
+		log::debug!("nonce storage: {}", storage.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+
+		let nonce = storage.map(|x|{
+			BigUint::from_bytes_le(&x.0)
+		}).unwrap_or(BigUint::from(0u64));
+
+		Ok(nonce.into())
 	}
 }
 

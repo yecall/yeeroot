@@ -30,6 +30,7 @@ hex-literal = "0.1"
 rustc-hex = "2.0"
 rand = "0.6.5"
 num-bigint = "0.2.2"
+hex = "0.3.2"
 
 [features]
 http = []
