@@ -16,43 +16,38 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 use jsonrpc_derive::rpc;
-use primitives::{Bytes};
 use crate::Config;
-use crate::client::RpcClient;
-use serde::{Serialize};
-use serde::de::DeserializeOwned;
+use crate::client::{RpcClient, Hex};
 
-/// Substrate authoring RPC API
+/// Substrate state API
 #[rpc]
-pub trait AuthorApi<Hash> {
-
-	/// Submit hex-encoded extrinsic for inclusion in block.
-	#[rpc(name = "author_submitExtrinsic")]
-	fn submit_extrinsic(&self, extrinsic: Bytes) -> jsonrpc_core::Result<Hash>;
+pub trait SystemApi {
+	/// Returns a storage entry at a specific block's state.
+	#[rpc(name = "system_getShardCount")]
+	fn shard_count(&self) -> jsonrpc_core::Result<Hex>;
 }
 
-/// Authoring API
-pub struct Author {
-	config : Config,
+/// State API with subscriptions support.
+pub struct System {
+	config: Config,
 	rpc_client: RpcClient,
 }
 
-impl Author {
+impl System {
 	/// Create new State API RPC handler.
 	pub fn new(config: Config) -> Self {
 		Self {
 			config: config.clone(),
-			rpc_client: RpcClient::new(config)
-		}
+			rpc_client: RpcClient::new(config),
+        }
 	}
 }
 
-impl<Hash> AuthorApi<Hash> for Author
-	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
+impl SystemApi for System
 {
-	fn submit_extrinsic(&self, extrinsic: Bytes) -> jsonrpc_core::Result<Hash> {
+	fn shard_count(&self) -> jsonrpc_core::Result<Hex> {
 
-		unimplemented!();
+		let s = self.config.shards.len() as u32;
+		Ok(s.into())
 	}
-
 }

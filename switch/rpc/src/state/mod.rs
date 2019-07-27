@@ -15,41 +15,30 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use log::{info};
 use jsonrpc_derive::rpc;
-use primitives::{Bytes};
-use primitives::storage::{StorageKey, StorageData};
-use crate::rpc::futures::{Future, Sink, Stream};
+use primitives::{sr25519, storage::{StorageKey, StorageData}};
+use crate::rpc::futures::{Future, Stream};
 use crate::Config;
-use crate::client::RpcClient;
-use runtime_version::RuntimeVersion;
-use jsonrpc_core_client::TypedClient;
-use std::time::Duration;
-use serde::{Serialize};
+use crate::client::{RpcClient, Hex};
+use serde::Serialize;
 use serde::de::DeserializeOwned;
-use serde_json::Value;
+use parity_codec::{KeyedVec};
+use sr_io::blake2_256;
+use num_bigint::BigUint;
+use yee_runtime::AccountId;
+use yee_sharding::utils::shard_num_for_account_id;
+use crate::errors;
 
 /// Substrate state API
 #[rpc]
 pub trait StateApi<Hash> {
-
-	/// Returns a storage entry at a specific block's state.
-	#[rpc(name = "state_getStorage", alias("state_getStorageAt"))]
-	fn storage(&self, key: StorageKey, hash: Option<Hash>) -> jsonrpc_core::Result<Option<StorageData>>;
-
-	/// Returns the runtime metadata as an opaque blob.
-	#[rpc(name = "state_getMetadata")]
-	fn metadata(&self, hash: Option<Hash>) -> jsonrpc_core::Result<Bytes>;
-
-	/// Get the runtime version.
-	#[rpc(name = "state_getRuntimeVersion", alias("chain_getRuntimeVersion"))]
-	fn runtime_version(&self, hash: Option<Hash>) -> jsonrpc_core::Result<Value>;
-
+	#[rpc(name = "state_getBalance")]
+	fn balance(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex>;
 }
 
 /// State API with subscriptions support.
 pub struct State {
-	config : Config,
+	config: Config,
 	rpc_client: RpcClient,
 }
 
@@ -58,29 +47,65 @@ impl State {
 	pub fn new(config: Config) -> Self {
 		Self {
 			config: config.clone(),
-			rpc_client: RpcClient::new(config)
-		}
+			rpc_client: RpcClient::new(config),
+        }
+	}
+
+	fn get_shard_count(&self)->u16{
+		self.config.shards.len() as u16
 	}
 }
 
 impl<Hash> StateApi<Hash> for State
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn storage(&self, key: StorageKey, block: Option<Hash>) -> jsonrpc_core::Result<Option<StorageData>> {
+	fn balance(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex> {
 
-		self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, block))
+		let shard_count = self.get_shard_count();
 
+		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or::<errors::Error>(errors::ErrorKind::InvalidShard.into())?;
+
+		//free balance
+		let key = get_storage_key(&account_id, StorageKeyId::FreeBalance);
+
+		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
+
+		let free_balance = storage.map(|x|{
+			BigUint::from_bytes_be(&x.0)
+		}).unwrap_or(BigUint::from(0u64));
+
+		//reserved balance
+		let key = get_storage_key(&account_id, StorageKeyId::ReservedBalance);
+
+		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
+
+		let reserved_balance = storage.map(|x|{
+			BigUint::from_bytes_be(&x.0)
+		}).unwrap_or(BigUint::from(0u64));
+
+		//sum
+		let balance = free_balance + &reserved_balance;
+
+		Ok(balance.into())
 	}
+}
 
-	fn metadata(&self, hash: Option<Hash>) -> jsonrpc_core::Result<Bytes> {
+enum StorageKeyId{
+	FreeBalance,
+	ReservedBalance,
+	AccountNonce,
 
-		self.rpc_client.call_method("state_getMetadata", "Bytes", (hash,))
+}
 
+fn get_prefix(storage_key_id: StorageKeyId) -> &'static [u8]{
+	match storage_key_id{
+		StorageKeyId::FreeBalance => b"Balances FreeBalance",
+		StorageKeyId::ReservedBalance => b"Balances ReservedBalance",
+		StorageKeyId::AccountNonce => b"System AccountNonce",
 	}
+}
 
-	fn runtime_version(&self, hash: Option<Hash>) -> jsonrpc_core::Result<Value> {
-
-		self.rpc_client.call_method("state_getRuntimeVersion", "Value", (hash,))
-
-	}
+fn get_storage_key(account_id: &AccountId, storage_key_id: StorageKeyId) -> StorageKey {
+	let a = blake2_256(&account_id.to_keyed_vec(get_prefix(storage_key_id))).to_vec();
+	StorageKey(a)
 }

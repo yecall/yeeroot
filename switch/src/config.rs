@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_cli::{VersionInfo, error};
+use substrate_cli::{VersionInfo};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -75,12 +75,12 @@ pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cl
 
     trace!(target: crate::TARGET, "conf_path:{}", conf_path.to_string_lossy());
 
-    let mut file = File::open(&conf_path).map_err(|e| "Non-existed conf file")?;
+    let mut file = File::open(&conf_path).map_err(|_e| "Non-existed conf file")?;
 
     let mut str_val = String::new();
     file.read_to_string(&mut str_val)?;
 
-    let conf: SwitchConf = toml::from_str(&str_val).map_err(|e| "Error reading conf file")?;
+    let conf: SwitchConf = toml::from_str(&str_val).map_err(|_e| "Error reading conf file")?;
 
     Ok(conf)
 }

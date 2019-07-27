@@ -19,13 +19,13 @@ pub mod params;
 pub mod config;
 use substrate_cli::{VersionInfo};
 use crate::params::SwitchCommandCmd;
-use log::{info, warn, debug, trace};
-use std::thread;
+use log::{info};
 use futures::future::Future;
 use std::net::SocketAddr;
 use yee_switch_rpc::author::Author;
 use substrate_primitives::H256;
 use yee_switch_rpc::state::State;
+use yee_switch_rpc::system::System;
 use crate::config::get_config;
 
 pub const TARGET : &str = "switch";
@@ -49,20 +49,22 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
 
         let author = Author::new(rpc_config.clone());
         let state = State::new(rpc_config.clone());
-        yee_switch_rpc_servers::rpc_handler::<_, _, H256>(
+        let system = System::new(rpc_config.clone());
+        yee_switch_rpc_servers::rpc_handler::<_, _, _, H256>(
             author,
             state,
+            system,
         )
     };
 
     let (signal, exit) = exit_future::signal();
 
 
-    let server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler()).unwrap();
+    let _server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler())?;
 
     info!(target: TARGET, "Switch rpc http listen on: {}", rpc_address_http);
 
-    let server = yee_switch_rpc_servers::start_ws(&rpc_address_ws, handler()).unwrap();
+    let _server = yee_switch_rpc_servers::start_ws(&rpc_address_ws, handler())?;
 
     info!(target: TARGET, "Switch rpc ws listen on: {}", rpc_address_ws);
 

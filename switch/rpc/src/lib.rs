@@ -20,6 +20,7 @@
 pub mod metadata;
 pub mod author;
 pub mod state;
+pub mod system;
 mod errors;
 mod client;
 use jsonrpc_core as rpc;
