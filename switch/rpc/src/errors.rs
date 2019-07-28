@@ -18,6 +18,7 @@
 use error_chain::*;
 use crate::rpc;
 use log::warn;
+use jsonrpc_client_transports::RpcError;
 
 error_chain! {
 	errors {
@@ -26,9 +27,21 @@ error_chain! {
 			description("not yet implemented"),
 			display("Method Not Implemented"),
 		}
+		ConfigError {
+			description("config error"),
+			display("Config error"),
+		}
 		InvalidShard {
 			description("invalid shard"),
 			display("Invalid shard"),
+		}
+		ParseError {
+			description("parse error"),
+			display("Parse error"),
+		}
+		RpcError(e: jsonrpc_client_transports::RpcError) {
+			description("rpc error"),
+			display("Rpc error"),
 		}
 	}
 }
@@ -37,26 +50,36 @@ error_chain! {
 impl From<Error> for rpc::Error {
 	fn from(e: Error) -> Self {
 		match e {
-			Error(ErrorKind::Unimplemented, _) =>unimplemented(),
-			Error(ErrorKind::InvalidShard, _) =>invalid_shard(),
+			Error(ErrorKind::Unimplemented, _) => rpc::Error {
+				code: rpc::ErrorCode::ServerError(1),
+				message: "Not implemented yet".into(),
+				data: None,
+			},
+			Error(ErrorKind::ConfigError, _) => rpc::Error {
+				code: rpc::ErrorCode::ServerError(1),
+				message: "Internal error".into(),
+				data: None,
+			},
+			Error(ErrorKind::InvalidShard, _) => rpc::Error {
+				code: rpc::ErrorCode::ServerError(1),
+				message: "Invalid shard".into(),
+				data: None,
+			},
+			Error(ErrorKind::ParseError, _) => rpc::Error {
+				code: rpc::ErrorCode::ServerError(1),
+				message: "Parse error".into(),
+				data: None,
+			},
+			Error(ErrorKind::RpcError(e), _) => match e{
+				RpcError::JsonRpcError(e) => serde_json::from_str(&serde_json::to_string(&e).unwrap()).unwrap(),
+				other=> rpc::Error{
+					code: rpc::ErrorCode::ServerError(1),
+					message: rpc::ErrorCode::ServerError(1).description(),
+					data: Some(format!("{:?}", other).into()),
+				},
+			}
 			e => internal(e),
 		}
-	}
-}
-
-pub fn unimplemented() -> rpc::Error {
-	rpc::Error {
-		code: rpc::ErrorCode::ServerError(1),
-		message: "Not implemented yet".into(),
-		data: None,
-	}
-}
-
-pub fn invalid_shard() -> rpc::Error {
-	rpc::Error {
-		code: rpc::ErrorCode::InvalidParams,
-		message: "Invalid shard".into(),
-		data: None,
 	}
 }
 

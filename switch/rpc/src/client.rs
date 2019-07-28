@@ -21,6 +21,7 @@ use jsonrpc_core_client::TypedClient;
 use crate::rpc::futures::{Future};
 use crate::Config;
 use crate::rpc;
+use crate::errors;
 use rand::Rng;
 use jsonrpc_client_transports::RpcError;
 use impl_serde::serialize;
@@ -39,16 +40,14 @@ impl RpcClient{
         }
     }
 
-    fn get_random_rpc_uri(&self, shard_num: u16) -> rpc::Result<String>  {
+    fn get_random_rpc_uri(&self, shard_num: u16) -> errors::Result<String>  {
 
+        let shard = self.config.shards.get(&format!("{}", shard_num)).ok_or(errors::Error::from(errors::ErrorKind::ConfigError))?;
 
-        let rpc = match self.config.shards.get(&format!("{}", shard_num)) {
-            Some(shard) => &shard.rpc,
-            None => return Err(jsonrpc_core::Error::internal_error()),
-        };
+        let rpc = &shard.rpc;
 
         if rpc.len()==0{
-            return Err(jsonrpc_core::Error::internal_error());
+            return Err(errors::Error::from(errors::ErrorKind::ConfigError));
         }
 
         let mut rng =rand::thread_rng();
@@ -64,7 +63,7 @@ impl RpcClient{
         returns: &'static str,
         args: T,
         shard_num: u16,
-    ) -> rpc::Result<R> {
+    ) -> errors::Result<R> {
 
         let uri = self.get_random_rpc_uri(shard_num)?;
 
@@ -80,16 +79,9 @@ impl RpcClient{
 
 }
 
-fn parse_error(error: RpcError) -> jsonrpc_core::Error{
+fn parse_error(error: RpcError) -> errors::Error{
 
-    match error{
-        RpcError::JsonRpcError(e) => serde_json::from_str(&serde_json::to_string(&e).unwrap()).unwrap(),
-        other=> rpc::Error{
-            code: rpc::ErrorCode::InternalError,
-            message: rpc::ErrorCode::InternalError.description(),
-            data: Some(format!("{:?}", other).into()),
-        },
-    }
+    errors::Error::from(errors::ErrorKind::RpcError(error))
 }
 
 #[derive(Serialize, Deserialize)]

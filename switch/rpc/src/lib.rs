@@ -35,3 +35,9 @@ pub struct Config{
 pub struct Shard {
     pub rpc: Vec<String>,
 }
+
+impl Config{
+    fn get_shard_count(&self)->u16{
+        self.shards.len() as u16
+    }
+}

@@ -17,6 +17,7 @@
 
 use jsonrpc_derive::rpc;
 use crate::Config;
+use crate::errors;
 use crate::client::{RpcClient, Hex};
 
 /// Substrate state API
@@ -24,7 +25,7 @@ use crate::client::{RpcClient, Hex};
 pub trait SystemApi {
 	/// Returns a storage entry at a specific block's state.
 	#[rpc(name = "system_getShardCount")]
-	fn shard_count(&self) -> jsonrpc_core::Result<Hex>;
+	fn shard_count(&self) -> errors::Result<Hex>;
 }
 
 /// State API with subscriptions support.
@@ -45,7 +46,7 @@ impl System {
 
 impl SystemApi for System
 {
-	fn shard_count(&self) -> jsonrpc_core::Result<Hex> {
+	fn shard_count(&self) -> errors::Result<Hex> {
 
 		let s = self.config.shards.len() as u32;
 		Ok(s.into())

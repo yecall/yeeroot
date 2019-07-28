@@ -33,10 +33,10 @@ use crate::errors;
 #[rpc]
 pub trait StateApi<Hash> {
 	#[rpc(name = "state_getBalance")]
-	fn balance(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex>;
+	fn balance(&self, account_id: AccountId) -> errors::Result<Hex>;
 
 	#[rpc(name = "state_getNonce")]
-	fn nonce(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex>;
+	fn nonce(&self, account_id: AccountId) -> errors::Result<Hex>;
 }
 
 /// State API with subscriptions support.
@@ -53,20 +53,16 @@ impl State {
 			rpc_client: RpcClient::new(config),
         }
 	}
-
-	fn get_shard_count(&self)->u16{
-		self.config.shards.len() as u16
-	}
 }
 
 impl<Hash> StateApi<Hash> for State
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn balance(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex> {
+	fn balance(&self, account_id: AccountId) -> errors::Result<Hex> {
 
-		let shard_count = self.get_shard_count();
+		let shard_count = self.config.get_shard_count();
 
-		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or::<errors::Error>(errors::ErrorKind::InvalidShard.into())?;
+		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or(errors::Error::from(errors::ErrorKind::InvalidShard))?;
 		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
 
 		//free balance
@@ -97,11 +93,11 @@ impl<Hash> StateApi<Hash> for State
 		Ok(balance.into())
 	}
 
-	fn nonce(&self, account_id: AccountId) -> jsonrpc_core::Result<Hex> {
+	fn nonce(&self, account_id: AccountId) -> errors::Result<Hex> {
 
-		let shard_count = self.get_shard_count();
+		let shard_count = self.config.get_shard_count();
 
-		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or::<errors::Error>(errors::ErrorKind::InvalidShard.into())?;
+		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or(errors::Error::from(errors::ErrorKind::InvalidShard))?;
 		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
 
 		let key = get_storage_key(&account_id, StorageKeyId::AccountNonce);
