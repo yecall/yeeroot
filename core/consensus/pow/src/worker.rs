@@ -55,37 +55,38 @@ use super::{
 };
 
 pub trait PowWorker<B: Block> {
-    //type OnJob: IntoFuture<Item=(), Error=consensus_common::Error>;
+    type OnJob: IntoFuture<Item=(), Error=consensus_common::Error>;
 
     fn on_start(&self) -> Result<(), consensus_common::Error>;
 
-    fn on_job(&self, chain_head: B::Header, iter: u64) -> Result<(), consensus_common::Error>;
+    fn on_job(&self, chain_head: B::Header, iter: u64) -> Self::OnJob;
 }
 
-pub struct DefaultWorker<C, I, E, AccountId, SO> {
+pub struct DefaultWorker<B, C, I, E, AccountId, SO> {
     pub(crate) client: Arc<C>,
     pub(crate) block_import: Arc<I>,
     pub(crate) env: Arc<E>,
     pub(crate) sync_oracle: SO,
     pub(crate) inherent_data_providers: InherentDataProviders,
     pub(crate) coin_base: AccountId,
-    pub(crate) phantom: PhantomData<AccountId>,
+    pub(crate) phantom: PhantomData<(B, AccountId)>,
 }
 
-impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountId, SO> where
+impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, AccountId, SO> where
     B: Block,
     DigestFor<B>: Digest,
-    C: HeaderBackend<B> + ProvideRuntimeApi,
+    C: HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
-    I: BlockImport<B, Error=consensus_common::Error>,
+    I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     E: Environment<B> + 'static,
     <E as Environment<B>>::Proposer: Proposer<B>,
     <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
-    AccountId: Clone + Debug + Decode + Encode + Default,
-    SO: SyncOracle,
+    <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
+    AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
+    SO: SyncOracle + Send + Clone,
     DigestItemFor<B>: CompatibleDigestItem<AccountId>,
 {
-    //type OnJob = Box<Future<Item=(), Error=consensus_common::Error>>;
+    type OnJob = Box<Future<Item=(), Error=consensus_common::Error> + Send>;
 
     fn on_start(&self) -> Result<(), consensus_common::Error> {
         super::register_inherent_data_provider(&self.inherent_data_providers)
@@ -94,7 +95,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
     fn on_job(&self,
               chain_head: B::Header,
               iter: u64,
-    ) -> Result<(), consensus_common::Error> {
+    ) -> Self::OnJob {
         let client = self.client.clone();
         let block_import = self.block_import.clone();
         let env = self.env.clone();
@@ -103,67 +104,78 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<C, I, E, AccountI
             Ok(p) => p,
             Err(_) => {
                 // warn!("failed to create block {:?}", e);
-                return Ok(());
+                return Box::new(future::ok(()));
             }
         };
-        let inherent_data = self.inherent_data_providers.create_inherent_data()
-            .map_err(super::inherent_to_common_error)?;
+        let inherent_data = match self.inherent_data_providers.create_inherent_data() {
+            Ok(data) => data,
+            Err(e) => {
+                warn!("{:?}", e);
+                return Box::new(future::ok(()));
+            }
+        };
         let remaining_duration = Duration::new(10, 0);
 
         let proposal_work = proposer.propose(
             inherent_data, remaining_duration,
         ).into_future();
 
-        let block: B = match proposal_work.wait() {
-            Ok(b) => b,
-            Err(e) => {
-                warn!("block build failed {:?}", e);
-                return Ok(());
-            }
-        };
-        let (header, body) = block.deconstruct();
-        let header_num = header.number().clone();
-        let header_pre_hash = header.hash();
-        let timestamp = timestamp_now()?;
-        let difficulty = calc_difficulty(client.clone(), &header, timestamp)?;
-        info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
+        let coin_base = self.coin_base.clone();
+        let on_proposal_block = move |block: B| -> Result<(), consensus_common::Error> {
+            let (header, body) = block.deconstruct();
+            let header_num = header.number().clone();
+            let header_pre_hash = header.hash();
+            let timestamp = timestamp_now()?;
+            let difficulty = calc_difficulty(client, &header, timestamp)?;
+            info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
 
-        // TODO: remove hardcoded
-        const PREFIX: &str = "yeeroot-";
+            // TODO: remove hardcoded
+            const PREFIX: &str = "yeeroot-";
 
-        for i in 0_u64..iter {
-            let mut work_header = header.clone();
-            let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
-            let seal = PowSeal {
-                coin_base: self.coin_base.clone(),
-                difficulty,
-                timestamp,
-                work_proof: proof,
-            };
-            let item = <DigestItemFor<B> as CompatibleDigestItem<AccountId>>::pow_seal(seal.clone());
-            work_header.digest_mut().push(item);
-
-            let post_hash = work_header.hash();
-            if let Ok(_) = check_seal::<B, AccountId>(seal, post_hash, header_pre_hash) {
-                let valid_seal = work_header.digest_mut().pop().expect("must exists");
-                let import_block: ImportBlock<B> = ImportBlock {
-                    origin: BlockOrigin::Own,
-                    header,
-                    justification: None,
-                    post_digests: vec![valid_seal],
-                    body: Some(body),
-                    finalized: false,
-                    auxiliary: Vec::new(),
-                    fork_choice: ForkChoiceStrategy::LongestChain,
+            for i in 0_u64..iter {
+                let mut work_header = header.clone();
+                let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
+                let seal = PowSeal {
+                    coin_base: coin_base.clone(),
+                    difficulty,
+                    timestamp,
+                    work_proof: proof,
                 };
-                block_import.import_block(import_block, Default::default())?;
+                let item = <DigestItemFor<B> as CompatibleDigestItem<AccountId>>::pow_seal(seal.clone());
+                work_header.digest_mut().push(item);
 
-                info!("block mined @ {} {:?}", header_num, post_hash);
-                return Ok(());
+                let post_hash = work_header.hash();
+                if let Ok(_) = check_seal::<B, AccountId>(seal, post_hash, header_pre_hash) {
+                    let valid_seal = work_header.digest_mut().pop().expect("must exists");
+                    let import_block: ImportBlock<B> = ImportBlock {
+                        origin: BlockOrigin::Own,
+                        header,
+                        justification: None,
+                        post_digests: vec![valid_seal],
+                        body: Some(body),
+                        finalized: false,
+                        auxiliary: Vec::new(),
+                        fork_choice: ForkChoiceStrategy::LongestChain,
+                    };
+                    block_import.import_block(import_block, Default::default())?;
+
+                    info!("block mined @ {} {:?}", header_num, post_hash);
+                    return Ok(());
+                }
             }
-        }
 
-        Ok(())
+            Ok(())
+        };
+
+        Box::new(
+            proposal_work
+                .map_err(to_common_error)
+                .map(|block| {
+                    if let Err(e) = on_proposal_block(block) {
+                        warn!("block proposal failed {:?}", e);
+                    }
+                })
+        )
     }
 }
 
@@ -263,7 +275,7 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
 
         if sync_oracle.is_major_syncing() {
             std::thread::sleep(std::time::Duration::new(5, 0));
-            return Ok(future::Loop::Continue(()));
+            return future::Either::A(future::ok(future::Loop::Continue(())));
         }
 
         let chain_head = match client.best_block_header() {
@@ -271,21 +283,16 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
             Err(e) => {
                 warn!("failed to get chain head {:?}", e);
                 std::thread::sleep(std::time::Duration::new(5, 0));
-                return Ok(future::Loop::Continue(()));
+                return future::Either::A(future::ok(future::Loop::Continue(())));
             }
         };
 
         let task = worker.on_job(chain_head, 10000).into_future();
-        match task.wait() {
-            Ok(_) => {
-                info!("succ worker on_job")
-            }
-            Err(e) => {
-                warn!("failed worker on_job {:?}", e);
-            }
-        }
-
-        Ok(future::Loop::Continue(()))
+        future::Either::B(
+            task.then(|_| {
+                Ok(future::Loop::Continue(()))
+            })
+        )
     });
 
     Ok(work.select(on_exit).then(|_| Ok(())))

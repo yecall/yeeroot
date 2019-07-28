@@ -19,7 +19,7 @@
 
 use {
     std::{fmt::Debug, marker::PhantomData, sync::Arc},
-    futures::Future,
+    futures::{Future, IntoFuture},
 };
 use {
     client::{
@@ -27,7 +27,7 @@ use {
         blockchain::HeaderBackend,
     },
     consensus_common::{
-        BlockImport, Environment, SyncOracle,
+        BlockImport, Environment, Proposer, SyncOracle,
         import_queue::{
             BasicQueue,
             SharedBlockImport, SharedJustificationImport,
@@ -70,11 +70,12 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
-    C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi,
+    C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
-    I: BlockImport<B, Error=consensus_common::Error>,
+    I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     E: Environment<B> + 'static,
-    AccountId: Clone + Debug + Decode + Encode + Default,
+    <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
+    AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<AccountId>,
@@ -85,7 +86,7 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
         env,
         sync_oracle: sync_oracle.clone(),
         inherent_data_providers: inherent_data_providers.clone(),
-        coin_base,
+        coin_base: coin_base.clone(),
         phantom: PhantomData,
     };
     worker::start_worker::<_, _, I, _, _, _>(
