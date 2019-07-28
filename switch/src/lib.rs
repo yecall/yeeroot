@@ -23,9 +23,9 @@ use log::{info};
 use futures::future::Future;
 use std::net::SocketAddr;
 use yee_switch_rpc::author::Author;
-use substrate_primitives::H256;
 use yee_switch_rpc::state::State;
 use yee_switch_rpc::system::System;
+use yee_switch_rpc::chain::Chain;
 use crate::config::get_config;
 
 pub const TARGET : &str = "switch";
@@ -50,10 +50,12 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
         let author = Author::new(rpc_config.clone());
         let state = State::new(rpc_config.clone());
         let system = System::new(rpc_config.clone());
-        yee_switch_rpc_servers::rpc_handler::<_, _, _, H256>(
+        let chain = Chain::new(rpc_config.clone());
+        yee_switch_rpc_servers::rpc_handler::<_, _, _, _, yee_runtime::Hash, yee_runtime::BlockNumber>(
             author,
             state,
             system,
+            chain,
         )
     };
 

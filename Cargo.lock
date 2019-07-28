@@ -5114,6 +5114,7 @@ dependencies = [
  "substrate-transaction-pool 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yee-runtime 1.0.0",
  "yee-switch-rpc 1.0.0",
  "yee-switch-rpc-servers 1.0.0",
 ]

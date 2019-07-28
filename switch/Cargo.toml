@@ -32,3 +32,4 @@ substrate-primitives = { package = "substrate-primitives", git = "https://github
 transaction_pool =  { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 yee-switch-rpc-servers = { package = "yee-switch-rpc-servers", path = "rpc-servers" }
 yee-switch-rpc = { package = "yee-switch-rpc", path = "rpc" }
+yee-runtime = { package = "yee-runtime", path = "../runtime" }
