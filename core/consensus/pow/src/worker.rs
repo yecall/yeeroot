@@ -20,10 +20,14 @@ use {
         fmt::Debug,
         marker::PhantomData,
         sync::Arc,
-        time::{Duration, SystemTime, UNIX_EPOCH},
+        time::{Duration, Instant, SystemTime, UNIX_EPOCH},
     },
-    futures::{future, Future, IntoFuture},
+    futures::{
+        future::{self, Either, Loop},
+        Future, IntoFuture,
+    },
     log::{warn, info},
+    tokio::timer::Delay,
 };
 use {
     client::{
@@ -273,24 +277,25 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
         // worker main loop
         info!("worker one loop start");
 
+        let delayed_continue = Delay::new(Instant::now() + Duration::new(5, 0))
+            .then(|_| future::ok(Loop::Continue(())));
+
         if sync_oracle.is_major_syncing() {
-            std::thread::sleep(std::time::Duration::new(5, 0));
-            return future::Either::A(future::ok(future::Loop::Continue(())));
+            return Either::A(delayed_continue);
         }
 
         let chain_head = match client.best_block_header() {
             Ok(x) => x,
             Err(e) => {
                 warn!("failed to get chain head {:?}", e);
-                std::thread::sleep(std::time::Duration::new(5, 0));
-                return future::Either::A(future::ok(future::Loop::Continue(())));
+                return Either::A(delayed_continue);
             }
         };
 
         let task = worker.on_job(chain_head, 10000).into_future();
-        future::Either::B(
+        Either::B(
             task.then(|_| {
-                Ok(future::Loop::Continue(()))
+                Ok(Loop::Continue(()))
             })
         )
     });

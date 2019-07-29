@@ -5007,6 +5007,7 @@ dependencies = [
  "substrate-consensus-common 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-inherents 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-consensus-pow-primitives 0.1.0",
 ]
 
