@@ -1,4 +1,9 @@
-use primitives::{ed25519, sr25519, Pair};
+use {
+    primitives::{
+        ed25519, sr25519, Pair,
+        crypto::Ss58Codec,
+    },
+};
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig,
@@ -37,6 +42,11 @@ fn account_key(s: &str) -> AccountId {
 	sr25519::Pair::from_string(&format!("//{}", s), None)
 		.expect("static values are valid; qed")
 		.public()
+}
+
+fn account_addr(s: &str) -> AccountId {
+    <AccountId as Ss58Codec>::from_string(s)
+        .expect("static values are valid; qed")
 }
 
 impl Alternative {
@@ -83,6 +93,10 @@ impl Alternative {
                 "POC Testnet",
                 "poc_testnet",
                 || poc_testnet_genesis(vec![
+                    account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
+                    account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
+                    account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
+                    account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
                 ]),
                 vec![],
                 None,
