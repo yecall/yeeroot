@@ -20,12 +20,12 @@ use serde::de::DeserializeOwned;
 use jsonrpc_core_client::TypedClient;
 use crate::rpc::futures::{Future};
 use crate::Config;
-use crate::rpc;
 use crate::errors;
 use rand::Rng;
 use jsonrpc_client_transports::RpcError;
 use impl_serde::serialize;
 use num_bigint::BigUint;
+use jsonrpc_core::BoxFuture;
 
 pub struct RpcClient{
     config: Config,
@@ -75,6 +75,27 @@ impl RpcClient{
             }).wait().map_err(|e| {log::error!("RPC Client error: {:?}", e); e}).map_err(parse_error);
 
         result
+    }
+
+    pub fn call_method_async<T: Serialize + 'static + Send, R: DeserializeOwned + 'static + Send>(
+        &self, method: &str,
+        returns: &'static str,
+        args: T,
+        shard_num: u16,
+    ) ->  errors::Result<BoxFuture<R>> {
+
+        let uri = self.get_random_rpc_uri(shard_num)?;
+
+        let method = method.to_owned();
+
+        let run = jsonrpc_core_client::transports::http::connect(&uri)
+            .and_then(move |client: TypedClient| {
+                client.call_method(&method, "returns", args).and_then(move |result| {
+                    Ok(result)
+                })
+            }).map_err(|e| {log::error!("RPC Client error: {:?}", e); e}).map_err(parse_error).map_err(|e|e.into());
+
+        Ok(Box::new(run))
     }
 
 }

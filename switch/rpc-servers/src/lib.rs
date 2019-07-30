@@ -15,8 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-#[warn(missing_docs)]
-
 use std::io;
 use log::error;
 use sr_primitives;

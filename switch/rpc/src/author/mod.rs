@@ -25,6 +25,8 @@ use serde::de::DeserializeOwned;
 use parity_codec::{Encode, Decode};
 use runtime_primitives::OpaqueExtrinsic;
 use yee_sharding::utils::shard_num_for_account_id;
+use jsonrpc_core::BoxFuture;
+use crate::rpc::{self, futures::future::{self, FutureResult}};
 
 /// Substrate authoring RPC API
 #[rpc]
@@ -32,7 +34,7 @@ pub trait AuthorApi<Hash> {
 
 	/// Submit hex-encoded extrinsic for inclusion in block.
 	#[rpc(name = "author_submitExtrinsic")]
-	fn submit_extrinsic(&self, extrinsic: Bytes) -> errors::Result<Hash>;
+	fn submit_extrinsic(&self, extrinsic: Bytes) -> BoxFuture<Hash>;
 }
 
 /// Authoring API
@@ -54,9 +56,12 @@ impl Author {
 impl<Hash> AuthorApi<Hash> for Author
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn submit_extrinsic(&self, extrinsic: Bytes) -> errors::Result<Hash> {
+	fn submit_extrinsic(&self, extrinsic: Bytes) -> BoxFuture<Hash> {
 
-		let xt : OpaqueExtrinsic = Decode::decode(&mut &extrinsic[..]).ok_or(errors::Error::from(errors::ErrorKind::ParseError))?;
+		let xt : OpaqueExtrinsic = match Decode::decode(&mut &extrinsic[..]){
+			Some(xt) => xt,
+			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::ParseError).into())),
+		};
 
 		let bytes : &[u8] = &xt.0;
 
@@ -65,7 +70,7 @@ impl<Hash> AuthorApi<Hash> for Author
 		let is_signed = version & 0b1000_0000 != 0;
 
 		if !is_signed {
-			return Err(errors::Error::from(errors::ErrorKind::ParseError));
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::ParseError).into()));
 		}
 
 		let address = &bytes[1..34];//0xFF + 32bytes
@@ -78,13 +83,15 @@ impl<Hash> AuthorApi<Hash> for Author
 
 		let shard_count = self.config.get_shard_count();
 
-		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or(errors::Error::from(errors::ErrorKind::InvalidShard))?;
+		let shard_num = match shard_num_for_account_id(&account_id, shard_count){
+			Some(shard_num) => shard_num,
+			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
+		};
 
 		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
 
-		let hash : Hash = self.rpc_client.call_method("author_submitExtrinsic", "Hash", (extrinsic,), shard_num)?;
-
-		Ok(hash)
+		self.rpc_client.call_method_async("author_submitExtrinsic", "Hash", (extrinsic,), shard_num)
+			.unwrap_or_else(|e|Box::new(future::err(e.into())))
 	}
 
 }

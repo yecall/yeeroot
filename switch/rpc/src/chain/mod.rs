@@ -29,6 +29,10 @@ use runtime_primitives::OpaqueExtrinsic;
 use yee_sharding::utils::shard_num_for_account_id;
 use number::NumberOrHex;
 use serde_json::Value;
+use crate::rpc::{self, futures::future::{self, FutureResult}};
+use futures::Future;
+use jsonrpc_client_transports::RpcError;
+use jsonrpc_core::BoxFuture;
 
 /// Substrate authoring RPC API
 #[rpc]
@@ -36,17 +40,17 @@ pub trait ChainApi<Number, Hash> {
 
 	/// Get header of a relay chain block.
 	#[rpc(name = "chain_getHeader")]
-	fn header(&self, shard_num: u16, hash: Option<Hash>) -> errors::Result<Option<Value>>;
+	fn header(&self, shard_num: u16, hash: Option<Hash>) -> BoxFuture<Option<Value>>;
 
 	/// Get header and body of a relay chain block.
 	#[rpc(name = "chain_getBlock")]
-	fn block(&self, shard_num: u16, hash: Option<Hash>) -> errors::Result<Option<Value>>;
+	fn block(&self, shard_num: u16, hash: Option<Hash>) -> BoxFuture<Option<Value>>;
 
 	/// Get hash of the n-th block in the canon chain.
 	///
 	/// By default returns latest block hash.
 	#[rpc(name = "chain_getBlockHash", alias("chain_getHead"))]
-	fn block_hash(&self, shard_num: u16, number: Option<NumberOrHex<Number>>) -> errors::Result<Option<Hash>>;
+	fn block_hash(&self, shard_num: u16, number: Option<NumberOrHex<Number>>) -> BoxFuture<Option<Hash>>;
 }
 
 /// Chain API
@@ -67,46 +71,43 @@ impl Chain {
 
 impl<Number, Hash> ChainApi<Number, Hash> for Chain
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned,
-		  Number: Send + Sync + 'static + Serialize + DeserializeOwned
+		  Number: Send + Sync + 'static + Serialize + DeserializeOwned,
 {
-	fn header(&self, shard_num: u16, hash: Option<Hash>) -> errors::Result<Option<Value>>{
+	fn header(&self, shard_num: u16, hash: Option<Hash>) -> BoxFuture<Option<Value>>{
 
 		let shard_count = self.config.get_shard_count();
 
 		if shard_num >= shard_count{
-			return Err(errors::Error::from(errors::ErrorKind::InvalidShard));
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into()));
 		}
 
-		let result : Option<Value> = self.rpc_client.call_method("chain_getHeader", "Option<Header>", (hash, ), shard_num)?;
+		self.rpc_client.call_method_async("chain_getHeader", "Option<Value>", (hash, ), shard_num)
+			.unwrap_or_else(|e|Box::new(future::err(e.into())))
 
-		Ok(result)
 	}
 
-	fn block(&self, shard_num: u16, hash: Option<Hash>) -> errors::Result<Option<Value>>{
+	fn block(&self, shard_num: u16, hash: Option<Hash>) -> BoxFuture<Option<Value>>{
 
 		let shard_count = self.config.get_shard_count();
 
 		if shard_num >= shard_count{
-			return Err(errors::Error::from(errors::ErrorKind::InvalidShard));
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into()));
 		}
 
-		let result : Option<Value> = self.rpc_client.call_method("chain_getBlock", "Option<SignedBlock>", (hash, ), shard_num)?;
-
-		Ok(result)
+		self.rpc_client.call_method_async("chain_getBlock", "Option<Value>", (hash, ), shard_num)
+			.unwrap_or_else(|e|Box::new(future::err(e.into())))
 	}
 
-	fn block_hash(&self, shard_num: u16, number: Option<NumberOrHex<Number>>) -> errors::Result<Option<Hash>>{
+	fn block_hash(&self, shard_num: u16, number: Option<NumberOrHex<Number>>) -> BoxFuture<Option<Hash>>{
 
 		let shard_count = self.config.get_shard_count();
 
 		if shard_num >= shard_count{
-			return Err(errors::Error::from(errors::ErrorKind::InvalidShard));
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into()));
 		}
 
-		let result : Option<Hash> = self.rpc_client.call_method("chain_getBlockHash", "Option<Hash>", (number, ), shard_num)?;
-
-		Ok(result)
-
+		self.rpc_client.call_method_async("chain_getBlockHash", "Option<Hash>", (number, ), shard_num)
+			.unwrap_or_else(|e|Box::new(future::err(e.into())))
 	}
 
 }

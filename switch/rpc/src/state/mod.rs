@@ -28,15 +28,17 @@ use num_bigint::BigUint;
 use yee_runtime::AccountId;
 use yee_sharding::utils::shard_num_for_account_id;
 use crate::errors;
+use jsonrpc_core::BoxFuture;
+use crate::rpc::{self, futures::future::{self, FutureResult}};
 
 /// Substrate state API
 #[rpc]
 pub trait StateApi<Hash> {
 	#[rpc(name = "state_getBalance")]
-	fn balance(&self, account_id: AccountId) -> errors::Result<Hex>;
+	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex>;
 
 	#[rpc(name = "state_getNonce")]
-	fn nonce(&self, account_id: AccountId) -> errors::Result<Hex>;
+	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex>;
 }
 
 /// State API with subscriptions support.
@@ -58,59 +60,77 @@ impl State {
 impl<Hash> StateApi<Hash> for State
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn balance(&self, account_id: AccountId) -> errors::Result<Hex> {
+	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex> {
 
 		let shard_count = self.config.get_shard_count();
 
-		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or(errors::Error::from(errors::ErrorKind::InvalidShard))?;
+		let shard_num = match shard_num_for_account_id(&account_id, shard_count){
+			Some(shard_num) => shard_num,
+			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
+		};
 		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
 
 		//free balance
-		let key = get_storage_key(&account_id, StorageKeyId::FreeBalance);
-		log::debug!("free balance key: {}", hex::encode(key.clone().0));
-
-		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
-		log::debug!("free balance storage: {}", storage.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
-
-		let free_balance = storage.map(|x|{
-			BigUint::from_bytes_le(&x.0)
-		}).unwrap_or(BigUint::from(0u64));
+		let free_balance_key = get_storage_key(&account_id, StorageKeyId::FreeBalance);
+		log::debug!("free balance key: {}", hex::encode(free_balance_key.clone().0));
 
 		//reserved balance
-		let key = get_storage_key(&account_id, StorageKeyId::ReservedBalance);
-		log::debug!("reserved balance key: {}", hex::encode(key.clone().0));
+		let reserved_balance_key = get_storage_key(&account_id, StorageKeyId::ReservedBalance);
+		log::debug!("reserved balance key: {}", hex::encode(reserved_balance_key.clone().0));
 
-		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
-		log::debug!("free reserved storage: {}", storage.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+		let free_balance_future : BoxFuture<Option<StorageData>> = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (free_balance_key, Option::<Hash>::None), shard_num){
+			Ok(future) => future,
+			Err(e) => return Box::new(future::err(e.into())),
+		};
 
-		let reserved_balance = storage.map(|x|{
-			BigUint::from_bytes_le(&x.0)
-		}).unwrap_or(BigUint::from(0u64));
+		let reserved_balance_future : BoxFuture<Option<StorageData>> = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (reserved_balance_key, Option::<Hash>::None), shard_num){
+			Ok(future) => future,
+			Err(e) => return Box::new(future::err(e.into())),
+		};
 
-		//sum
-		let balance = free_balance + &reserved_balance;
 
-		Ok(balance.into())
+		Box::new(free_balance_future.join(reserved_balance_future).map(|(result1, result2)|{
+
+			log::debug!("free balance storage: {}", result1.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+
+			log::debug!("reserved balance storage: {}", result2.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+
+			let free_balance = get_big_uint(result1);
+
+			let reserved_balance = get_big_uint(result2);
+
+			(free_balance + reserved_balance).into()
+		}))
 	}
 
-	fn nonce(&self, account_id: AccountId) -> errors::Result<Hex> {
+	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex> {
 
 		let shard_count = self.config.get_shard_count();
 
-		let shard_num = shard_num_for_account_id(&account_id, shard_count).ok_or(errors::Error::from(errors::ErrorKind::InvalidShard))?;
+		let shard_num = match shard_num_for_account_id(&account_id, shard_count){
+			Some(shard_num) => shard_num,
+			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
+		};
 		log::debug!("shard_count: {}, shard_num: {}", shard_count, shard_num);
 
 		let key = get_storage_key(&account_id, StorageKeyId::AccountNonce);
 		log::debug!("nonce key: {}", hex::encode(key.clone().0));
 
-		let storage : Option<StorageData> = self.rpc_client.call_method("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num)?;
-		log::debug!("nonce storage: {}", storage.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+		match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num){
+			Ok(future) => {
 
-		let nonce = storage.map(|x|{
-			BigUint::from_bytes_le(&x.0)
-		}).unwrap_or(BigUint::from(0u64));
+				Box::new(future.map(|result: Option<StorageData>|{
 
-		Ok(nonce.into())
+					log::debug!("nonce storage: {}", result.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+
+					get_big_uint(result).into()
+				}))
+			},
+			Err(e) => {
+				Box::new(future::err(e.into()))
+			}
+		}
+
 	}
 }
 
@@ -132,4 +152,10 @@ fn get_prefix(storage_key_id: StorageKeyId) -> &'static [u8]{
 fn get_storage_key(account_id: &AccountId, storage_key_id: StorageKeyId) -> StorageKey {
 	let a = blake2_256(&account_id.to_keyed_vec(get_prefix(storage_key_id))).to_vec();
 	StorageKey(a)
+}
+
+fn get_big_uint(result: Option<StorageData>) -> BigUint {
+	result.map(|x|{
+		BigUint::from_bytes_le(&x.0)
+	}).unwrap_or(BigUint::from(0u64))
 }
