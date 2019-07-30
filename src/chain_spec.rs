@@ -23,6 +23,8 @@ pub enum Alternative {
 	Development,
 	/// Whatever the current runtime is, with simple Alice/Bob auths.
 	LocalTestnet,
+    /// Proof-of-Concept chain with prebuilt runtime.
+    POCTestnet,
 }
 
 fn authority_key(s: &str) -> AuthorityId {
@@ -77,22 +79,44 @@ impl Alternative {
 				None,
 				None
 			),
+            Alternative::POCTestnet => ChainSpec::from_genesis(
+                "POC Testnet",
+                "poc_testnet",
+                || poc_testnet_genesis(vec![
+                ]),
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
 		})
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(Alternative::Development),
-			"" | "local" => Some(Alternative::LocalTestnet),
+            "local" => Some(Alternative::LocalTestnet),
+            "" | "poc" => Some(Alternative::POCTestnet),
 			_ => None,
 		}
 	}
 }
 
 fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>) -> GenesisConfig {
+    let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
+    testnet_template_genesis(initial_authorities, endowed_accounts, code)
+}
+
+fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
+    let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
+    testnet_template_genesis(vec![], endowed_accounts, code)
+}
+
+fn testnet_template_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>, code: Vec<u8>) -> GenesisConfig {
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
-			code: include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec(),
+			code,
 			authorities: initial_authorities.clone(),
 		}),
 		system: None,
