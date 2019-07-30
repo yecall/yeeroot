@@ -1,0 +1,7 @@
+# Docker ignore config file
+
+# git
+#/*/**/.git
+#/.git
+
+target
