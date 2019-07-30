@@ -140,7 +140,7 @@ fn testnet_template_genesis(initial_authorities: Vec<AuthorityId>, endowed_accou
         pow: Some(PowConfig {
             genesis_difficulty: primitives::U256::from(0x00003fff) << 224,
             difficulty_adj: 60_u64.into(),
-            target_block_time: 15_u64.into(),
+            target_block_time: 60_u64.into(),
         }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
