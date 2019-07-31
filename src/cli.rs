@@ -24,7 +24,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 	 	|exit, custom_args, mut config| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
-			info!("  by {}, 2017, 2018", version.author);
+			info!("  by {}, 2019", version.author);
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
