@@ -64,7 +64,7 @@ $ cargo build
 ## Usage
 devepment
 ```sh
-$ ./yee --dev
+$ ./yee --dev --shard-num=0 --coin-base=5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
 ```
 
 ## Roadmap
