@@ -1,32 +1,29 @@
-FROM alpine:edge AS builder
+FROM rust:1.36 AS builder
 
-RUN apk add \
-    build-base \
-    cmake \
-    linux-headers \
-    openssl-dev \
-    clang-dev \
-    cargo
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        cmake pkg-config libssl-dev git clang libclang-dev
 
-ARG PROFILE=release
 WORKDIR /yeeroot
 COPY . /yeeroot
 
 RUN mkdir -p /yeeroot/runtime/wasm/target/wasm32-unknown-unknown/release && \
     ln -s ../../../../../prebuilt/yee_runtime/poc_testnet.wasm \
         /yeeroot/runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm && \
-    cargo build --$PROFILE
+    cargo build --release
 
 # Pull yee from builder to deploy container
-FROM alpine:latest
+FROM debian:stretch
 
-ARG PROFILE=release
-COPY --from=builder /yeeroot/target/$PROFILE/yee /usr/local/bin
+COPY --from=builder /yeeroot/target/release/yee /usr/local/bin
 
-RUN apk add --no-cache \
-    ca-certificates \
-    libstdc++ \
-    openssl
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates openssl \
+    ; \
+    rm -rf /var/lib/apt/lists/*;
 
 RUN mkdir -p /root/.local/share/YeeRoot && \
     ln -s /root/.local/share/YeeRoot /data
