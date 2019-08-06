@@ -17,3 +17,6 @@ inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/s
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+
+[dev-dependencies]
+hex-literal = "0.2"

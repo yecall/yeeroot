@@ -41,68 +41,17 @@ pub struct PowSeal<AccountId: Decode + Encode> {
 
 /// POW proof used in block header
 #[derive(Clone, Debug)]
-pub enum WorkProof {
-    Unknown,
-    Nonce(ProofNonce),
-}
-
-/// Referencing view for WorkProof
-pub enum WorkProofRef<'a> {
-    Unknown,
-    Nonce(&'a ProofNonce),
-}
-
-/// Type ID of WorkProof used for encoding/decoding
-#[repr(u32)]
 #[derive(Decode, Encode)]
-enum WorkProofType {
-    Unknown = 0,
-    Nonce = 1,
-}
-
-impl WorkProof {
-    fn wp_ref(&self) -> WorkProofRef {
-        match *self {
-            WorkProof::Unknown => WorkProofRef::Unknown,
-            WorkProof::Nonce(ref v) => WorkProofRef::Nonce(v),
-        }
-    }
-}
-
-impl<'a> Encode for WorkProofRef<'a> {
-    fn encode_to<T: Output>(&self, dest: &mut T) {
-        match *self {
-            WorkProofRef::Unknown => {
-                WorkProofType::Unknown.encode_to(dest);
-            }
-            WorkProofRef::Nonce(v) => {
-                WorkProofType::Nonce.encode_to(dest);
-                v.encode_to(dest);
-            }
-        }
-    }
-}
-
-impl Decode for WorkProof {
-    fn decode<I: Input>(value: &mut I) -> Option<Self> {
-        let proof_type: WorkProofType = Decode::decode(value)?;
-        match proof_type {
-            WorkProofType::Unknown => Some(WorkProof::Unknown),
-            WorkProofType::Nonce => Some(WorkProof::Nonce(
-                Decode::decode(value)?,
-            )),
-        }
-    }
-}
-
-impl Encode for WorkProof {
-    fn encode_to<T: Output>(&self, dest: &mut T) {
-        self.wp_ref().encode_to(dest)
-    }
+pub enum WorkProof {
+    #[codec(index = "0")]
+    Unknown,
+    #[codec(index = "1")]
+    Nonce(ProofNonce),
 }
 
 /// Classical pow proof with extra data entropy and 64b nonce
 #[derive(Clone, Debug)]
+#[derive(Decode, Encode)]
 pub struct ProofNonce {
     /// Extra Data used to encode miner info AND more entropy
     pub extra_data: Vec<u8>,
@@ -124,22 +73,6 @@ impl ProofNonce {
     }
 }
 
-impl Decode for ProofNonce {
-    fn decode<I: Input>(value: &mut I) -> Option<Self> {
-        Some(ProofNonce {
-            extra_data: Decode::decode(value)?,
-            nonce: Decode::decode(value)?,
-        })
-    }
-}
-
-impl Encode for ProofNonce {
-    fn encode_to<T: Output>(&self, dest: &mut T) {
-        dest.push(&self.extra_data);
-        dest.push(&self.nonce);
-    }
-}
-
 pub fn check_seal<B: Block, AccountId>(
     seal: PowSeal<AccountId>, hash: B::Hash, _pre_hash: B::Hash,
 ) -> Result<(), String> where
@@ -156,6 +89,26 @@ pub fn check_seal<B: Block, AccountId>(
                 return Err(format!("difficulty not enough, need {}, got {}", seal.difficulty, proof_difficulty));
             }
             Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hex_literal::hex;
+
+    #[test]
+    fn proof_nonce_encode() {
+        let tests = vec![
+            ("Test Extra", 0x10001, hex!("01 28 54657374204578747261 0100 0100 0000 0000").to_vec()),
+            ("YeeRoot", 0xABCD000098760000, hex!("01 1C 596565526f6f74 0000 7698 0000 CDAB").to_vec()),
+            ("Yee Root", 0xABCD000098765432, hex!("01 20 59656520526f6f74 3254 7698 0000 CDAB").to_vec()),
+        ];
+
+        for (extra, nonce, expected) in tests {
+            let proof = WorkProof::Nonce(ProofNonce { extra_data: extra.as_bytes().to_vec(), nonce });
+            assert_eq!(proof.encode(), expected);
         }
     }
 }
