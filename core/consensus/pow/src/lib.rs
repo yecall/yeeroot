@@ -78,7 +78,7 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
 {
     let worker = worker::DefaultWorker {
         client: client.clone(),
@@ -107,7 +107,7 @@ pub fn import_queue<B, C, AccountId>(
     inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
     C: 'static + Send + Sync,
     AccountId: Decode + Encode + Send + Sync + 'static,
 {

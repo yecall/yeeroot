@@ -39,7 +39,6 @@ use {
 
 use super::{
     AuthorityId, CompatibleDigestItem,
-    pow::check_seal,
 };
 
 /// Verifier for POW blocks.
@@ -52,7 +51,7 @@ pub struct PowVerifier<C, AccountId> {
 #[forbid(deprecated)]
 impl<B, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
     C: Send + Sync,
     AccountId: Decode + Encode + Send + Sync,
 {
@@ -95,7 +94,7 @@ fn check_header<B, AccountId>(
     hash: B::Hash,
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
     AccountId: Decode + Encode,
 {
     // pow work proof MUST be last digest item
@@ -112,7 +111,7 @@ fn check_header<B, AccountId>(
 
     // TODO: check seal.difficulty
 
-    check_seal::<B, AccountId>(seal, hash, pre_hash)?;
+    seal.check_seal(hash, pre_hash)?;
 
     Ok((header, digest_item))
 }

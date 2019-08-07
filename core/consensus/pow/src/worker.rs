@@ -55,7 +55,7 @@ use {
 };
 use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
-    pow::{check_seal, PowSeal},
+    pow::PowSeal,
 };
 
 pub trait PowWorker<B: Block> {
@@ -88,7 +88,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, Accou
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Clone,
-    DigestItemFor<B>: CompatibleDigestItem<AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
 {
     type OnJob = Box<Future<Item=(), Error=consensus_common::Error> + Send>;
 
@@ -145,11 +145,11 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, Accou
                     timestamp,
                     work_proof: proof,
                 };
-                let item = <DigestItemFor<B> as CompatibleDigestItem<AccountId>>::pow_seal(seal.clone());
+                let item = <DigestItemFor<B> as CompatibleDigestItem<B, AccountId>>::pow_seal(seal.clone());
                 work_header.digest_mut().push(item);
 
                 let post_hash = work_header.hash();
-                if let Ok(_) = check_seal::<B, AccountId>(seal, post_hash, header_pre_hash) {
+                if let Ok(_) = seal.check_seal(post_hash, header_pre_hash) {
                     let valid_seal = work_header.digest_mut().pop().expect("must exists");
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,
@@ -189,7 +189,7 @@ fn calc_difficulty<B, C, AccountId>(
     B: Block,
     NumberFor<B>: SimpleArithmetic,
     DigestFor<B>: Digest,
-    DigestItemFor<B>: super::CompatibleDigestItem<AccountId>,
+    DigestItemFor<B>: super::CompatibleDigestItem<B, AccountId>,
     C: HeaderBackend<B> + ProvideRuntimeApi,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     AccountId: Encode + Decode + Debug,

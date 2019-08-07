@@ -19,7 +19,7 @@
 
 use runtime_primitives::{
     codec::{
-        Decode, Encode, Input, Output,
+        Decode, Encode,
     },
     traits::Block,
 };
@@ -32,21 +32,23 @@ pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW consensus seal
 #[derive(Clone, Debug, Decode, Encode)]
-pub struct PowSeal<AccountId: Decode + Encode> {
+pub struct PowSeal<B: Block, AccountId: Decode + Encode> {
     pub coin_base: AccountId,
     pub difficulty: DifficultyType,
     pub timestamp: u64,
-    pub work_proof: WorkProof,
+    pub work_proof: WorkProof<B>,
 }
 
 /// POW proof used in block header
 #[derive(Clone, Debug)]
 #[derive(Decode, Encode)]
-pub enum WorkProof {
+pub enum WorkProof<B: Block> {
     #[codec(index = "0")]
     Unknown,
     #[codec(index = "1")]
     Nonce(ProofNonce),
+    #[codec(index = "2")]
+    Multi(ProofMulti<B>),
 }
 
 /// Classical pow proof with extra data entropy and 64b nonce
@@ -73,22 +75,47 @@ impl ProofNonce {
     }
 }
 
-pub fn check_seal<B: Block, AccountId>(
-    seal: PowSeal<AccountId>, hash: B::Hash, _pre_hash: B::Hash,
-) -> Result<(), String> where
+/// Multi-Mining pow proof with header-trie spv proof
+#[derive(Clone, Debug)]
+#[derive(Decode, Encode)]
+pub struct ProofMulti<B: Block> {
+    /// Extra Data used to encode miner info AND more entropy
+    pub extra_data: Vec<u8>,
+    /// merkle root of multi-mining headers
+    pub merkle_root: B::Hash,
+    /// POW block nonce
+    pub nonce: u64,
+    /// shard info
+    pub shard_num: u32,
+    pub shard_cnt: u32,
+    /// merkle tree spv proof
+    pub merkle_proof: Vec<u8>,
+}
+
+impl<B: Block> ProofMulti<B> {
+    //
+}
+
+impl<B, AccountId> PowSeal<B, AccountId> where
+    B: Block,
     AccountId: Decode + Encode,
 {
-    match seal.work_proof {
-        WorkProof::Unknown => Err(format!("invalid work proof")),
-        WorkProof::Nonce(proof_nonce) => {
-            if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
-                return Err(format!("extra data too long"));
+    pub fn check_seal(&self, hash: B::Hash, _pre_hash: B::Hash) -> Result<(), String> {
+        match self.work_proof {
+            WorkProof::Unknown => Err(format!("invalid work proof")),
+            WorkProof::Nonce(ref proof_nonce) => {
+                if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
+                    return Err(format!("extra data too long"));
+                }
+                let proof_difficulty = DifficultyType::from(hash.as_ref());
+                if proof_difficulty > self.difficulty {
+                    return Err(format!("difficulty not enough, need {}, got {}", self.difficulty, proof_difficulty));
+                }
+                Ok(())
             }
-            let proof_difficulty = DifficultyType::from(hash.as_ref());
-            if proof_difficulty > seal.difficulty {
-                return Err(format!("difficulty not enough, need {}, got {}", seal.difficulty, proof_difficulty));
+            WorkProof::Multi(ref _proof_multi) => {
+                Err(format!("TODO"))
             }
-            Ok(())
         }
     }
 }
