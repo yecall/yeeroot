@@ -34,12 +34,13 @@ use {
         },
     },
     inherents::{InherentDataProviders, RuntimeString},
+    primitives::Pair,
     runtime_primitives::{
         codec::{
             Decode, Encode,
         },
         traits::{
-            AuthorityIdFor, DigestItemFor,
+            DigestItemFor,
             Block,
             ProvideRuntimeApi,
         },
@@ -57,9 +58,8 @@ mod pow;
 mod verifier;
 mod worker;
 
-type AuthorityId<B> = AuthorityIdFor<B>;
-
-pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
+pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
+    local_key: Arc<P>,
     client: Arc<C>,
     block_import: Arc<I>,
     env: Arc<E>,
@@ -70,6 +70,8 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
+    P: Pair + 'static,
+    <P as Pair>::Public: Clone + Debug + Decode + Encode + Send,
     C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
@@ -78,9 +80,10 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
     let worker = worker::DefaultWorker {
+        authority_key: local_key.clone(),
         client: client.clone(),
         block_import,
         env,
@@ -100,16 +103,16 @@ pub fn start_pow<B, C, I, E, AccountId, SO, OnExit>(
 pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Start import queue for POW consensus
-pub fn import_queue<B, C, AccountId>(
+pub fn import_queue<B, C, AuthorityId>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
     C: 'static + Send + Sync,
-    AccountId: Decode + Encode + Send + Sync + 'static,
+    AuthorityId: Decode + Encode + Send + Sync + 'static,
 {
     register_inherent_data_provider(&inherent_data_providers)?;
 

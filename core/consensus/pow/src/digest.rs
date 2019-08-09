@@ -31,23 +31,23 @@ use pow_primitives::YEE_POW_ENGINE_ID;
 use super::PowSeal;
 
 /// Digest item acts as a valid POW consensus digest.
-pub trait CompatibleDigestItem<B: Block, AccountId: Decode + Encode>: Sized {
+pub trait CompatibleDigestItem<B: Block, AuthorityId: Decode + Encode>: Sized {
     /// construct digest item with work proof
-    fn pow_seal(seal: PowSeal<B, AccountId>) -> Self;
+    fn pow_seal(seal: PowSeal<B, AuthorityId>) -> Self;
 
     /// get work proof if digest item is pow item
-    fn as_pow_seal(&self) -> Option<PowSeal<B, AccountId>>;
+    fn as_pow_seal(&self) -> Option<PowSeal<B, AuthorityId>>;
 }
 
-impl<B, Hash, AuthorityId, SealSignature, AccountId> CompatibleDigestItem<B, AccountId> for DigestItem<Hash, AuthorityId, SealSignature> where
+impl<B, Hash, AuthorityId, SealSignature> CompatibleDigestItem<B, AuthorityId> for DigestItem<Hash, AuthorityId, SealSignature> where
     B: Block,
-    AccountId: Decode + Encode,
+    AuthorityId: Decode + Encode,
 {
-    fn pow_seal(seal: PowSeal<B, AccountId>) -> Self {
+    fn pow_seal(seal: PowSeal<B, AuthorityId>) -> Self {
         DigestItem::Consensus(YEE_POW_ENGINE_ID, seal.encode())
     }
 
-    fn as_pow_seal(&self) -> Option<PowSeal<B, AccountId>> {
+    fn as_pow_seal(&self) -> Option<PowSeal<B, AuthorityId>> {
         match self {
             DigestItem::Consensus(YEE_POW_ENGINE_ID, seal) => Decode::decode(&mut &seal[..]),
             _ => None

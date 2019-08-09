@@ -39,6 +39,7 @@ use {
         BlockImport, BlockOrigin, ForkChoiceStrategy,
     },
     inherents::InherentDataProviders,
+    primitives::Pair,
     runtime_primitives::{
         codec::{Decode, Encode},
         generic::BlockId,
@@ -66,7 +67,8 @@ pub trait PowWorker<B: Block> {
     fn on_job(&self, chain_head: B::Header, iter: u64) -> Self::OnJob;
 }
 
-pub struct DefaultWorker<B, C, I, E, AccountId, SO> {
+pub struct DefaultWorker<B, P, C, I, E, AccountId, SO> {
+    pub(crate) authority_key: Arc<P>,
     pub(crate) client: Arc<C>,
     pub(crate) block_import: Arc<I>,
     pub(crate) env: Arc<E>,
@@ -76,9 +78,11 @@ pub struct DefaultWorker<B, C, I, E, AccountId, SO> {
     pub(crate) phantom: PhantomData<(B, AccountId)>,
 }
 
-impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, AccountId, SO> where
+impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E, AccountId, SO> where
     B: Block,
     DigestFor<B>: Digest,
+    P: Pair,
+    <P as Pair>::Public: Clone + Debug + Decode + Encode + Send + 'static,
     C: HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
@@ -88,7 +92,7 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, Accou
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Clone,
-    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
     type OnJob = Box<Future<Item=(), Error=consensus_common::Error> + Send>;
 
@@ -124,7 +128,8 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, Accou
             inherent_data, remaining_duration,
         ).into_future();
 
-        let coin_base = self.coin_base.clone();
+        let authority_id = self.authority_key.public();
+        // let coin_base = self.coin_base.clone();
         let on_proposal_block = move |block: B| -> Result<(), consensus_common::Error> {
             let (header, body) = block.deconstruct();
             let header_num = header.number().clone();
@@ -140,12 +145,12 @@ impl<B, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, C, I, E, Accou
                 let mut work_header = header.clone();
                 let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
                 let seal = PowSeal {
-                    coin_base: coin_base.clone(),
+                    authority_id: authority_id.clone(),
                     difficulty,
                     timestamp,
                     work_proof: proof,
                 };
-                let item = <DigestItemFor<B> as CompatibleDigestItem<B, AccountId>>::pow_seal(seal.clone());
+                let item = <DigestItemFor<B> as CompatibleDigestItem<B, P::Public>>::pow_seal(seal.clone());
                 work_header.digest_mut().push(item);
 
                 let post_hash = work_header.hash();
