@@ -32,28 +32,25 @@ use {
         Justification,
         traits::{
             Block, Header,
-            Digest, DigestItemFor,
+            AuthorityIdFor, Digest, DigestItemFor,
         },
     },
 };
-
-use super::{
-    AuthorityId, CompatibleDigestItem,
-};
+use super::CompatibleDigestItem;
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C, AccountId> {
+pub struct PowVerifier<C, AuthorityId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
-    pub phantom: PhantomData<AccountId>,
+    pub phantom: PhantomData<AuthorityId>,
 }
 
 #[forbid(deprecated)]
-impl<B, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
+impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
     C: Send + Sync,
-    AccountId: Decode + Encode + Send + Sync,
+    AuthorityId: Decode + Encode + Send + Sync,
 {
     fn verify(
         &self,
@@ -61,12 +58,12 @@ impl<B, C, AccountId> Verifier<B> for PowVerifier<C, AccountId> where
         header: <B as Block>::Header,
         justification: Option<Justification>,
         body: Option<Vec<<B as Block>::Extrinsic>>,
-    ) -> Result<(ImportBlock<B>, Option<Vec<AuthorityId<B>>>), String> {
+    ) -> Result<(ImportBlock<B>, Option<Vec<AuthorityIdFor<B>>>), String> {
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<B, AccountId>(
+        let (pre_header, seal) = check_header::<B, AuthorityId>(
             header,
             hash,
         )?;

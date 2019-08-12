@@ -155,7 +155,6 @@ fn testnet_template_genesis(initial_authorities: Vec<AuthorityId>, endowed_accou
 			vesting: vec![],
 		}),
         sharding: Some(ShardingConfig {
-            _genesis_phantom_data: Default::default(),
             sharding_count: 4,
         }),
 	}

@@ -32,8 +32,8 @@ pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW consensus seal
 #[derive(Clone, Debug, Decode, Encode)]
-pub struct PowSeal<B: Block, AccountId: Decode + Encode> {
-    pub coin_base: AccountId,
+pub struct PowSeal<B: Block, AuthorityId: Decode + Encode> {
+    pub authority_id: AuthorityId,
     pub difficulty: DifficultyType,
     pub timestamp: u64,
     pub work_proof: WorkProof<B>,

@@ -193,7 +193,8 @@ impl balances::Trait for Runtime {
 }
 
 impl sharding::Trait for Runtime {
-    //
+    type ShardNum = u32;
+    type Log = Log;
 }
 
 construct_runtime!(
@@ -208,7 +209,7 @@ construct_runtime!(
 		Pow: pow::{Module, Storage, Config<T>},
 		Indices: indices,
 		Balances: balances,
-		Sharding: sharding::{Module, Storage, Config<T>},
+		Sharding: sharding::{Module, Storage, Config<T>, Log()},
 	}
 );
 

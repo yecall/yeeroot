@@ -94,7 +94,8 @@ construct_service_factory! {
 						inherents_pool: service.inherents_pool(),
 					});
 					let client = service.client();
-					executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _>(
+					executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
+                        key.clone(),
 						client.clone(),
 						client,
 						proposer,
@@ -114,7 +115,7 @@ construct_service_factory! {
 		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
 			        prepare_sharding::<Self, _, _>(&config.custom, client.clone(), client.backend().to_owned())?;
-					import_queue::<Self::Block, _, AccountId>(
+					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 						client.clone(),
 						None,
 						client,
@@ -125,7 +126,7 @@ construct_service_factory! {
 		LightImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
 			        prepare_sharding::<Self, _, _>(&config.custom, client.clone(), client.backend().to_owned())?;
-					import_queue::<Self::Block, _, AccountId>(
+					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 						client.clone(),
 						None,
 						client,
