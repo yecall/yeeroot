@@ -700,6 +700,16 @@ impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
     type DustRemoval = ();
 }
 
+impl<T: Trait<I>, I: Instance> Module<T, I>
+where
+    T::Balance: MaybeSerializeDebug,
+{
+    fn is_transfer_cross_sharding(transactor: &T::AccountId, dest: &T::AccountId) -> bool {
+        // todo
+        true
+    }
+}
+
 impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
     where
         T::Balance: MaybeSerializeDebug
@@ -755,22 +765,28 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
 
     fn transfer(transactor: &T::AccountId, dest: &T::AccountId, value: Self::Balance) -> Result {
         let from_balance = Self::free_balance(transactor);
-        let to_balance = Self::free_balance(dest);
-        let would_create = to_balance.is_zero();
-        let fee = if would_create { Self::creation_fee() } else { Self::transfer_fee() };
+        let fee = Self::transfer_fee();
         let liability = match value.checked_add(&fee) {
             Some(l) => l,
             None => return Err("got overflow after adding a fee to value"),
         };
-
         let new_from_balance = match from_balance.checked_sub(&liability) {
             None => return Err("balance too low to send value"),
             Some(b) => b,
         };
-        if would_create && value < Self::existential_deposit() {
-            return Err("value too low to create account");
+        Self::ensure_can_withdraw(
+            transactor,
+            value,
+            WithdrawReason::Transfer,
+            new_from_balance,
+        )?;
+        let to_balance = Self::free_balance(dest);
+
+        // transfer cross sharding
+        if Self::is_transfer_cross_sharding(transactor, dest) {
+            Self::set_free_balance(transactor, new_from_balance);
+            return Ok(());
         }
-        Self::ensure_can_withdraw(transactor, value, WithdrawReason::Transfer, new_from_balance)?;
 
         // NOTE: total stake being stored in the same type means that this could never overflow
         // but better to be safe than sorry.
@@ -778,7 +794,6 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
             Some(b) => b,
             None => return Err("destination balance too high to receive value"),
         };
-
         if transactor != dest {
             Self::set_free_balance(transactor, new_from_balance);
             if !<FreeBalance<T, I>>::exists(dest) {
@@ -786,9 +801,13 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
             }
             Self::set_free_balance(dest, new_to_balance);
             T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
-            Self::deposit_event(RawEvent::Transfer(transactor.clone(), dest.clone(), value, fee));
+            Self::deposit_event(RawEvent::Transfer(
+                transactor.clone(),
+                dest.clone(),
+                value,
+                fee,
+            ));
         }
-
         Ok(())
     }
 
