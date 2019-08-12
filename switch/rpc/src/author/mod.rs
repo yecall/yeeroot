@@ -24,7 +24,7 @@ use serde::{Serialize};
 use serde::de::DeserializeOwned;
 use parity_codec::{Encode, Decode};
 use runtime_primitives::OpaqueExtrinsic;
-use yee_sharding::utils::shard_num_for_account_id;
+use yee_sharding_primitives::utils::shard_num_for_bytes;
 use jsonrpc_core::BoxFuture;
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 
@@ -77,13 +77,11 @@ impl<Hash> AuthorApi<Hash> for Author
 
 		let address = &address[1..];//trim 0xFF
 
-		let account_id = Public::from_slice(address);
-
-		log::debug!("xt={:?}, version={}, account_id={}", xt, version, account_id);
+		log::debug!("xt={:?}, version={}, account_id={}", xt, version, Public::from_slice(address));
 
 		let shard_count = self.config.get_shard_count();
 
-		let shard_num = match shard_num_for_account_id(&account_id, shard_count){
+		let shard_num = match shard_num_for_bytes(address, shard_count){
 			Some(shard_num) => shard_num,
 			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
 		};

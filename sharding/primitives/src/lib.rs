@@ -19,6 +19,7 @@
 
 ///! Primitives for Yee Sharding
 
+pub mod utils;
 use {
     substrate_client::decl_runtime_apis,
 };
