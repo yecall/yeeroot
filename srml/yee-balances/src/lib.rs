@@ -704,9 +704,11 @@ impl<T: Trait<I>, I: Instance> Module<T, I>
 where
     T::Balance: MaybeSerializeDebug,
 {
-    fn is_transfer_cross_sharding(transactor: &T::AccountId, dest: &T::AccountId) -> bool {
+    // is transfer crossing sharding
+    fn is_crossing_sharding(transactor: &T::AccountId, dest: &T::AccountId) -> bool {
         // todo
-        true
+        let (m, c) = (0,4);
+        yee_sharding_primitives::utils::shard_num_for(dest, c).expect("calculate shard number failed") == m
     }
 }
 
@@ -783,7 +785,7 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
         let to_balance = Self::free_balance(dest);
 
         // transfer cross sharding
-        if Self::is_transfer_cross_sharding(transactor, dest) {
+        if Self::is_crossing_sharding(transactor, dest) {
             Self::set_free_balance(transactor, new_from_balance);
             return Ok(());
         }

@@ -14,6 +14,7 @@ rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", def
 primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
 
 [dev-dependencies]
 runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
