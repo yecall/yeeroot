@@ -62,7 +62,6 @@ pub type Nonce = u64;
 pub type Difficulty = primitives::U256;
 
 /// Yee module
-mod sharding;
 mod yee;
 
 #[cfg(feature = "std")]
