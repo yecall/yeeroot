@@ -6,10 +6,5 @@ edition = "2018"
 
 [dependencies]
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-yee-runtime = { package = "yee-runtime", path = "../runtime" }
 regex = "1"
 log = "0.4"
-
-[dev-dependencies]
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-hex = "0.3.1"

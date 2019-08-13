@@ -26,7 +26,6 @@ use serde::{Serialize};
 use serde::de::DeserializeOwned;
 use parity_codec::{Encode, Decode};
 use runtime_primitives::OpaqueExtrinsic;
-use yee_sharding::utils::shard_num_for_account_id;
 use number::NumberOrHex;
 use serde_json::Value;
 use crate::rpc::{self, futures::future::{self, FutureResult}};

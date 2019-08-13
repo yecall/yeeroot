@@ -90,6 +90,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         sync_oracle: sync_oracle.clone(),
         inherent_data_providers: inherent_data_providers.clone(),
         coin_base: coin_base.clone(),
+        stop_sign: Default::default(),
         phantom: PhantomData,
     };
     worker::start_worker::<_, _, I, _, _, _>(

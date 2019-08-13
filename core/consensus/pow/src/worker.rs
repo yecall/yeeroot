@@ -19,7 +19,7 @@ use {
     std::{
         fmt::Debug,
         marker::PhantomData,
-        sync::Arc,
+        sync::{Arc, RwLock},
         time::{Duration, Instant, SystemTime, UNIX_EPOCH},
     },
     futures::{
@@ -62,6 +62,8 @@ use super::{
 pub trait PowWorker<B: Block> {
     type OnJob: IntoFuture<Item=(), Error=consensus_common::Error>;
 
+    fn stop_sign(&self) -> Arc<RwLock<bool>>;
+
     fn on_start(&self) -> Result<(), consensus_common::Error>;
 
     fn on_job(&self, chain_head: B::Header, iter: u64) -> Self::OnJob;
@@ -75,6 +77,7 @@ pub struct DefaultWorker<B, P, C, I, E, AccountId, SO> {
     pub(crate) sync_oracle: SO,
     pub(crate) inherent_data_providers: InherentDataProviders,
     pub(crate) coin_base: AccountId,
+    pub(crate) stop_sign: Arc<RwLock<bool>>,
     pub(crate) phantom: PhantomData<(B, AccountId)>,
 }
 
@@ -95,6 +98,10 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
     type OnJob = Box<Future<Item=(), Error=consensus_common::Error> + Send>;
+
+    fn stop_sign(&self) -> Arc<RwLock<bool>> {
+        self.stop_sign.clone()
+    }
 
     fn on_start(&self) -> Result<(), consensus_common::Error> {
         super::register_inherent_data_provider(&self.inherent_data_providers)
@@ -277,13 +284,28 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
 {
     worker.on_start()?;
 
+    let stop_sign = worker.stop_sign();
+
     info!("worker loop start");
     let work = future::loop_fn((), move |()| {
+        let delay = Delay::new(Instant::now() + Duration::new(5, 0));
+        let delayed_continue = Either::A(delay.then(|_| future::ok(Loop::Continue(()))));
+        let no_delay_stop = Either::B(future::ok(Loop::Break(())));
+
+        match worker.stop_sign().read() {
+            Ok(stop_sign) => {
+                if *stop_sign {
+                    return Either::A(no_delay_stop);
+                }
+            }
+            Err(e) => {
+                warn!("work stop sign read error {:?}", e);
+                return Either::A(no_delay_stop);
+            }
+        }
+
         // worker main loop
         info!("worker one loop start");
-
-        let delayed_continue = Delay::new(Instant::now() + Duration::new(5, 0))
-            .then(|_| future::ok(Loop::Continue(())));
 
         if sync_oracle.is_major_syncing() {
             return Either::A(delayed_continue);
@@ -299,11 +321,16 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
 
         let task = worker.on_job(chain_head, 10000).into_future();
         Either::B(
-            task.then(|_| {
-                Ok(Loop::Continue(()))
-            })
+            task.then(|_| Delay::new(Instant::now()))
+                .then(|_| Ok(Loop::Continue(())))
         )
     });
 
-    Ok(work.select(on_exit).then(|_| Ok(())))
+    Ok(work.select(on_exit).then(move |_| {
+        stop_sign.write()
+            .map(|mut sign| { *sign = true; })
+            .unwrap_or_else(|e| { warn!("write stop sign error : {:?}", e); });
+
+        Ok(())
+    }))
 }

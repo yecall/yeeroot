@@ -5087,21 +5087,21 @@ dependencies = [
 name = "yee-sharding"
 version = "0.1.0"
 dependencies = [
- "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "substrate-network 0.1.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "yee-runtime 1.0.0",
 ]
 
 [[package]]
 name = "yee-sharding-primitives"
 version = "0.1.0"
 dependencies = [
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-runtime 1.0.0",
 ]
 
 [[package]]
@@ -5167,7 +5167,7 @@ dependencies = [
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-runtime 1.0.0",
- "yee-sharding 0.1.0",
+ "yee-sharding-primitives 0.1.0",
 ]
 
 [[package]]
