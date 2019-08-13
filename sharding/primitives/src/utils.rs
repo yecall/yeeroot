@@ -41,13 +41,30 @@ pub fn shard_num_for_bytes(bytes: &[u8], shard_count: u16) -> Option<u16> {
 }
 
 fn get_digits(shard_count: u16) -> Option<u16> {
-    let digits = (shard_count as f64).log2() as u16;
+    if shard_count == 0{
+        return None;
+    }
+    let digits = log2(shard_count);
 
-    if (2f64.powf(digits as f64) as u16) == shard_count {
+    if pow2(digits) == shard_count {
         Some(digits)
     } else {
         None
     }
+}
+
+fn log2(n: u16) -> u16 {
+    let mut s = n;
+    let mut i = 0;
+    while s > 0 {
+        s = s >> 1;
+        i = i + 1;
+    }
+    i - 1
+}
+
+fn pow2(n: u16) -> u16{
+    1u16 << n
 }
 
 #[cfg(test)]
@@ -57,6 +74,28 @@ mod tests {
     use primitives::crypto::{Ss58Codec, Pair as PairTrait};
     use crate::utils::shard_num_for;
     use crate::utils::shard_num_for_bytes;
+    use crate::utils::log2;
+    use crate::utils::pow2;
+
+    #[test]
+    fn test_log2(){
+
+        assert_eq!(0, log2(1));
+        assert_eq!(1, log2(2));
+        assert_eq!(2, log2(4));
+        assert_eq!(10, log2(1024));
+
+    }
+
+    #[test]
+    fn test_pow2(){
+
+        assert_eq!(1, pow2(0));
+        assert_eq!(2, pow2(1));
+        assert_eq!(4, pow2(2));
+        assert_eq!(1024, pow2(10));
+
+    }
 
     #[test]
     fn test_bytes() {
