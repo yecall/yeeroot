@@ -20,9 +20,17 @@
 ///! Primitives for Yee Sharding
 
 pub mod utils;
+
 use {
     substrate_client::decl_runtime_apis,
 };
+
+pub trait ShardingInfo<N> {
+    /// get shard number for current chain
+    fn get_curr_shard() -> Option<N>;
+    /// get total shard number
+    fn get_shard_count() -> N;
+}
 
 decl_runtime_apis! {
     pub trait ShardingAPI {
