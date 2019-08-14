@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
 serde = { version = "1.0", optional = true, features = ["derive"] }
+sharding_primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives", default_features = false }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
@@ -18,6 +19,7 @@ default = ["std"]
 std = [
     "parity-codec/std",
     "serde",
+    "sharding_primitives/std",
     "runtime-primitives/std",
     "support/std",
     "system/std",

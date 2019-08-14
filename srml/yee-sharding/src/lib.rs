@@ -34,6 +34,7 @@ use {
     support::{
         decl_module, decl_storage,
     },
+    sharding_primitives::ShardingInfo,
 };
 
 pub type Log<T> = RawLog<<T as Trait>::ShardNum>;
@@ -91,5 +92,15 @@ impl<T: Trait> Module<T> {
     /// Deposit one of this module's logs.
     fn deposit_log(log: Log<T>) {
         <system::Module<T>>::deposit_log(<T as Trait>::Log::from(log).into());
+    }
+}
+
+impl<T: Trait> ShardingInfo<T::ShardNum> for Module<T> {
+    fn get_curr_shard() -> Option<T::ShardNum> {
+        Self::current_shard()
+    }
+
+    fn get_shard_count() -> T::ShardNum {
+        Self::sharding_count()
     }
 }
