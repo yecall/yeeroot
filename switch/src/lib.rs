@@ -27,6 +27,8 @@ use yee_switch_rpc::state::State;
 use yee_switch_rpc::system::System;
 use yee_switch_rpc::chain::Chain;
 use crate::config::get_config;
+use crate::params::DEFAULT_RPC_PORT;
+use crate::params::DEFAULT_WS_PORT;
 
 pub const TARGET : &str = "switch";
 
@@ -41,9 +43,9 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
 
     let ws_interface: &str = if cmd.ws_external { "0.0.0.0" } else { "127.0.0.1" };
 
-    let rpc_address_http = parse_address(&format!("{}:{}", rpc_interface, 9933), cmd.rpc_port)?;
+    let rpc_address_http = parse_address(&format!("{}:{}", rpc_interface, DEFAULT_RPC_PORT), cmd.rpc_port)?;
 
-    let rpc_address_ws = parse_address(&format!("{}:{}", ws_interface, 9944), cmd.ws_port)?;
+    let rpc_address_ws = parse_address(&format!("{}:{}", ws_interface, DEFAULT_WS_PORT), cmd.ws_port)?;
 
     let handler = || {
 

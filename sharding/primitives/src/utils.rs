@@ -71,6 +71,7 @@ fn pow2(n: u16) -> u16{
 mod tests {
     use primitives::sr25519::Public;
     use yee_runtime::AccountId;
+    use primitives::sr25519;
     use primitives::crypto::{Ss58Codec, Pair as PairTrait};
     use crate::utils::shard_num_for;
     use crate::utils::shard_num_for_bytes;
@@ -129,6 +130,58 @@ mod tests {
 
     #[test]
     fn test_account_id() {
+
+        let account_id = sr25519::Pair::from_string(&format!("//{}", "Alice"), None)
+            .unwrap()
+            .public();
+
+        let a = shard_num_for(&account_id, 4u16);
+
+        assert_eq!(a, Some(1));
+
+        let account_id = sr25519::Pair::from_string(&format!("//{}", "Bob"), None)
+            .unwrap()
+            .public();
+
+        let a = shard_num_for(&account_id, 4u16);
+
+        assert_eq!(a, Some(0));
+
+        let account_id = sr25519::Pair::from_string(&format!("//{}", "Charlie"), None)
+            .unwrap()
+            .public();
+
+        let a = shard_num_for(&account_id, 4u16);
+
+        assert_eq!(a, Some(2));
+
+        let account_id = sr25519::Pair::from_string(&format!("//{}", "Dave"), None)
+            .unwrap()
+            .public();
+
+        let a = shard_num_for(&account_id, 4u16);
+
+        assert_eq!(a, Some(0));
+
+        let account_id = sr25519::Pair::from_string(&format!("//{}", "Eve"), None)
+            .unwrap()
+            .public();
+
+        let a = shard_num_for(&account_id, 4u16);
+
+        assert_eq!(a, Some(2));
+
+        let account_id = sr25519::Pair::from_string(&format!("//{}", "Ferdie"), None)
+            .unwrap()
+            .public();
+
+        let a = shard_num_for(&account_id, 4u16);
+
+        assert_eq!(a, Some(0));
+    }
+
+    #[test]
+    fn test_account_id2() {
 
         let account_id = Public::from_slice(&hex::decode("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").unwrap());
 
