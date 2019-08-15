@@ -89,21 +89,24 @@ pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cl
     Ok(conf)
 }
 
+/// shard_num => (rpc_port)
+const DEV_SHARD_PARAMS : [(u16, (u16, )); 4] = [
+    (0, (9933,)),
+    (1, (19933,)),
+    (2, (29933,)),
+    (3, (39933,))
+];
+
 fn get_dev_config() -> substrate_cli::error::Result<SwitchConf> {
     let mut shards = HashMap::new();
 
-    shards.insert("0".to_string(), Shard {
-        rpc: vec!["http://localhost:9933".to_string()],
-    });
-    shards.insert("1".to_string(), Shard {
-        rpc: vec!["http://localhost:19933".to_string()],
-    });
-    shards.insert("2".to_string(), Shard {
-        rpc: vec!["http://localhost:29933".to_string()],
-    });
-    shards.insert("3".to_string(), Shard {
-        rpc: vec!["http://localhost:39933".to_string()],
-    });
+    for param in DEV_SHARD_PARAMS.iter() {
+        let shard_num = param.0;
+        let rpc_port = (param.1).0;
+        shards.insert(format!("{}", shard_num).to_string(), Shard {
+            rpc: vec![format!("http://localhost:{}", rpc_port).to_string()],
+        });
+    }
 
     Ok(SwitchConf {
         shards
