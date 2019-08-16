@@ -18,8 +18,10 @@
 use structopt::StructOpt;
 use std::path::PathBuf;
 
-#[derive(Debug, StructOpt, Clone)]
+pub const DEFAULT_RPC_PORT: u16 = 10033;
+pub const DEFAULT_WS_PORT: u16 = 10044;
 
+#[derive(Debug, StructOpt, Clone)]
 pub struct SwitchCommandCmd {
 
     /// Specify HTTP RPC server TCP port
@@ -37,6 +39,10 @@ pub struct SwitchCommandCmd {
     /// Listen to all Websocket interfaces (default is local)
     #[structopt(long = "ws-external")]
     pub ws_external: bool,
+
+    /// Specify the development chain
+    #[structopt(long = "dev")]
+    pub dev: bool,
 
     /// Specify custom base path.
     #[structopt(long = "base-path", short = "b", value_name = "PATH", parse(from_os_str))]
