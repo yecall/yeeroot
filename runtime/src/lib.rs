@@ -189,6 +189,8 @@ impl balances::Trait for Runtime {
 	type TransactionPayment = ();
 	type DustRemoval = ();
 	type TransferPayment = ();
+
+    type Sharding = sharding::Module<Runtime>;
 }
 
 impl sharding::Trait for Runtime {
