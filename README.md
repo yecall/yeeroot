@@ -64,7 +64,7 @@ $ cargo build
 ## Usage
 for dev
 
-1. start the nodes of the 4 shards
+1. Start the nodes of the 4 shards
     ```sh
     $ ./yee --dev --shard-num=0 --base-path=/tmp/yee/shard_0
     $ ./yee --dev --shard-num=1 --base-path=/tmp/yee/shard_1
@@ -72,12 +72,26 @@ for dev
     $ ./yee --dev --shard-num=3 --base-path=/tmp/yee/shard_3
     ```
 
-1. start switch
+1. Start switch
     ```sh
     $ ./yee switch --dev
     ```
 
-1. check if they work
+1. Check if they work
+    
+    Test accounts:
+    
+    <pre>
+    Name     Address                                           Shard num
+    Alice    5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY  1
+    Bob      5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty  0
+    Charlie  5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y  2
+    Dave     5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy  0
+    Eve      5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw  2
+    Ferdie   5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL  0
+    </pre>
+  
+    You can get the balance of a certain address by the following RPC: 
     ```sh
     $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
     ```
