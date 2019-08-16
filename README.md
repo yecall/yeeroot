@@ -33,21 +33,21 @@ Yeeco takes advantage of the 4 key mechanisms as follows:
     ```sh
     curl https://sh.rustup.rs -sSf | sh
     ```
-2. Openssl
-3. Rust nightly
+1. Openssl
+1. Rust nightly
     ```sh
     rustup toolchain add nightly
     ```
-4. rust nightly wasm
+1. rust nightly wasm
     ```sh
     rustup target add wasm32-unknown-unknown
     rustup target add wasm32-unknown-unknown --toolchain nightly
     ```
-5. wasm-gc
+1. wasm-gc
     ```sh
     cargo install wasm-gc
     ```
-6. Rust components: clippy rls docs src rustfmt
+1. Rust components: clippy rls docs src rustfmt
     ```sh
     rustup component list # list all the components installed
     rustup component add <name> # install component
@@ -62,10 +62,25 @@ $ cargo build
 ```
 
 ## Usage
-devepment
-```sh
-$ ./yee --dev --shard-num=0 --coin-base=5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
-```
+for dev
+
+1. start the nodes of the 4 shards
+    ```sh
+    $ ./yee --dev --shard-num=0 --base-path=/tmp/yee/shard_0
+    $ ./yee --dev --shard-num=1 --base-path=/tmp/yee/shard_1
+    $ ./yee --dev --shard-num=2 --base-path=/tmp/yee/shard_2
+    $ ./yee --dev --shard-num=3 --base-path=/tmp/yee/shard_3
+    ```
+
+1. start switch
+    ```sh
+    $ ./yee switch --dev
+    ```
+
+1. check if they work
+    ```sh
+    $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
+    ```
 
 ## Roadmap
 1. **[Done in [tetris_demo](https://github.com/yeeco/tetris_demo)]** PoC-1: Tetris consensus demo (2019-02)

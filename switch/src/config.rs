@@ -15,7 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_cli::{VersionInfo};
+use substrate_cli::VersionInfo;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -56,19 +56,23 @@ impl From<SwitchConf> for yee_switch_rpc::Config {
         let mut shards: HashMap<String, yee_switch_rpc::Shard> = HashMap::new();
 
         for (k, v) in conf.shards {
-            let shard = yee_switch_rpc::Shard{
+            let shard = yee_switch_rpc::Shard {
                 rpc: v.rpc,
             };
             shards.insert(k, shard);
         }
 
-        yee_switch_rpc::Config{
+        yee_switch_rpc::Config {
             shards
         }
     }
 }
 
 pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cli::error::Result<SwitchConf> {
+    if cmd.dev {
+        return get_dev_config();
+    }
+
     let conf_path = conf_path(&base_path(cmd, version));
 
     let conf_path = conf_path.join("switch.toml");
@@ -83,6 +87,30 @@ pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cl
     let conf: SwitchConf = toml::from_str(&str_val).map_err(|_e| "Error reading conf file")?;
 
     Ok(conf)
+}
+
+/// shard_num => (rpc_port)
+const DEV_SHARD_PARAMS : [(u16, (u16, )); 4] = [
+    (0, (9933,)),
+    (1, (19933,)),
+    (2, (29933,)),
+    (3, (39933,))
+];
+
+fn get_dev_config() -> substrate_cli::error::Result<SwitchConf> {
+    let mut shards = HashMap::new();
+
+    for param in DEV_SHARD_PARAMS.iter() {
+        let shard_num = param.0;
+        let rpc_port = (param.1).0;
+        shards.insert(format!("{}", shard_num).to_string(), Shard {
+            rpc: vec![format!("http://localhost:{}", rpc_port).to_string()],
+        });
+    }
+
+    Ok(SwitchConf {
+        shards
+    })
 }
 
 fn conf_path(base_path: &Path) -> PathBuf {

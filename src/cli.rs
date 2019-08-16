@@ -11,6 +11,7 @@ use log::info;
 use super::{
     custom_command::{run_custom_command, CustomCommand},
     custom_param::{YeeCliConfig, process_custom_args},
+	dev_param::process_dev_param,
 };
 
 /// Parse command line arguments into service configuration.
@@ -21,13 +22,15 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 {
 	parse_and_execute::<service::Factory, CustomCommand, YeeCliConfig, _, _, _, _, _>(
 		load_spec, &version, "yee-node", args, exit,
-	 	|exit, custom_args, mut config| {
+	 	|exit, mut custom_args, mut config| {
 			info!("{}", version.name);
 			info!("  version {}", config.full_version());
 			info!("  by {}, 2019", version.author);
 			info!("Chain specification: {}", config.chain_spec.name());
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
+
+			process_dev_param::<service::Factory>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
 
 			process_custom_args::<service::Factory>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
 
