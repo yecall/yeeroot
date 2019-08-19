@@ -76,23 +76,23 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     E: Environment<B> + 'static,
+    <E as Environment<B>>::Error: Debug + Send,
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
-    let worker = worker::DefaultWorker {
-        authority_key: local_key.clone(),
-        client: client.clone(),
+    let worker = worker::DefaultWorker::new(
+        local_key.clone(),
+        client.clone(),
         block_import,
         env,
-        sync_oracle: sync_oracle.clone(),
-        inherent_data_providers: inherent_data_providers.clone(),
-        coin_base: coin_base.clone(),
-        stop_sign: Default::default(),
-        phantom: PhantomData,
-    };
+        sync_oracle.clone(),
+        inherent_data_providers.clone(),
+        coin_base,
+        PhantomData,
+    );
     worker::start_worker::<_, _, I, _, _, _>(
         client,
         Arc::new(worker),

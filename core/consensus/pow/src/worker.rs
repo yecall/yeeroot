@@ -60,25 +60,58 @@ use super::{
 };
 
 pub trait PowWorker<B: Block> {
-    type OnJob: IntoFuture<Item=(), Error=consensus_common::Error>;
+    type Error: Debug + Send;
+    type OnTemplate: IntoFuture<Item=B, Error=Self::Error>;
+    type OnJob: IntoFuture<Item=(), Error=Self::Error>;
 
     fn stop_sign(&self) -> Arc<RwLock<bool>>;
 
-    fn on_start(&self) -> Result<(), consensus_common::Error>;
+    fn on_start(&self) -> Result<(), Self::Error>;
 
-    fn on_job(&self, chain_head: B::Header, iter: u64) -> Self::OnJob;
+    fn on_template(&self) -> Self::OnTemplate;
+
+    fn on_job(&self, iter: u64) -> Self::OnJob;
 }
 
 pub struct DefaultWorker<B, P, C, I, E, AccountId, SO> {
-    pub(crate) authority_key: Arc<P>,
-    pub(crate) client: Arc<C>,
-    pub(crate) block_import: Arc<I>,
-    pub(crate) env: Arc<E>,
-    pub(crate) sync_oracle: SO,
-    pub(crate) inherent_data_providers: InherentDataProviders,
-    pub(crate) coin_base: AccountId,
-    pub(crate) stop_sign: Arc<RwLock<bool>>,
-    pub(crate) phantom: PhantomData<(B, AccountId)>,
+    authority_key: Arc<P>,
+    client: Arc<C>,
+    block_import: Arc<I>,
+    env: Arc<E>,
+    sync_oracle: SO,
+    inherent_data_providers: InherentDataProviders,
+    coin_base: AccountId,
+    stop_sign: Arc<RwLock<bool>>,
+    phantom: PhantomData<(B, AccountId)>,
+}
+
+impl<B, P, C, I, E, AccountId, SO> DefaultWorker<B, P, C, I, E, AccountId, SO> where
+    B: Block,
+    E: Environment<B> + 'static,
+    <E as Environment<B>>::Error: Debug + Send,
+{
+    pub fn new(
+        authority_key: Arc<P>,
+        client: Arc<C>,
+        block_import: Arc<I>,
+        env: Arc<E>,
+        sync_oracle: SO,
+        inherent_data_providers: InherentDataProviders,
+        coin_base: AccountId,
+        phantom: PhantomData<(B, AccountId)>,
+    ) -> Self {
+        DefaultWorker {
+            authority_key,
+            client,
+            block_import,
+            env,
+            sync_oracle,
+            inherent_data_providers,
+            coin_base,
+            stop_sign: Default::default(),
+            phantom,
+        }
+    }
 }
 
 impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E, AccountId, SO> where
@@ -86,18 +119,21 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
     DigestFor<B>: Digest,
     P: Pair,
     <P as Pair>::Public: Clone + Debug + Decode + Encode + Send + 'static,
-    C: HeaderBackend<B> + ProvideRuntimeApi + 'static,
+    C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     E: Environment<B> + 'static,
     <E as Environment<B>>::Proposer: Proposer<B>,
+    <E as Environment<B>>::Error: Debug,
     <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Clone,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
-    type OnJob = Box<Future<Item=(), Error=consensus_common::Error> + Send>;
+    type Error = consensus_common::Error;
+    type OnTemplate = Box<dyn Future<Item=B, Error=Self::Error> + Send>;
+    type OnJob = Box<dyn Future<Item=(), Error=Self::Error> + Send>;
 
     fn stop_sign(&self) -> Arc<RwLock<bool>> {
         self.stop_sign.clone()
@@ -107,35 +143,44 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
         super::register_inherent_data_provider(&self.inherent_data_providers)
     }
 
+    fn on_template(&self) -> Self::OnTemplate {
+        let get_data = || {
+            let chain_head = self.client.best_block_header()
+                .map_err(to_common_error)?;
+            let inherent_data = self.inherent_data_providers.create_inherent_data()
+                .map_err(to_common_error)?;
+            Ok((chain_head, inherent_data))
+        };
+        let (chain_head, inherent_data) = match get_data() {
+            Ok((p, data)) => (p, data),
+            Err(e) => {
+                warn!("failed to get proposer {:?}", e);
+                return Box::new(future::err(e));
+            }
+        };
+        let proposer = match self.env.init(&chain_head, &vec![]) {
+            Ok(p) => p,
+            Err(e) => {
+                return Box::new(future::err(to_common_error(e)));
+            }
+        };
+
+        Box::new(
+            proposer.propose(inherent_data, Duration::from_secs(10))
+                .into_future()
+                .map_err(to_common_error)
+        )
+    }
+
     fn on_job(&self,
-              chain_head: B::Header,
               iter: u64,
     ) -> Self::OnJob {
         let client = self.client.clone();
         let block_import = self.block_import.clone();
-        let env = self.env.clone();
-
-        let proposer = match env.init(&chain_head, &Vec::new()) {
-            Ok(p) => p,
-            Err(_) => {
-                // warn!("failed to create block {:?}", e);
-                return Box::new(future::ok(()));
-            }
-        };
-        let inherent_data = match self.inherent_data_providers.create_inherent_data() {
-            Ok(data) => data,
-            Err(e) => {
-                warn!("{:?}", e);
-                return Box::new(future::ok(()));
-            }
-        };
-        let remaining_duration = Duration::new(10, 0);
-
-        let proposal_work = proposer.propose(
-            inherent_data, remaining_duration,
-        ).into_future();
-
         let authority_id = self.authority_key.public();
+
+        let proposal_work = self.on_template().into_future();
+
         // let coin_base = self.coin_base.clone();
         let on_proposal_block = move |block: B| -> Result<(), consensus_common::Error> {
             let (header, body) = block.deconstruct();
@@ -282,7 +327,7 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
     SO: SyncOracle,
     OnExit: Future<Item=(), Error=()>,
 {
-    worker.on_start()?;
+    worker.on_start().map_err(to_common_error)?;
 
     let stop_sign = worker.stop_sign();
 
@@ -311,15 +356,7 @@ pub fn start_worker<B, C, I, W, SO, OnExit>(
             return Either::A(delayed_continue);
         }
 
-        let chain_head = match client.best_block_header() {
-            Ok(x) => x,
-            Err(e) => {
-                warn!("failed to get chain head {:?}", e);
-                return Either::A(delayed_continue);
-            }
-        };
-
-        let task = worker.on_job(chain_head, 10000).into_future();
+        let task = worker.on_job(10000).into_future();
         Either::B(
             task.then(|_| Delay::new(Instant::now()))
                 .then(|_| Ok(Loop::Continue(())))
