@@ -57,8 +57,6 @@ impl Alternative {
 				"Development",
 				"dev",
 				|| testnet_genesis(vec![
-					authority_key("Alice")
-				], vec![
 					account_key("Alice")
 				],
 				),
@@ -72,9 +70,6 @@ impl Alternative {
 				"Local Testnet",
 				"local_testnet",
 				|| testnet_genesis(vec![
-					authority_key("Alice"),
-					authority_key("Bob"),
-				], vec![
 					account_key("Alice"),
 					account_key("Bob"),
 					account_key("Charlie"),
@@ -117,30 +112,43 @@ impl Alternative {
 	}
 }
 
-fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>) -> GenesisConfig {
+fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
     let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
-    testnet_template_genesis(initial_authorities, endowed_accounts, code)
+    testnet_template_genesis(
+        endowed_accounts, code,
+        primitives::U256::from(0x0000ffff) << 224,
+        15,
+    )
 }
 
 fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
     let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
-    testnet_template_genesis(vec![], endowed_accounts, code)
+    testnet_template_genesis(
+        endowed_accounts, code,
+        primitives::U256::from(0x00003fff) << 224,
+        60,
+    )
 }
 
-fn testnet_template_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>, code: Vec<u8>) -> GenesisConfig {
+fn testnet_template_genesis(
+    endowed_accounts: Vec<AccountId>,
+    code: Vec<u8>,
+    genesis_difficulty: primitives::U256,
+    target_block_time: u64,
+) -> GenesisConfig {
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,
-			authorities: initial_authorities.clone(),
+			authorities: vec![],
 		}),
 		system: None,
 		timestamp: Some(TimestampConfig {
 			minimum_period: 0, // 10 second block time.
 		}),
         pow: Some(PowConfig {
-            genesis_difficulty: primitives::U256::from(0x00003fff) << 224,
+            genesis_difficulty,
             difficulty_adj: 60_u64.into(),
-            target_block_time: 60_u64.into(),
+            target_block_time: target_block_time.into(),
         }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
