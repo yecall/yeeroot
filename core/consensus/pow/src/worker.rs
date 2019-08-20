@@ -55,7 +55,7 @@ use {
     pow_primitives::{YeePOWApi, DifficultyType},
 };
 use super::{
-    CompatibleDigestItem, WorkProof, ProofNonce,
+    CompatibleDigestItem, JobTemplateBuilder, WorkProof, ProofNonce,
     pow::PowSeal,
 };
 
@@ -74,10 +74,10 @@ pub trait PowWorker<B: Block> {
 }
 
 pub struct DefaultWorker<B, P, C, I, E, AccountId, SO> {
+    template_builder: Arc<JobTemplateBuilder<B, C, E>>,
     authority_key: Arc<P>,
     client: Arc<C>,
     block_import: Arc<I>,
-    env: Arc<E>,
     sync_oracle: SO,
     inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
@@ -91,20 +91,20 @@ impl<B, P, C, I, E, AccountId, SO> DefaultWorker<B, P, C, I, E, AccountId, SO> w
     <E as Environment<B>>::Error: Debug + Send,
 {
     pub fn new(
+        template_builder: Arc<JobTemplateBuilder<B, C, E>>,
         authority_key: Arc<P>,
         client: Arc<C>,
         block_import: Arc<I>,
-        env: Arc<E>,
         sync_oracle: SO,
         inherent_data_providers: InherentDataProviders,
         coin_base: AccountId,
         phantom: PhantomData<(B, AccountId)>,
     ) -> Self {
         DefaultWorker {
+            template_builder,
             authority_key,
             client,
             block_import,
-            env,
             sync_oracle,
             inherent_data_providers,
             coin_base,
@@ -144,32 +144,7 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
     }
 
     fn on_template(&self) -> Self::OnTemplate {
-        let get_data = || {
-            let chain_head = self.client.best_block_header()
-                .map_err(to_common_error)?;
-            let inherent_data = self.inherent_data_providers.create_inherent_data()
-                .map_err(to_common_error)?;
-            Ok((chain_head, inherent_data))
-        };
-        let (chain_head, inherent_data) = match get_data() {
-            Ok((p, data)) => (p, data),
-            Err(e) => {
-                warn!("failed to get proposer {:?}", e);
-                return Box::new(future::err(e));
-            }
-        };
-        let proposer = match self.env.init(&chain_head, &vec![]) {
-            Ok(p) => p,
-            Err(e) => {
-                return Box::new(future::err(to_common_error(e)));
-            }
-        };
-
-        Box::new(
-            proposer.propose(inherent_data, Duration::from_secs(10))
-                .into_future()
-                .map_err(to_common_error)
-        )
+        self.template_builder.get_template()
     }
 
     fn on_job(&self,
@@ -310,19 +285,16 @@ fn timestamp_now() -> Result<u64, consensus_common::Error> {
         .map_err(to_common_error)?.as_millis() as u64)
 }
 
-fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
+pub fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
     consensus_common::ErrorKind::ClientImport(format!("{:?}", e)).into()
 }
 
-pub fn start_worker<B, C, I, W, SO, OnExit>(
-    client: Arc<C>,
+pub fn start_worker<B, W, SO, OnExit>(
     worker: Arc<W>,
     sync_oracle: SO,
     on_exit: OnExit,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
-    C: ChainHead<B>,
-    I: BlockImport<B>,
     W: PowWorker<B>,
     SO: SyncOracle,
     OnExit: Future<Item=(), Error=()>,

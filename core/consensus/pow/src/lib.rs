@@ -20,6 +20,8 @@
 use {
     std::{fmt::Debug, marker::PhantomData, sync::Arc},
     futures::{Future, IntoFuture},
+    log::warn,
+    parking_lot::RwLock,
 };
 use {
     client::{
@@ -50,9 +52,11 @@ use {
     pow_primitives::YeePOWApi,
 };
 
+pub use builder::JobTemplateBuilder;
 pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce};
 
+mod builder;
 mod digest;
 mod pow;
 mod verifier;
@@ -67,6 +71,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
+    template_builder_reg: Arc<RwLock<Option<Arc<JobTemplateBuilder<B, C, E>>>>>,
     _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
@@ -83,19 +88,34 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
-    let worker = worker::DefaultWorker::new(
+    let template_builder = Arc::new(builder::JobTemplateBuilder::new(
+        client.clone(),
+        env.clone(),
+        inherent_data_providers.clone(),
+        PhantomData,
+    ));
+    let mut reg_lock = template_builder_reg.write();
+    match *reg_lock {
+        Some(_) => {
+            warn!("template_builder already registered");
+            panic!("template_builder can only be registered once");
+        },
+        None => {
+            *reg_lock = Some(template_builder.clone());
+        }
+    }
+    let worker = Arc::new(worker::DefaultWorker::new(
+        template_builder.clone(),
         local_key.clone(),
         client.clone(),
         block_import,
-        env,
         sync_oracle.clone(),
         inherent_data_providers.clone(),
         coin_base,
         PhantomData,
-    );
-    worker::start_worker::<_, _, I, _, _, _>(
-        client,
-        Arc::new(worker),
+    ));
+    worker::start_worker(
+        worker,
         sync_oracle,
         on_exit)
 }

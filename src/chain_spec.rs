@@ -1,6 +1,6 @@
 use {
     primitives::{
-        ed25519, sr25519, Pair,
+        sr25519, Pair,
         crypto::Ss58Codec,
     },
 };
@@ -10,8 +10,6 @@ use yee_runtime::{
     PowConfig, ShardingConfig,
 };
 use substrate_service;
-
-use ed25519::Public as AuthorityId;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -30,12 +28,6 @@ pub enum Alternative {
 	LocalTestnet,
     /// Proof-of-Concept chain with prebuilt runtime.
     POCTestnet,
-}
-
-fn authority_key(s: &str) -> AuthorityId {
-	ed25519::Pair::from_string(&format!("//{}", s), None)
-		.expect("static values are valid; qed")
-		.public()
 }
 
 fn account_key(s: &str) -> AccountId {
