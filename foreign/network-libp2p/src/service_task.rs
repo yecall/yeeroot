@@ -81,7 +81,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 	});
 
 	// Private and public keys configuration.
-	let local_identity = config.node_key.clone().into_keypair()?;
+	let local_identity = config.node_key_pair;
 	let local_public = local_identity.public();
 	let local_peer_id = local_public.clone().into_peer_id();
 	info!(target: "sub-libp2p", "Local node identity is: {}", local_peer_id.to_base58());

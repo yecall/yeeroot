@@ -32,7 +32,7 @@ pub struct NetworkConfiguration {
 	/// List of initial node addresses
 	pub foreign_boot_nodes: HashMap<u16, Vec<String>>,
 	/// The node key configuration, which determines the node's network identity keypair.
-	pub node_key: NodeKeyConfig,
+	pub node_key_pair: Keypair,
 	/// Maximum allowed number of incoming connections.
 	pub in_peers: u32,
 	/// Number of outgoing connections we're trying to maintain.
@@ -56,7 +56,7 @@ impl Default for NetworkConfiguration {
 			listen_addresses: Vec::new(),
 			public_addresses: Vec::new(),
 			foreign_boot_nodes: HashMap::new(),
-			node_key: NodeKeyConfig::Secp256k1(Secret::New),
+			node_key_pair: Keypair::generate_secp256k1(),
 			in_peers: 5,
 			out_peers: 15,
 			reserved_nodes: Vec::new(),

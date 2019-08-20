@@ -33,6 +33,9 @@ use super::{
 mod sharding;
 use sharding::prepare_sharding;
 
+mod foreign;
+use foreign::{Params, start_foreign_network};
+
 pub use substrate_executor::NativeExecutor;
 // Our native executor instance.
 native_executor_instance!(
@@ -81,8 +84,19 @@ construct_service_factory! {
 		Genesis = GenesisConfig,
 		Configuration = NodeConfig,
 		FullService = FullComponents<Self>
-			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
-				FullComponents::<Factory>::new(config, executor)
+			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor| {
+			    let foreign_network_param = Params{
+			        node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
+			        shard_num: config.custom.shard_num,
+			        bootnodes_routers: config.custom.bootnodes_routers.clone(),
+			    };
+
+				let service = FullComponents::<Self>::new(config, executor);
+
+                start_foreign_network(foreign_network_param);
+
+                service
+                }
 			},
 		AuthoritySetup = {
 			|service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>| {
