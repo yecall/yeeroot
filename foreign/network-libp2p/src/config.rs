@@ -20,20 +20,17 @@ use libp2p::identity::{Keypair, secp256k1, ed25519};
 use libp2p::{Multiaddr, multiaddr::Protocol};
 use std::error::Error;
 use std::{io::{self, Write}, iter, fs, net::Ipv4Addr, path::{Path, PathBuf}};
+use std::collections::HashMap;
 
 /// Network service configuration.
 #[derive(Clone)]
 pub struct NetworkConfiguration {
-	/// Directory path to store general network configuration. None means nothing will be saved.
-	pub config_path: Option<String>,
-	/// Directory path to store network-specific configuration. None means nothing will be saved.
-	pub net_config_path: Option<String>,
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
 	/// Multiaddresses to advertise. Detected automatically if empty.
 	pub public_addresses: Vec<Multiaddr>,
 	/// List of initial node addresses
-	pub boot_nodes: Vec<String>,
+	pub foreign_boot_nodes: HashMap<u16, Vec<String>>,
 	/// The node key configuration, which determines the node's network identity keypair.
 	pub node_key: NodeKeyConfig,
 	/// Maximum allowed number of incoming connections.
@@ -56,18 +53,16 @@ pub struct NetworkConfiguration {
 impl Default for NetworkConfiguration {
 	fn default() -> Self {
 		NetworkConfiguration {
-			config_path: None,
-			net_config_path: None,
 			listen_addresses: Vec::new(),
 			public_addresses: Vec::new(),
-			boot_nodes: Vec::new(),
+			foreign_boot_nodes: HashMap::new(),
 			node_key: NodeKeyConfig::Secp256k1(Secret::New),
-			in_peers: 25,
-			out_peers: 75,
+			in_peers: 5,
+			out_peers: 15,
 			reserved_nodes: Vec::new(),
 			non_reserved_mode: NonReservedPeerMode::Accept,
-			client_version: "unknown".into(),
-			node_name: "unknown".into(),
+			client_version: "foreign-unknown".into(),
+			node_name: "foreign-unknown".into(),
 			enable_mdns: false,
 		}
 	}

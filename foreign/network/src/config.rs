@@ -17,9 +17,12 @@
 //! Configuration for the networking layer of Substrate.
 
 pub use network_libp2p::NetworkConfiguration;
+use crate::IdentifySpecialization;
 
 /// Service initialization parameters.
-pub struct Params {
+pub struct Params<I: IdentifySpecialization> {
 	/// Network layer configuration.
 	pub network_config: NetworkConfiguration,
+	/// Identify specialization.
+	pub identify_specialization: I,
 }

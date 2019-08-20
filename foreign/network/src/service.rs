@@ -31,7 +31,7 @@ use crate::config::Params;
 use crossbeam_channel::{self as channel, Receiver, Sender, TryRecvError};
 use crate::error::Error;
 use runtime_primitives::{traits::{Block as BlockT, NumberFor}, ConsensusEngineId};
-use crate::{IdentifySpecialization, DefaultIdentifySpecialization};
+use crate::{IdentifySpecialization, identify_specialization::ForeignIdentifySpecialization};
 
 use tokio::prelude::task::AtomicTask;
 use tokio::runtime::Builder as RuntimeBuilder;
@@ -49,13 +49,13 @@ impl<T> ExHashT for T where
 }
 
 /// Substrate network service. Handles network IO and manages connectivity.
-pub struct Service<B: BlockT + 'static> {
+pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
 	/// Are we connected to any peer?
 	is_offline: Arc<AtomicBool>,
 	/// Are we actively catching up with the chain?
 	is_major_syncing: Arc<AtomicBool>,
 	/// Network service
-	network: Arc<Mutex<NetworkService<Message<B>, DefaultIdentifySpecialization>>>,
+	network: Arc<Mutex<NetworkService<Message<B>, I>>>,
 	/// Peerset manager (PSM); manages the reputation of nodes and indicates the network which
 	/// nodes it should be connected to or not.
 	peerset: PeersetHandle,
@@ -67,12 +67,12 @@ pub struct Service<B: BlockT + 'static> {
 	bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
 }
 
-impl<B: BlockT + 'static> Service<B> {
+impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 	/// Creates and register protocol with the network service
-	pub fn new<H: ExHashT>(
-		params: Params,
+	pub fn new(
+		params: Params<I>,
 		protocol_id: ProtocolId,
-	) -> Result<(Arc<Service<B>>, NetworkChan<B>), Error> {
+	) -> Result<(Arc<Service<B, I>>, NetworkChan<B>), Error> {
 		let (network_chan, network_port) = network_channel();
 		// Start in off-line mode, since we're not connected to any nodes yet.
 		let is_offline = Arc::new(AtomicBool::new(true));
@@ -89,7 +89,7 @@ impl<B: BlockT + 'static> Service<B> {
 			network_port,
 			params.network_config,
 			registered,
-			DefaultIdentifySpecialization,
+			params.identify_specialization,
 		)?;
 
 		let service = Arc::new(Service {
@@ -133,7 +133,7 @@ impl<B: BlockT + 'static> Service<B> {
 	}
 }
 
-impl<B: BlockT + 'static> Drop for Service<B> {
+impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
 	fn drop(&mut self) {
 		if let Some((sender, join)) = self.bg_thread.take() {
 			let _ = sender.send(());

@@ -6,6 +6,7 @@ mod util;
 pub mod config;
 pub mod error;
 pub mod message;
+mod identify_specialization;
 
 pub use service::{Service, NetworkMsg, ExHashT};
 pub use network_libp2p::{
@@ -19,3 +20,6 @@ pub use message::{generic as generic_message};
 pub use error::Error;
 #[doc(hidden)]
 pub use runtime_primitives::traits::Block as BlockT;
+
+#[cfg(test)]
+mod test;

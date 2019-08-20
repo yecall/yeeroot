@@ -42,23 +42,22 @@ pub fn start_service<TMessage, I>(
 ) -> Result<(Service<TMessage, I>, substrate_peerset::PeersetHandle), IoError>
 where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 
-	if let Some(ref path) = config.net_config_path {
-		fs::create_dir_all(Path::new(path))?;
-	}
-
 	// List of multiaddresses that we know in the network.
 	let mut known_addresses = Vec::new();
 	let mut bootnodes = Vec::new();
 	let mut reserved_nodes = Vec::new();
 
 	// Process the bootnodes.
-	for bootnode in config.boot_nodes.iter() {
-		match parse_str_addr(bootnode) {
-			Ok((peer_id, addr)) => {
-				bootnodes.push(peer_id.clone());
-				known_addresses.push((peer_id, addr));
-			},
-			Err(_) => warn!(target: "sub-libp2p", "Not a valid bootnode address: {}", bootnode),
+
+	for (shard_num, shard_boot_nodes)  in config.foreign_boot_nodes{
+		for bootnode in shard_boot_nodes.iter() {
+			match parse_str_addr(bootnode) {
+				Ok((peer_id, addr)) => {
+					bootnodes.push(peer_id.clone());
+					known_addresses.push((peer_id, addr));
+				},
+				Err(_) => warn!(target: "sub-libp2p", "Not a valid bootnode address: {}", bootnode),
+			}
 		}
 	}
 

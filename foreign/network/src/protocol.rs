@@ -33,25 +33,13 @@ use std::{cmp, num::NonZeroUsize, thread, time};
 use log::{trace, debug, warn};
 use crate::{error, util::LruHashSet};
 
-const REQUEST_TIMEOUT_SEC: u64 = 40;
-/// Interval at which we perform time based maintenance
-const TICK_TIMEOUT: time::Duration = time::Duration::from_millis(1100);
 /// Interval at which we propagate exstrinsics;
 const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(2900);
-/// Interval at which we send status updates on the SyncProvider status stream.
-const STATUS_INTERVAL: time::Duration = time::Duration::from_millis(5000);
 
 /// Current protocol version.
 pub(crate) const CURRENT_VERSION: u32 = 2;
 /// Lowest version we support
 const MIN_VERSION: u32 = 2;
-
-// Maximum allowed entries in `BlockResponse`
-const MAX_BLOCK_DATA_RESPONSE: u32 = 128;
-/// When light node connects to the full node and the full node is behind light node
-/// for at least `LIGHT_MAXIMAL_BLOCKS_DIFFERENCE` blocks, we consider it unuseful
-/// and disconnect to free connection slot.
-const LIGHT_MAXIMAL_BLOCKS_DIFFERENCE: u64 = 8192;
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT> {
