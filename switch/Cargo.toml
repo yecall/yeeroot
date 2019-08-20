@@ -33,3 +33,4 @@ transaction_pool =  { package = "substrate-transaction-pool", git = "https://git
 yee-switch-rpc-servers = { package = "yee-switch-rpc-servers", path = "rpc-servers" }
 yee-switch-rpc = { package = "yee-switch-rpc", path = "rpc" }
 yee-runtime = { package = "yee-runtime", path = "../runtime" }
+yee-dev = { package = "yee-dev", path = "../dev" }

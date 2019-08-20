@@ -4987,6 +4987,7 @@ dependencies = [
  "vergen 3.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-bootnodes-router 0.1.0",
  "yee-consensus-pow 0.1.0",
+ "yee-dev 0.4.0",
  "yee-foreign-network 0.4.0",
  "yee-rpc 0.1.0",
  "yee-runtime 1.0.0",
@@ -5045,6 +5046,15 @@ version = "0.1.0"
 dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+]
+
+[[package]]
+name = "yee-dev"
+version = "0.4.0"
+dependencies = [
+ "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "substrate-network 0.1.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
 ]
 
@@ -5204,6 +5214,7 @@ dependencies = [
  "substrate-transaction-pool 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yee-dev 0.4.0",
  "yee-runtime 1.0.0",
  "yee-switch-rpc 1.0.0",
  "yee-switch-rpc-servers 1.0.0",

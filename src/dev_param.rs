@@ -21,19 +21,10 @@ use crate::error;
 use substrate_service::{FactoryFullConfiguration, ServiceFactory};
 use crate::service::NodeConfig;
 use crate::custom_param::YeeCliConfig;
-use std::collections::HashMap;
 use std::iter;
 use std::net::{Ipv4Addr, SocketAddr, IpAddr};
 use log::info;
 use network::multiaddr::Protocol;
-
-/// shard_num => (coin_base, rpc_port, ws_port, port)
-const DEV_SHARD_PARAMS : [(u16, (&str, u16, u16, u16)); 4] = [
-    (0, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 9933, 9944, 30333)),
-    (1, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 19933, 19944, 31333)),
-    (2, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 29933, 29944, 32333)),
-    (3, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 39933, 39944, 33333))
-];
 
 pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &mut YeeCliConfig) -> error::Result<()>
     where F: ServiceFactory<Configuration=NodeConfig> {
@@ -42,34 +33,29 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
 
     if chain_spec_id == "dev" {
 
-        let shard_params_map: HashMap<u16, (&str, u16, u16, u16)> = DEV_SHARD_PARAMS
-            .iter().cloned().collect();
-
         let shard_num = custom_args.shard_num;
 
-        let one = shard_params_map.get(&shard_num);
-        let one = one.ok_or(error::ErrorKind::Input("Invalid shard num".to_string().into()))?;
+        let run_params = yee_dev::get_run_params(shard_num).map_err(|e| format!("{:?}", e))?;
 
-        let coin_base = one.0;
-        let rpc_port = one.1;
-        let ws_port = one.2;
-        let port = one.3;
+        info!("Dev params: ");
+        info!("  coin base: {}", run_params.coin_base);
+        info!("  rpc port: {}", run_params.rpc_port);
+        info!("  ws port: {}", run_params.ws_port);
+        info!("  port: {}", run_params.port);
+        info!("  node key: {}", yee_dev::get_identity(&run_params.node_key_config));
 
-        custom_args.coin_base = Some(one.0.to_string());
+        custom_args.coin_base = Some(run_params.coin_base);
 
-        config.rpc_http = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), rpc_port));
-        config.rpc_ws = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), ws_port));
+        config.rpc_http = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), run_params.rpc_port));
+        config.rpc_ws = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), run_params.ws_port));
         config.network.listen_addresses = vec![
             iter::once(Protocol::Ip4(Ipv4Addr::new(0, 0, 0, 0)))
-                .chain(iter::once(Protocol::Tcp(port)))
+                .chain(iter::once(Protocol::Tcp(run_params.port)))
                 .collect()
         ];
 
-        info!("Dev params: ");
-        info!("  coin base: {}", coin_base);
-        info!("  rpc port: {}", rpc_port);
-        info!("  ws port: {}", ws_port);
-        info!("  port: {}", port);
+        config.network.node_key = run_params.node_key_config;
+
     }
 
     Ok(())

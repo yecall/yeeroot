@@ -54,6 +54,7 @@ yee-rpc = { package = "yee-rpc", path = "rpc" }
 yee-bootnodes-router = { package = "yee-bootnodes-router", path = "bootnodes-router" }
 yee-sharding = { package = "yee-sharding", path = "sharding" }
 yee-foreign-network = { package = "yee-foreign-network", path = "foreign/network" }
+yee-dev = { package = "yee-dev", path = "dev" }
 
 [build-dependencies]
 vergen = "3"
