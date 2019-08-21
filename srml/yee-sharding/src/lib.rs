@@ -44,7 +44,7 @@ pub type Log<T> = RawLog<<T as Trait>::ShardNum>;
 #[derive(Encode, Decode, PartialEq, Eq, Clone)]
 pub enum RawLog<N> {
     /// Block Header digest log for shard info
-    ShardMarker(N),
+    ShardMarker(N, N),
 }
 
 pub trait Trait: system::Trait {
@@ -82,7 +82,8 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         fn on_finalize() {
             if let Some(current_shard) = Self::current_shard() {
-                Self::deposit_log(RawLog::ShardMarker(current_shard));
+                let sharding_count = Self::sharding_count();
+                Self::deposit_log(RawLog::ShardMarker(current_shard, sharding_count));
             }
         }
     }
