@@ -24,3 +24,4 @@ serde_json = "1.0"
 exit-future = "0.1"
 futures = "0.1"
 error-chain = "0.12"
+yee-dev = { package = "yee-dev", path = "../dev" }

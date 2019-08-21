@@ -34,7 +34,7 @@ pub fn call<F: FnOnce(BootnodesRouterClient<HttpHandle>) -> error::Result<R> + C
 
     let mut error : error::Error = "Bootnodes router client call error".into();
     for uri in bootnodes_routers {
-        let mut client = client(uri.as_str());
+        let client = client(uri.as_str());
 
         match client {
             Ok(client) => {

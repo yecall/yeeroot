@@ -35,6 +35,10 @@ pub struct BootnodesRouterCommandCmd {
     #[structopt(short = "l", long = "log", value_name = "LOG_PATTERN")]
     pub log: Option<String>,
 
+    /// Specify the development chain
+    #[structopt(long = "dev")]
+    pub dev: bool,
+
 }
 
 impl substrate_cli::GetLogFilter for BootnodesRouterCommandCmd {

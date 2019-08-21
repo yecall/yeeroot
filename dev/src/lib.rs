@@ -46,6 +46,12 @@ pub struct SwitchParams{
     pub rpc_port: u16,
 }
 
+pub struct BootnodesRouterParams{
+    pub shard_num: u16,
+    pub port: u16,
+    pub identity: String,
+}
+
 pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
 
     let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str)> = SHARD_CONF
@@ -79,6 +85,23 @@ pub fn get_switch_params() -> error::Result<Vec<SwitchParams>>{
         .iter().cloned().collect();
 
     Ok(shard_conf_map.iter().map(|(k, v)| SwitchParams{shard_num: *k, rpc_port: (*v).1} ).collect())
+}
+
+pub fn get_bootnodes_router_params()-> error::Result<Vec<BootnodesRouterParams>>{
+
+    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str)> = SHARD_CONF
+        .iter().cloned().collect();
+
+    Ok(shard_conf_map.iter().map(|(k, v)| {
+        let shard_num = *k;
+        let port = (*v).3;
+        let node_key = v.4;
+        let node_key_config = NodeKeyConfig::Secp256k1(parse_secp256k1_secret(&node_key.to_string()).unwrap());
+        let identity = get_identity(&node_key_config);
+        BootnodesRouterParams{
+            shard_num, port, identity
+        }
+    } ).collect())
 }
 
 pub fn get_identity(node_key_config: &NodeKeyConfig) -> String {

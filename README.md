@@ -76,6 +76,11 @@ for dev
     ```sh
     $ ./yee switch --dev
     ```
+    
+1. Start bootnodes router
+    ```sh
+    $ ./yee bootnodes-router --dev
+    ```
 
 1. Check if they work
     
@@ -94,6 +99,11 @@ for dev
     You can get the balance of a certain address by the following RPC: 
     ```sh
     $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
+    ```
+    
+    You can get the bootnodes by the following RPC: 
+    ```sh
+    $ curl -X POST --data '{"jsonrpc":"2.0","method":"bootnodes","params":[],"id":1}' localhost:50001 -H 'Content-Type: application/json'
     ```
 
 ## Roadmap

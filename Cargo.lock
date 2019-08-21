@@ -5019,6 +5019,7 @@ dependencies = [
  "structopt 0.2.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "substrate-cli 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "toml 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yee-dev 0.4.0",
 ]
 
 [[package]]
