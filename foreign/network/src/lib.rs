@@ -6,7 +6,7 @@ mod util;
 pub mod config;
 pub mod error;
 pub mod message;
-mod identify_specialization;
+pub mod identify_specialization;
 
 pub use service::{Service, NetworkMsg, ExHashT};
 pub use network_libp2p::{

@@ -35,6 +35,11 @@ use foreign::{Params, start_foreign_network};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
+
+pub const IMPL_NAME : &str = "yee-node";
+pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
+pub const FOREIGN_PROTOCOL_VERSION : &str = "/yee-foreign/1.0.0";
+
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
@@ -72,6 +77,8 @@ construct_service_factory! {
 		FullService = FullComponents<Self>
 			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor| {
 			    let foreign_network_param = Params{
+                    client_version: config.network.client_version.clone(),
+			        protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
 			        node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
 			        shard_num: config.custom.shard_num,
 			        foreign_port: config.custom.foreign_port,
@@ -80,7 +87,7 @@ construct_service_factory! {
 
 				let service = FullComponents::<Self>::new(config, executor);
 
-                start_foreign_network(foreign_network_param);
+                start_foreign_network::<Self>(foreign_network_param);
 
                 service
                 }
@@ -139,7 +146,7 @@ construct_service_factory! {
 		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
 		IdentifySpecialization = ShardingIdentifySpecialization
 		    { |config: &FactoryFullConfiguration<Self>| {
-		        Ok(ShardingIdentifySpecialization::new("/yee/1.0.0".to_string(), config.custom.shard_num))
+		        Ok(ShardingIdentifySpecialization::new(NATIVE_PROTOCOL_VERSION.to_string(), config.custom.shard_num))
 		        }
 		    },
 	}

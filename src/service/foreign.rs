@@ -18,25 +18,77 @@
 use substrate_service::{FactoryFullConfiguration, ServiceFactory};
 use crate::service::NodeConfig;
 use log::info;
+use yee_foreign_network as network;
 use yee_foreign_network::identity::Keypair;
+use yee_foreign_network::identify_specialization::ForeignIdentifySpecialization;
+use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration};
+use yee_foreign_network::multiaddr::Protocol;
+use yee_foreign_network::Service;
+use yee_foreign_network::ProtocolId;
 use yee_bootnodes_router::BootnodesRouterConf;
+use std::iter;
+use std::net::Ipv4Addr;
+use parity_codec::alloc::collections::HashMap;
+
+const DEFAULT_FOREIGN_PORT : u16 = 30334;
+const DEFAULT_PROTOCOL_ID: &str = "sup";
 
 pub struct Params{
+    pub client_version: String,
+    pub protocol_version: String,
     pub node_key_pair: Keypair,
     pub shard_num: u16,
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
-pub fn start_foreign_network(param: Params){
+pub fn start_foreign_network<F: ServiceFactory>(param: Params){
 
     let peer_id = get_peer_id(&param.node_key_pair);
     info!("Start foreign network: ");
+    info!("  client version: {}", param.client_version);
+    info!("  protocol version: {}", param.protocol_version);
     info!("  node key: {}", peer_id);
     info!("  shard num: {}", param.shard_num);
     info!("  foreign port: {:?}", param.foreign_port);
     info!("  bootnodes router conf: {:?}", param.bootnodes_router_conf);
 
+    let port = match param.foreign_port {
+        Some(port) => port,
+        None => DEFAULT_FOREIGN_PORT,
+    };
+
+    let mut network_config = NetworkConfiguration::default();
+    network_config.node_key_pair = param.node_key_pair;
+    network_config.client_version = param.client_version;
+    network_config.listen_addresses = vec![
+        iter::once(Protocol::Ip4(Ipv4Addr::new(0, 0, 0, 0)))
+            .chain(iter::once(Protocol::Tcp(port)))
+            .collect()
+    ];
+    network_config.foreign_boot_nodes = get_foreign_boot_nodes(&param.bootnodes_router_conf);
+
+    let network_params = NetworkParams {
+        network_config,
+        identify_specialization: ForeignIdentifySpecialization::new(param.protocol_version.to_string(), param.shard_num),
+    };
+
+    let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
+
+    network::Service::<F::Block, _>::new(
+        network_params,
+        protocol_id
+    );
+}
+
+fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>>{
+
+    match bootnodes_router_conf{
+        Some(bootnodes_router_conf) => {
+            bootnodes_router_conf.shards.iter().map(|(k, v)| (k.parse().unwrap(), v.foreign.clone())).collect()
+        },
+        None => HashMap::new(),
+    }
 }
 
 fn get_peer_id(node_key_pair: &Keypair) -> String {
