@@ -17,7 +17,7 @@
 
 use crate::params::BootnodesRouterCommandCmd;
 use log::{info, trace};
-use substrate_cli::{VersionInfo, error};
+use substrate_cli::{VersionInfo};
 use std::path::{PathBuf, Path};
 use app_dirs::{AppDataType, AppInfo};
 use std::thread;
@@ -27,13 +27,13 @@ use std::collections::HashMap;
 use jsonrpc_core::IoHandler;
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
-use jsonrpc_client_http::{self, HttpTransport, HttpHandle};
+use jsonrpc_client_http;
 use serde_derive::{Deserialize, Serialize};
 use futures::future::Future;
-use error_chain::ChainedError;
 
 pub mod params;
 pub mod client;
+pub mod error;
 
 #[macro_use]
 extern crate jsonrpc_client_core;
@@ -56,7 +56,7 @@ const TARGET : &str = "bootnodes-router";
 /// native = ["/ip4/127.0.0.1/tcp/60011/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"]
 /// foreign = ["/ip4/127.0.0.1/tcp/61011/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"]
 /// ```
-pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
+pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     let conf: BootnodesRouterConf = get_from_conf(&cmd, &version)?;
 
@@ -102,7 +102,7 @@ pub struct BootnodesRouterConf {
     pub shards: HashMap<String, Shard>,
 }
 
-fn get_from_conf(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> substrate_cli::error::Result<BootnodesRouterConf> {
+fn get_from_conf(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> error::Result<BootnodesRouterConf> {
     let conf_path = conf_path(&base_path(cmd, version));
 
     let bootnodes_router_conf_path = conf_path.join("bootnodes-router.toml");

@@ -15,13 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use serde_derive::{Deserialize, Serialize};
 use jsonrpc_client_http::{self, HttpTransport, HttpHandle};
-use substrate_cli::error;
 use crate::BootnodesRouterConf;
-use serde::private::ser::constrain;
-use futures::future::err;
 use log::warn;
+use crate::error;
 
 jsonrpc_client!(pub struct BootnodesRouterClient {
     pub fn bootnodes(&mut self) -> RpcRequest<BootnodesRouterConf>;

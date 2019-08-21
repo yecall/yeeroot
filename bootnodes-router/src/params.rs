@@ -16,7 +16,7 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::PathBuf;
-use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
+use structopt::StructOpt;
 
 pub const DEFAULT_BOOTNODES_ROUTER_PORT : u16 = 50001;
 

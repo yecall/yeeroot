@@ -74,7 +74,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
         let bootnodes_router_conf = yee_bootnodes_router::client::call(|mut client|{
             let result = client.bootnodes().call().map_err(|e|format!("{:?}", e))?;
             Ok(result)
-        }, &config.custom.bootnodes_routers)?;
+        }, &config.custom.bootnodes_routers).map_err(|e|format!("{:?}", e))?;
 
         info!("Bootnodes router conf: {:?}", bootnodes_router_conf);
 
