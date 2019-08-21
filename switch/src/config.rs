@@ -23,6 +23,7 @@ use std::path::{PathBuf, Path};
 use app_dirs::{AppDataType, AppInfo};
 use serde_derive::{Deserialize, Serialize};
 use crate::params::SwitchCommandCmd;
+use crate::error;
 use log::trace;
 
 /// Switch config
@@ -68,7 +69,7 @@ impl From<SwitchConf> for yee_switch_rpc::Config {
     }
 }
 
-pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cli::error::Result<SwitchConf> {
+pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> error::Result<SwitchConf> {
     if cmd.dev {
         return get_dev_config();
     }
@@ -89,7 +90,7 @@ pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> substrate_cl
     Ok(conf)
 }
 
-fn get_dev_config() -> substrate_cli::error::Result<SwitchConf> {
+fn get_dev_config() -> error::Result<SwitchConf> {
 
     let params = yee_dev::get_switch_params().map_err(|e| format!("{:?}", e))?;
 

@@ -17,6 +17,7 @@
 
 pub mod params;
 pub mod config;
+pub mod error;
 use substrate_cli::{VersionInfo};
 use crate::params::SwitchCommandCmd;
 use log::{info};
@@ -32,7 +33,7 @@ use crate::params::DEFAULT_WS_PORT;
 
 pub const TARGET : &str = "switch";
 
-pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
+pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     let config = get_config(&cmd, &version)?;
 
@@ -83,7 +84,7 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> substrate_cli::error:
 fn parse_address(
     address: &str,
     port: Option<u16>,
-) -> substrate_cli::error::Result<SocketAddr> {
+) -> error::Result<SocketAddr> {
     let mut address: SocketAddr = address.parse().map_err(
         |_| format!("Invalid address: {}", address)
     )?;
