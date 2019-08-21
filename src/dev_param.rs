@@ -42,7 +42,7 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
         info!("  rpc port: {}", run_params.rpc_port);
         info!("  ws port: {}", run_params.ws_port);
         info!("  port: {}", run_params.port);
-        info!("  node key: {}", yee_dev::get_identity(&run_params.node_key_config));
+        info!("  node key: {}", yee_dev::get_peer_id(&run_params.node_key_config));
 
         custom_args.coin_base = Some(run_params.coin_base);
 

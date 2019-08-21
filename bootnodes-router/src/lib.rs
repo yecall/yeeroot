@@ -121,9 +121,9 @@ fn get_dev_config() -> error::Result<BootnodesRouterConf> {
     for param in params {
         let shard_num = param.shard_num;
         let port = param.port;
-        let identity = param.identity;
+        let peer_id = param.peer_id;
         shards.insert(format!("{}", shard_num).to_string(), Shard {
-            native: vec![format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", port, identity).to_string()],
+            native: vec![format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", port, peer_id).to_string()],
             foreign: vec![],
         });
     }

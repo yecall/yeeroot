@@ -49,7 +49,7 @@ pub struct SwitchParams{
 pub struct BootnodesRouterParams{
     pub shard_num: u16,
     pub port: u16,
-    pub identity: String,
+    pub peer_id: String,
 }
 
 pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
@@ -97,14 +97,14 @@ pub fn get_bootnodes_router_params()-> error::Result<Vec<BootnodesRouterParams>>
         let port = (*v).3;
         let node_key = v.4;
         let node_key_config = NodeKeyConfig::Secp256k1(parse_secp256k1_secret(&node_key.to_string()).unwrap());
-        let identity = get_identity(&node_key_config);
+        let peer_id = get_peer_id(&node_key_config);
         BootnodesRouterParams{
-            shard_num, port, identity
+            shard_num, port, peer_id
         }
     } ).collect())
 }
 
-pub fn get_identity(node_key_config: &NodeKeyConfig) -> String {
+pub fn get_peer_id(node_key_config: &NodeKeyConfig) -> String {
     let public = node_key_config.clone().into_keypair().unwrap().public();
     let peer_id = public.clone().into_peer_id();
     peer_id.to_base58()
