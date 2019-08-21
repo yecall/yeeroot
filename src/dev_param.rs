@@ -43,8 +43,12 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
         info!("  ws port: {}", run_params.ws_port);
         info!("  port: {}", run_params.port);
         info!("  node key: {}", yee_dev::get_peer_id(&run_params.node_key_config));
+        info!("  foreign port: {}", run_params.foreign_port);
+        info!("  bootnodes routers: {:?}", run_params.bootnodes_routers);
 
         custom_args.coin_base = Some(run_params.coin_base);
+        custom_args.foreign_port = Some(run_params.foreign_port);
+        custom_args.bootnodes_routers = run_params.bootnodes_routers;
 
         config.rpc_http = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), run_params.rpc_port));
         config.rpc_ws = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), run_params.ws_port));

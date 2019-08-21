@@ -100,14 +100,14 @@ fn get_config(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> error::
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Shard {
     pub native: Vec<String>,
     pub foreign: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BootnodesRouterConf {
     pub shards: HashMap<String, Shard>,
 }
@@ -122,9 +122,10 @@ fn get_dev_config() -> error::Result<BootnodesRouterConf> {
         let shard_num = param.shard_num;
         let port = param.port;
         let peer_id = param.peer_id;
+        let foreign_port = param.foreign_port;
         shards.insert(format!("{}", shard_num).to_string(), Shard {
             native: vec![format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", port, peer_id).to_string()],
-            foreign: vec![],
+            foreign: vec![format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", foreign_port, peer_id).to_string()],
         });
     }
 

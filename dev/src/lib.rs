@@ -24,13 +24,15 @@ use network::NodeKeyConfig;
 use primitives::H256;
 use std::str::FromStr;
 
-/// shard_num => (coin_base, rpc_port, ws_port, port, node_key)
-const SHARD_CONF : [(u16, (&str, u16, u16, u16, &str)); 4] = [
-    (0, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 9933, 9944, 30333, "0000000000000000000000000000000000000000000000000000000000000001")),
-    (1, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 19933, 19944, 31333, "0000000000000000000000000000000000000000000000000000000000000002")),
-    (2, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 29933, 29944, 32333, "0000000000000000000000000000000000000000000000000000000000000003")),
-    (3, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 39933, 39944, 33333, "0000000000000000000000000000000000000000000000000000000000000004")),
+/// shard_num => (coin_base, rpc_port, ws_port, port, node_key, foreign_port)
+const SHARD_CONF : [(u16, (&str, u16, u16, u16, &str, u16)); 4] = [
+    (0, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 9933, 9944, 30333, "0000000000000000000000000000000000000000000000000000000000000001", 30334)),
+    (1, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 19933, 19944, 31333, "0000000000000000000000000000000000000000000000000000000000000002", 31334)),
+    (2, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 29933, 29944, 32333, "0000000000000000000000000000000000000000000000000000000000000003", 32334)),
+    (3, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 39933, 39944, 33333, "0000000000000000000000000000000000000000000000000000000000000004", 33334)),
 ];
+
+const BOOTNODES_ROUTER : &str = "http://127.0.0.1:50001";
 
 pub struct RunParams{
     pub shard_num: u16,
@@ -39,6 +41,8 @@ pub struct RunParams{
     pub ws_port: u16,
     pub port: u16,
     pub node_key_config: NodeKeyConfig,
+    pub foreign_port: u16,
+    pub bootnodes_routers: Vec<String>,
 }
 
 pub struct SwitchParams{
@@ -50,11 +54,12 @@ pub struct BootnodesRouterParams{
     pub shard_num: u16,
     pub port: u16,
     pub peer_id: String,
+    pub foreign_port: u16,
 }
 
 pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
 
-    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str)> = SHARD_CONF
+    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str, u16)> = SHARD_CONF
         .iter().cloned().collect();
 
     let one = shard_conf_map.get(&shard_num);
@@ -65,8 +70,11 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
     let ws_port = one.2;
     let port = one.3;
     let node_key = one.4;
+    let foreign_port = one.5;
 
     let node_key_config = NodeKeyConfig::Secp256k1(parse_secp256k1_secret(&node_key.to_string()).unwrap());
+
+    let bootnodes_routers = vec![BOOTNODES_ROUTER.to_string()];
 
     Ok(RunParams{
         shard_num,
@@ -75,13 +83,15 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
         ws_port,
         port,
         node_key_config,
+        foreign_port,
+        bootnodes_routers,
     })
 
 }
 
 pub fn get_switch_params() -> error::Result<Vec<SwitchParams>>{
 
-    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str)> = SHARD_CONF
+    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str, u16)> = SHARD_CONF
         .iter().cloned().collect();
 
     Ok(shard_conf_map.iter().map(|(k, v)| SwitchParams{shard_num: *k, rpc_port: (*v).1} ).collect())
@@ -89,7 +99,7 @@ pub fn get_switch_params() -> error::Result<Vec<SwitchParams>>{
 
 pub fn get_bootnodes_router_params()-> error::Result<Vec<BootnodesRouterParams>>{
 
-    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str)> = SHARD_CONF
+    let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str, u16)> = SHARD_CONF
         .iter().cloned().collect();
 
     Ok(shard_conf_map.iter().map(|(k, v)| {
@@ -98,8 +108,9 @@ pub fn get_bootnodes_router_params()-> error::Result<Vec<BootnodesRouterParams>>
         let node_key = v.4;
         let node_key_config = NodeKeyConfig::Secp256k1(parse_secp256k1_secret(&node_key.to_string()).unwrap());
         let peer_id = get_peer_id(&node_key_config);
+        let foreign_port = v.5;
         BootnodesRouterParams{
-            shard_num, port, peer_id
+            shard_num, port, peer_id, foreign_port
         }
     } ).collect())
 }

@@ -12,7 +12,7 @@ use substrate_service::{
 };
 use basic_authorship::ProposerFactory;
 use substrate_client as client;
-use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
+use primitives::{ed25519::Pair, Pair as PairT};
 use inherents::InherentDataProviders;
 use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
@@ -26,9 +26,6 @@ use {
     yee_rpc::CustomRpcHandlerConstructor,
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
-use super::{
-    cli::error,
-};
 
 mod sharding;
 use sharding::prepare_sharding;
@@ -37,6 +34,7 @@ mod foreign;
 use foreign::{Params, start_foreign_network};
 
 pub use substrate_executor::NativeExecutor;
+use yee_bootnodes_router::BootnodesRouterConf;
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
@@ -48,22 +46,10 @@ native_executor_instance!(
 #[derive(Default, Clone)]
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
-    coin_base: AccountId,
+    pub coin_base: AccountId,
     pub shard_num: u16,
-    pub bootnodes_routers: Vec<String>,
-}
-
-impl NodeConfig {
-    pub fn parse_coin_base(&mut self, input: String) -> error::Result<()> {
-        self.coin_base = <AccountId as Ss58Codec>::from_string(&input)
-            .map_err(|e| format!("{:?}", e))?;
-        Ok(())
-    }
-
-    pub fn set_bootnodes_routers(&mut self, input: Vec<String>) -> error::Result<()>{
-        self.bootnodes_routers = input;
-        Ok(())
-    }
+    pub foreign_port: Option<u16>,
+    pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
 construct_simple_protocol! {
@@ -88,7 +74,8 @@ construct_service_factory! {
 			    let foreign_network_param = Params{
 			        node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
 			        shard_num: config.custom.shard_num,
-			        bootnodes_routers: config.custom.bootnodes_routers.clone(),
+			        foreign_port: config.custom.foreign_port,
+			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
 			    };
 
 				let service = FullComponents::<Self>::new(config, executor);

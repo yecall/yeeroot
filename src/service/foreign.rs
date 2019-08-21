@@ -19,18 +19,28 @@ use substrate_service::{FactoryFullConfiguration, ServiceFactory};
 use crate::service::NodeConfig;
 use log::info;
 use yee_foreign_network::identity::Keypair;
+use yee_bootnodes_router::BootnodesRouterConf;
 
 pub struct Params{
     pub node_key_pair: Keypair,
     pub shard_num: u16,
-    pub bootnodes_routers: Vec<String>,
+    pub foreign_port: Option<u16>,
+    pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
 pub fn start_foreign_network(param: Params){
 
-    let local_identity = param.node_key_pair;
-    let local_public = local_identity.public();
-    let local_peer_id = local_public.clone().into_peer_id();
-    info!(target: "sub-libp2p", "Local node identity is: {}", local_peer_id.to_base58());
+    let peer_id = get_peer_id(&param.node_key_pair);
+    info!("Start foreign network: ");
+    info!("  node key: {}", peer_id);
+    info!("  shard num: {}", param.shard_num);
+    info!("  foreign port: {:?}", param.foreign_port);
+    info!("  bootnodes router conf: {:?}", param.bootnodes_router_conf);
 
+}
+
+fn get_peer_id(node_key_pair: &Keypair) -> String {
+    let public = node_key_pair.public();
+    let peer_id = public.clone().into_peer_id();
+    peer_id.to_base58()
 }
