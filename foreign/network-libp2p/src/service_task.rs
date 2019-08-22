@@ -19,7 +19,7 @@ use crate::{
 	transport, NetworkState, NetworkStatePeer, NetworkStateNotConnectedPeer
 };
 use crate::custom_proto::{CustomMessage, RegisteredProtocol};
-use crate::{NetworkConfiguration, NonReservedPeerMode, parse_str_addr, IdentifySpecialization};
+use crate::{NetworkConfiguration, parse_str_addr, IdentifySpecialization, peerset};
 use fnv::FnvHashMap;
 use futures::{prelude::*, Stream};
 use libp2p::{Multiaddr, core::swarm::NetworkBehaviour, PeerId};
@@ -31,6 +31,7 @@ use std::io::Error as IoError;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
+use std::collections::HashMap;
 
 /// Starts the substrate libp2p service.
 ///
@@ -39,21 +40,21 @@ pub fn start_service<TMessage, I>(
 	config: NetworkConfiguration,
 	registered_custom: RegisteredProtocol<TMessage>,
 	identify_specialization: I,
-) -> Result<(Service<TMessage, I>, substrate_peerset::PeersetHandle), IoError>
+) -> Result<(Service<TMessage, I>, peerset::ForeignPeersetHandle), IoError>
 where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 
 	// List of multiaddresses that we know in the network.
 	let mut known_addresses = Vec::new();
-	let mut bootnodes = Vec::new();
-	let mut reserved_nodes = Vec::new();
+	let mut foreign_boot_nodes = HashMap::new();
 
 	// Process the bootnodes.
-
 	for (shard_num, shard_boot_nodes)  in config.foreign_boot_nodes{
 		for bootnode in shard_boot_nodes.iter() {
 			match parse_str_addr(bootnode) {
 				Ok((peer_id, addr)) => {
-					bootnodes.push(peer_id.clone());
+
+					let entry = foreign_boot_nodes.entry(shard_num).or_insert(Vec::new());
+					entry.push(peer_id.clone());
 					known_addresses.push((peer_id, addr));
 				},
 				Err(_) => warn!(target: "sub-libp2p", "Not a valid bootnode address: {}", bootnode),
@@ -61,23 +62,11 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 		}
 	}
 
-	// Initialize the reserved peers.
-	for reserved in config.reserved_nodes.iter() {
-		if let Ok((peer_id, addr)) = parse_str_addr(reserved) {
-			reserved_nodes.push(peer_id.clone());
-			known_addresses.push((peer_id, addr));
-		} else {
-			warn!(target: "sub-libp2p", "Not a valid reserved node address: {}", reserved);
-		}
-	}
-
 	// Build the peerset.
-	let (peerset, peerset_handle) = substrate_peerset::Peerset::from_config(substrate_peerset::PeersetConfig {
+	let (peerset, peerset_handle) = peerset::ForeignPeerset::from_config(peerset::ForeignPeersetConfig {
 		in_peers: config.in_peers,
 		out_peers: config.out_peers,
-		bootnodes,
-		reserved_only: config.non_reserved_mode == NonReservedPeerMode::Deny,
-		reserved_nodes,
+		foreign_boot_nodes,
 	});
 
 	// Private and public keys configuration.

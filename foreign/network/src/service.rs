@@ -24,7 +24,7 @@ use parking_lot::{Mutex, RwLock};
 use network_libp2p::{ProtocolId, NetworkConfiguration, Severity};
 use network_libp2p::{start_service, parse_str_addr, Service as NetworkService, ServiceEvent as NetworkServiceEvent};
 use network_libp2p::{RegisteredProtocol, NetworkState};
-use peerset::PeersetHandle;
+use network_libp2p::ForeignPeersetHandle;
 use crate::message::Message;
 use crate::protocol::{self, Protocol, FromNetworkMsg, ProtocolMsg};
 use crate::config::Params;
@@ -37,6 +37,12 @@ use tokio::prelude::task::AtomicTask;
 use tokio::runtime::Builder as RuntimeBuilder;
 
 pub use network_libp2p::PeerId;
+
+/// Sync status
+pub trait SyncProvider<B: BlockT>: Send + Sync {
+	/// Get network state.
+	fn network_state(&self) -> NetworkState;
+}
 
 /// Minimum Requirements for a Hash within Networking
 pub trait ExHashT:
@@ -58,7 +64,7 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
 	network: Arc<Mutex<NetworkService<Message<B>, I>>>,
 	/// Peerset manager (PSM); manages the reputation of nodes and indicates the network which
 	/// nodes it should be connected to or not.
-	peerset: PeersetHandle,
+	peerset: ForeignPeersetHandle,
 	/// Protocol sender
 	protocol_sender: Sender<ProtocolMsg<B>>,
 	/// Sender for messages to the background service task, and handle for the background thread.
@@ -135,7 +141,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 
 impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
 	fn drop(&mut self) {
-		info!("Network service dropping");
+		info!("Foreign network service dropping");
 		if let Some((sender, join)) = self.bg_thread.take() {
 			let _ = sender.send(());
 			if let Err(e) = join.join() {
@@ -143,6 +149,14 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
 			}
 		}
 	}
+}
+
+impl<B: BlockT + 'static, I: IdentifySpecialization> SyncProvider<B> for Service<B, I> {
+
+	fn network_state(&self) -> NetworkState {
+		self.network.lock().state()
+	}
+
 }
 
 /// Create a NetworkPort/Chan pair.
@@ -238,7 +252,7 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 	config: NetworkConfiguration,
 	registered: RegisteredProtocol<Message<B>>,
 	identify_specialization: I,
-) -> Result<((oneshot::Sender<()>, thread::JoinHandle<()>), Arc<Mutex<NetworkService<Message<B>, I>>>, PeersetHandle), Error> {
+) -> Result<((oneshot::Sender<()>, thread::JoinHandle<()>), Arc<Mutex<NetworkService<Message<B>, I>>>, ForeignPeersetHandle), Error> {
 	// Start the main service.
 	let (service, peerset) = match start_service(config, registered, identify_specialization) {
 		Ok((service, peerset)) => (Arc::new(Mutex::new(service)), peerset),
@@ -274,7 +288,7 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 	protocol_sender: Sender<FromNetworkMsg<B>>,
 	network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
 	network_port: NetworkPort<B>,
-	peerset: PeersetHandle,
+	peerset: ForeignPeersetHandle,
 ) -> impl Future<Item = (), Error = io::Error> {
 
 	let network_service_2 = network_service.clone();

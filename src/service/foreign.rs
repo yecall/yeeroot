@@ -15,17 +15,23 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_service::ServiceFactory;
-use log::info;
+use substrate_service::{ServiceFactory, TaskExecutor};
+use log::{info, warn, debug};
 use yee_foreign_network as network;
 use yee_foreign_network::identity::Keypair;
 use yee_foreign_network::identify_specialization::ForeignIdentifySpecialization;
 use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration};
 use yee_foreign_network::multiaddr::Protocol;
+use yee_foreign_network::SyncProvider;
 use yee_bootnodes_router::BootnodesRouterConf;
 use std::iter;
 use std::net::Ipv4Addr;
 use parity_codec::alloc::collections::HashMap;
+use tokio::timer::Interval;
+use std::time::{Instant, Duration};
+use futures::stream::Stream;
+use futures::future::Future;
+use substrate_cli::error;
 
 const DEFAULT_FOREIGN_PORT : u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -39,7 +45,7 @@ pub struct Params{
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
-pub fn start_foreign_network<F: ServiceFactory>(param: Params){
+pub fn start_foreign_network<F: ServiceFactory>(param: Params, executor: &TaskExecutor) -> error::Result<()>{
 
     let peer_id = get_peer_id(&param.node_key_pair);
     info!("Start foreign network: ");
@@ -72,10 +78,20 @@ pub fn start_foreign_network<F: ServiceFactory>(param: Params){
 
     let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    network::Service::<F::Block, _>::new(
+    let (service, _network_chan) = network::Service::<F::Block, _>::new(
         network_params,
+
         protocol_id
-    );
+    ).map_err(|e| format!("{:?}", e))?;
+
+    let task = Interval::new(Instant::now(), Duration::from_secs(3)).for_each(move |_instant| {
+        debug!("Foreign network status: {:?}", service.network_state());
+        Ok(())
+    }).map_err(|e| warn!("Foreign network error: {:?}", e));
+
+    executor.spawn(task);
+
+    Ok(())
 }
 
 fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>>{

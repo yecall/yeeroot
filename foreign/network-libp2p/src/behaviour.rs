@@ -16,6 +16,7 @@
 
 use crate::custom_proto::{CustomProto, CustomProtoOut, RegisteredProtocol};
 use crate::IdentifySpecialization;
+use crate::peerset;
 use futures::prelude::*;
 use libp2p::NetworkBehaviour;
 use libp2p::core::{Multiaddr, PeerId, ProtocolsHandler, PublicKey};
@@ -65,7 +66,7 @@ where I: IdentifySpecialization{
 		local_public_key: PublicKey,
 		protocol: RegisteredProtocol<TMessage>,
 		known_addresses: Vec<(PeerId, Multiaddr)>,
-		peerset: substrate_peerset::Peerset,
+		peerset: peerset::ForeignPeerset,
 		enable_mdns: bool,
 		identify_specialization: I,
 	) -> Self {
@@ -166,11 +167,13 @@ where I: IdentifySpecialization{
 	/// Add discovered node according to identify_info
 	pub fn add_discovered_node(&mut self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) {
 
-		let should = self.identify_specialization.should_add_discovered_node(&peer_id, identify_info);
-		debug!(target: "sub-libp2p", "Check identify_info, should_add_discovered_node: {}, peer_id: {}, identify_info: {:?}", should, peer_id, identify_info);
+		let (should, shard_num) = self.identify_specialization.should_add_discovered_node(&peer_id, identify_info);
+		debug!(target: "sub-libp2p", "Check identify_info, should_add_discovered_node: {}, shard_num:{:?}, peer_id: {}, identify_info: {:?}", should, shard_num, peer_id, identify_info);
 
 		if should {
-			self.custom_protocols.add_discovered_node(peer_id);
+			if let Some(shard_num) = shard_num {
+				self.custom_protocols.add_discovered_node(peer_id, shard_num);
+			}
 		}
 	}
 }

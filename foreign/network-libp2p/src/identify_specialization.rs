@@ -26,7 +26,7 @@ pub trait IdentifySpecialization: Send + Sync + 'static{
 	/// Get the user agent.
 	fn customize_user_agent(&self, user_agent: &str) -> String;
 	/// Indicate whether should add discovered node
-	fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> bool;
+	fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> (bool, Option<u16>);
 	/// Indicate whether should accept identify_info
 	fn should_accept_identify_info(&self, peer_id: &PeerId, identify_info: &IdentifyInfo) -> bool;
 }
@@ -45,8 +45,8 @@ impl IdentifySpecialization for DefaultIdentifySpecialization{
 		user_agent.to_string()
 	}
 
-	fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> bool{
-		true
+	fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> (bool, Option<u16>){
+		(false, None)
 	}
 
 	fn should_accept_identify_info(&self, peer_id: &PeerId, identify_info: &IdentifyInfo) -> bool{

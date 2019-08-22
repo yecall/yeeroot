@@ -43,18 +43,18 @@ impl ForeignIdentifySpecialization {
         m.get(0).and_then(|x| x.parse().ok())
     }
 
-    fn user_agent_match(&self, identify_info: Option<&IdentifyInfo>) -> bool{
+    fn user_agent_match(&self, identify_info: Option<&IdentifyInfo>) -> (bool, Option<u16>){
         match identify_info {
             Some(identify_info) => match self.resolve_shard_num(identify_info.agent_version.as_str()) {
-                Some(shard_num) => self.shard_num == shard_num,
+                Some(shard_num) => (true, Some(shard_num)),
                 None => {
                     debug!(target: "sync-foreign", "User agent not match, shard_num: {}, identify_info: {:?}", self.shard_num, identify_info);
-                    false
+                    (false, None)
                 }
             },
             None => {
                 debug!(target: "sync-foreign", "User agent not match, shard_num: {}, identify_info: {:?}", self.shard_num, identify_info);
-                false
+                (false, None)
             }
         }
     }
@@ -71,7 +71,7 @@ impl IdentifySpecialization for ForeignIdentifySpecialization {
         user_agent
     }
 
-    fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> bool {
+    fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> (bool, Option<u16>) {
 
         self.user_agent_match(identify_info)
     }
@@ -81,6 +81,6 @@ impl IdentifySpecialization for ForeignIdentifySpecialization {
             debug!(target: "sync-foreign", "Protocol version not match, identify_info: {:?}", identify_info);
             return false;
         }
-        self.user_agent_match(Some(identify_info))
+        self.user_agent_match(Some(identify_info)).0
     }
 }

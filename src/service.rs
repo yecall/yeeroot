@@ -75,22 +75,8 @@ construct_service_factory! {
 		Genesis = GenesisConfig,
 		Configuration = NodeConfig,
 		FullService = FullComponents<Self>
-			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor| {
-			    let foreign_network_param = Params{
-                    client_version: config.network.client_version.clone(),
-			        protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
-			        node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
-			        shard_num: config.custom.shard_num,
-			        foreign_port: config.custom.foreign_port,
-			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
-			    };
-
-				let service = FullComponents::<Self>::new(config, executor);
-
-                start_foreign_network::<Self>(foreign_network_param);
-
-                service
-                }
+			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
+				FullComponents::<Factory>::new(config, executor)
 			},
 		AuthoritySetup = {
 			|service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>| {
@@ -114,6 +100,18 @@ construct_service_factory! {
 						service.config.force_authoring,
 					)?);
 				}
+
+                //foreign network setup
+                let config = &service.config;
+				let foreign_network_param = Params{
+                    client_version: config.network.client_version.clone(),
+			        protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
+			        node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
+			        shard_num: config.custom.shard_num,
+			        foreign_port: config.custom.foreign_port,
+			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
+			    };
+                start_foreign_network::<Self>(foreign_network_param, &executor).map_err(|e| format!("{:?}", e))?;
 
 				Ok(service)
 			}

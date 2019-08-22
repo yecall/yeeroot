@@ -16,6 +16,7 @@
 
 use crate::custom_proto::handler::{CustomProtoHandlerProto, CustomProtoHandlerOut, CustomProtoHandlerIn};
 use crate::custom_proto::upgrade::{CustomMessage, RegisteredProtocol};
+use crate::peerset;
 use fnv::FnvHashMap;
 use futures::prelude::*;
 use libp2p::core::swarm::{ConnectedPoint, NetworkBehaviour, NetworkBehaviourAction, PollParameters};
@@ -60,7 +61,7 @@ pub struct CustomProto<TMessage, TSubstream> {
 	protocol: RegisteredProtocol<TMessage>,
 
 	/// Receiver for instructions about who to connect to or disconnect from.
-	peerset: substrate_peerset::Peerset,
+	peerset: peerset::ForeignPeerset,
 
 	/// List of peers in our state.
 	peers: FnvHashMap<PeerId, PeerState>,
@@ -204,7 +205,7 @@ impl<TMessage, TSubstream> CustomProto<TMessage, TSubstream> {
 	/// Creates a `CustomProtos`.
 	pub fn new(
 		protocol: RegisteredProtocol<TMessage>,
-		peerset: substrate_peerset::Peerset,
+		peerset: peerset::ForeignPeerset,
 	) -> Self {
 		CustomProto {
 			protocol,
@@ -342,9 +343,9 @@ impl<TMessage, TSubstream> CustomProto<TMessage, TSubstream> {
 	}
 
 	/// Indicates to the peerset that we have discovered new addresses for a given node.
-	pub fn add_discovered_node(&mut self, peer_id: &PeerId) {
-		debug!(target: "sub-libp2p-foreign", "PSM <= Discovered({:?})", peer_id);
-		self.peerset.discovered(peer_id.clone())
+	pub fn add_discovered_node(&mut self, peer_id: &PeerId, shard_num: u16) {
+		debug!(target: "sub-libp2p-foreign", "PSM <= Discovered({:?}, shard_num: {})", peer_id, shard_num);
+		self.peerset.discovered(peer_id.clone(), shard_num);
 	}
 
 	/// Returns the state of the peerset manager, for debugging purposes.

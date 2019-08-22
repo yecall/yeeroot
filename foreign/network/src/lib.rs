@@ -8,12 +8,11 @@ pub mod error;
 pub mod message;
 pub mod identify_specialization;
 
-pub use service::{Service, NetworkMsg, ExHashT};
+pub use service::{Service, NetworkMsg, SyncProvider, ExHashT};
 pub use network_libp2p::{
     identity, multiaddr,
     ProtocolId, Severity, Multiaddr,
     NetworkState, NetworkStatePeer, NetworkStateNotConnectedPeer, NetworkStatePeerEndpoint,
-    NodeKeyConfig, Secret, Secp256k1Secret, Ed25519Secret,
     build_multiaddr, PeerId, PublicKey, IdentifyInfo, IdentifySpecialization, DefaultIdentifySpecialization,
 };
 pub use message::{generic as generic_message};
