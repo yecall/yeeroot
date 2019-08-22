@@ -48,12 +48,12 @@ impl ForeignIdentifySpecialization {
             Some(identify_info) => match self.resolve_shard_num(identify_info.agent_version.as_str()) {
                 Some(shard_num) => self.shard_num == shard_num,
                 None => {
-                    debug!(target: "sharding", "User agent not match, shard_num: {}, identify_info: {:?}", self.shard_num, identify_info);
+                    debug!(target: "sync-foreign", "User agent not match, shard_num: {}, identify_info: {:?}", self.shard_num, identify_info);
                     false
                 }
             },
             None => {
-                debug!(target: "sharding", "User agent not match, shard_num: {}, identify_info: {:?}", self.shard_num, identify_info);
+                debug!(target: "sync-foreign", "User agent not match, shard_num: {}, identify_info: {:?}", self.shard_num, identify_info);
                 false
             }
         }
@@ -78,7 +78,7 @@ impl IdentifySpecialization for ForeignIdentifySpecialization {
 
     fn should_accept_identify_info(&self, peer_id: &PeerId, identify_info: &IdentifyInfo) -> bool {
         if !identify_info.protocol_version.contains(&self.protocol_version) {
-            debug!(target: "sharding", "Protocol version not match, identify_info: {:?}", identify_info);
+            debug!(target: "sync-foreign", "Protocol version not match, identify_info: {:?}", identify_info);
             return false;
         }
         self.user_agent_match(Some(identify_info))

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{io, thread};
-use log::{warn, debug, error, trace};
+use log::{warn, debug, error, trace, info};
 use futures::{Async, Future, Stream, stream, sync::oneshot, sync::mpsc};
 use parking_lot::{Mutex, RwLock};
 use network_libp2p::{ProtocolId, NetworkConfiguration, Severity};
@@ -135,6 +135,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 
 impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
 	fn drop(&mut self) {
+		info!("Network service dropping");
 		if let Some((sender, join)) = self.bg_thread.take() {
 			let _ = sender.send(());
 			if let Err(e) = join.join() {
@@ -260,8 +261,8 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 		// Note that we use `block_on` and not `block_on_all` because we want to kill the thread
 		// instantly if `close_rx` receives something.
 		match runtime.block_on(fut) {
-			Ok(()) => debug!(target: "sub-libp2p", "Networking thread finished"),
-			Err(err) => error!(target: "sub-libp2p", "Error while running libp2p: {:?}", err),
+			Ok(()) => debug!(target: "sub-libp2p-foreign", "Networking thread finished"),
+			Err(err) => error!(target: "sub-libp2p-foreign", "Error while running libp2p: {:?}", err),
 		};
 	})?;
 
@@ -296,17 +297,17 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 			NetworkMsg::ReportPeer(who, severity) => {
 				match severity {
 					Severity::Bad(message) => {
-						debug!(target: "sync", "Banning {:?} because {:?}", who, message);
+						debug!(target: "sync-foreign", "Banning {:?} because {:?}", who, message);
 						network_service_2.lock().drop_node(&who);
 						// temporary: make sure the peer gets dropped from the peerset
 						peerset.report_peer(who, i32::min_value());
 					},
 					Severity::Useless(message) => {
-						debug!(target: "sync", "Dropping {:?} because {:?}", who, message);
+						debug!(target: "sync-foreign", "Dropping {:?} because {:?}", who, message);
 						network_service_2.lock().drop_node(&who)
 					},
 					Severity::Timeout => {
-						debug!(target: "sync", "Dropping {:?} because it timed out", who);
+						debug!(target: "sync-foreign", "Dropping {:?} because it timed out", who);
 						network_service_2.lock().drop_node(&who)
 					},
 				}
@@ -339,9 +340,9 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 				return Ok(())
 			}
 			NetworkServiceEvent::Clogged { peer_id, messages, .. } => {
-				debug!(target: "sync", "{} clogging messages:", messages.len());
+				debug!(target: "sync-foreign", "{} clogging messages:", messages.len());
 				for msg in messages.into_iter().take(5) {
-					debug!(target: "sync", "{:?}", msg);
+					debug!(target: "sync-foreign", "{:?}", msg);
 					let _ = protocol_sender.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg)));
 				}
 			}

@@ -178,28 +178,28 @@ impl<B: BlockT> Protocol<B> {
 
 	/// Called when a new peer is connected
 	fn on_peer_connected(&mut self, who: PeerId, debug_info: String) {
-		trace!(target: "sync", "Connecting {}: {}", who, debug_info);
+		trace!(target: "sync-foreign", "Connecting {}: {}", who, debug_info);
 	}
 
 	/// Called by peer when it is disconnecting
 	fn on_peer_disconnected(&mut self, peer: PeerId, debug_info: String) {
-		trace!(target: "sync", "Disconnecting {}: {}", peer, debug_info);
+		trace!(target: "sync-foreign", "Disconnecting {}: {}", peer, debug_info);
 	}
 
 	/// Called as a back-pressure mechanism if the networking detects that the peer cannot process
 	/// our messaging rate fast enough.
 	pub fn on_clogged_peer(&self, who: PeerId, _msg: Option<Message<B>>) {
-		trace!(target: "sync", "Clogged peer {}", who);
+		trace!(target: "sync-foreign", "Clogged peer {}", who);
 	}
 
 	/// Called when peer sends us new extrinsics
 	fn on_extrinsics(&mut self, who: PeerId, extrinsics: message::Transactions<B::Extrinsic>) {
-		trace!(target: "sync", "Received {} extrinsics from {}", extrinsics.len(), who);
+		trace!(target: "sync-foreign", "Received {} extrinsics from {}", extrinsics.len(), who);
 	}
 
 	/// Called when we propagate ready extrinsics to peers.
 	fn propagate_extrinsics(&mut self) {
-		debug!(target: "sync", "Propagating extrinsics");
+		debug!(target: "sync-foreign", "Propagating extrinsics");
 	}
 
 	fn stop(&mut self) {

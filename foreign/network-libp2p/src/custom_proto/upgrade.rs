@@ -235,7 +235,7 @@ where TSubstream: AsyncRead + AsyncWrite, TMessage: CustomMessage {
 			Async::Ready(Some(data)) => {
 				let message = <TMessage as CustomMessage>::from_bytes(&data)
 					.map_err(|()| {
-						warn!(target: "sub-libp2p", "Couldn't decode packet sent by the remote: {:?}", data);
+						warn!(target: "sub-libp2p-foreign", "Couldn't decode packet sent by the remote: {:?}", data);
 						io::ErrorKind::InvalidData
 					})?;
 				Ok(Async::Ready(Some(RegisteredProtocolEvent::Message(message))))
