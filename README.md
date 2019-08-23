@@ -66,20 +66,20 @@ for dev
 
 1. Start the nodes of the 4 shards
     ```sh
-    $ ./yee --dev --shard-num=0 --base-path=/tmp/yee/shard_0
-    $ ./yee --dev --shard-num=1 --base-path=/tmp/yee/shard_1
-    $ ./yee --dev --shard-num=2 --base-path=/tmp/yee/shard_2
-    $ ./yee --dev --shard-num=3 --base-path=/tmp/yee/shard_3
+    $ ./yee --dev --dev-params --shard-num=0 --base-path=/tmp/yee/shard_0
+    $ ./yee --dev --dev-params --shard-num=1 --base-path=/tmp/yee/shard_1
+    $ ./yee --dev --dev-params --shard-num=2 --base-path=/tmp/yee/shard_2
+    $ ./yee --dev --dev-params --shard-num=3 --base-path=/tmp/yee/shard_3
     ```
 
 1. Start switch
     ```sh
-    $ ./yee switch --dev
+    $ ./yee switch --dev-params
     ```
     
 1. Start bootnodes router
     ```sh
-    $ ./yee bootnodes-router --dev
+    $ ./yee bootnodes-router --dev-params
     ```
 
 1. Check if they work

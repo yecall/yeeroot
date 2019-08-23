@@ -35,9 +35,9 @@ pub struct BootnodesRouterCommandCmd {
     #[structopt(short = "l", long = "log", value_name = "LOG_PATTERN")]
     pub log: Option<String>,
 
-    /// Specify the development chain
-    #[structopt(long = "dev")]
-    pub dev: bool,
+    /// Whether use dev params or not
+    #[structopt(long = "dev-params")]
+    pub dev_params: bool,
 
 }
 

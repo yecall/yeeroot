@@ -31,7 +31,7 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
 
     let chain_spec_id = config.chain_spec.id();
 
-    if chain_spec_id == "dev" {
+    if chain_spec_id == "dev" && custom_args.dev_params {
 
         let shard_num = custom_args.shard_num;
 

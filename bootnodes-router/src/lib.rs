@@ -90,7 +90,7 @@ pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> error::Resul
 
 fn get_config(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> error::Result<BootnodesRouterConf> {
 
-    if cmd.dev {
+    if cmd.dev_params {
         return get_dev_config();
     }
 
