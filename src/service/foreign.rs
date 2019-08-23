@@ -15,14 +15,14 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_service::{ServiceFactory, TaskExecutor};
-use log::{info, warn, debug};
+use substrate_service::{ServiceFactory, TaskExecutor, Arc, FactoryBlock};
+use log::{info, warn};
 use yee_foreign_network as network;
 use yee_foreign_network::identity::Keypair;
 use yee_foreign_network::identify_specialization::ForeignIdentifySpecialization;
 use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration};
 use yee_foreign_network::multiaddr::Protocol;
-use yee_foreign_network::SyncProvider;
+use yee_foreign_network::{SyncProvider, NetworkState};
 use yee_bootnodes_router::BootnodesRouterConf;
 use std::iter;
 use std::net::Ipv4Addr;
@@ -32,11 +32,16 @@ use std::time::{Instant, Duration};
 use futures::stream::Stream;
 use futures::future::Future;
 use substrate_cli::error;
+use substrate_client::ChainHead;
+use runtime_primitives::traits::{ProvideRuntimeApi, Header, Block};
+use runtime_primitives::generic::BlockId;
+use sharding_primitives::ShardingAPI;
+use ansi_term::Colour;
 
-const DEFAULT_FOREIGN_PORT : u16 = 30334;
+const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
 
-pub struct Params{
+pub struct Params {
     pub client_version: String,
     pub protocol_version: String,
     pub node_key_pair: Keypair,
@@ -45,10 +50,18 @@ pub struct Params{
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
-pub fn start_foreign_network<F: ServiceFactory>(param: Params, executor: &TaskExecutor) -> error::Result<()>{
-
+pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &TaskExecutor) -> error::Result<()>
+    where F: ServiceFactory,
+          <FactoryBlock<F> as Block>::Header: Header,
+          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+          <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+{
     let peer_id = get_peer_id(&param.node_key_pair);
+
+    let shard_count = get_shard_count::<F, _>(&client)?;
+
     info!("Start foreign network: ");
+    info!("  shard count: {}", shard_count);
     info!("  client version: {}", param.client_version);
     info!("  protocol version: {}", param.protocol_version);
     info!("  node key: {}", peer_id);
@@ -80,12 +93,11 @@ pub fn start_foreign_network<F: ServiceFactory>(param: Params, executor: &TaskEx
 
     let (service, _network_chan) = network::Service::<F::Block, _>::new(
         network_params,
-
-        protocol_id
+        protocol_id,
     ).map_err(|e| format!("{:?}", e))?;
 
     let task = Interval::new(Instant::now(), Duration::from_secs(3)).for_each(move |_instant| {
-        debug!("Foreign network status: {:?}", service.network_state());
+        info!(target: "foreign", "{}", get_status(&service.network_state(), shard_count));
         Ok(())
     }).map_err(|e| warn!("Foreign network error: {:?}", e));
 
@@ -94,12 +106,11 @@ pub fn start_foreign_network<F: ServiceFactory>(param: Params, executor: &TaskEx
     Ok(())
 }
 
-fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>>{
-
-    match bootnodes_router_conf{
+fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>> {
+    match bootnodes_router_conf {
         Some(bootnodes_router_conf) => {
             bootnodes_router_conf.shards.iter().map(|(k, v)| (k.parse().unwrap(), v.foreign.clone())).collect()
-        },
+        }
         None => HashMap::new(),
     }
 }
@@ -108,4 +119,45 @@ fn get_peer_id(node_key_pair: &Keypair) -> String {
     let public = node_key_pair.public();
     let peer_id = public.clone().into_peer_id();
     peer_id.to_base58()
+}
+
+fn get_shard_count<F, C>(client: &Arc<C>) -> error::Result<u16>
+    where F: ServiceFactory,
+          <FactoryBlock<F> as Block>::Header: Header,
+          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+          <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>, {
+    let api = client.runtime_api();
+    let last_block_header = client.best_block_header()?;
+    let last_block_id = BlockId::hash(last_block_header.hash());
+
+    let shard_count = api.get_shard_count(&last_block_id).map(|x| x as u16).map_err(|e| format!("{:?}", e))?;
+
+    Ok(shard_count)
+}
+
+fn get_status(network_state: &NetworkState, shard_count: u16) -> String {
+    let mut result: HashMap<u16, u32> = HashMap::new();
+    for (_peer_id, peer) in &network_state.connected_peers {
+        match peer.shard_num {
+            Some(shard_num) => {
+                let count = result.entry(shard_num).or_insert(0);
+                *count = *count + 1;
+            }
+            None => {}
+        }
+    }
+    let mut status = String::new();
+    for i in 0..shard_count {
+        let peer_count = match result.get(&i) {
+            Some(count) => *count,
+            None => 0u32,
+        };
+        status.push_str(&format!("{} ({} peers) ", Colour::White.bold().paint(&format!("Shard#{}", i)), peer_count));
+    }
+
+    //remove last blank char
+    if shard_count > 0 {
+        status.remove(status.len() - 1);
+    }
+    status
 }

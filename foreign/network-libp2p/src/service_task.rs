@@ -57,7 +57,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 					entry.push(peer_id.clone());
 					known_addresses.push((peer_id, addr));
 				},
-				Err(_) => warn!(target: "sub-libp2p", "Not a valid bootnode address: {}", bootnode),
+				Err(_) => warn!(target: "sub-libp2p-foreign", "Not a valid bootnode address: {}", bootnode),
 			}
 		}
 	}
@@ -73,7 +73,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 	let local_identity = config.node_key_pair;
 	let local_public = local_identity.public();
 	let local_peer_id = local_public.clone().into_peer_id();
-	info!(target: "sub-libp2p", "Local node identity is: {}", local_peer_id.to_base58());
+	info!(target: "sub-libp2p-foreign", "Local node identity is: {}", local_peer_id.to_base58());
 
 	// Build the swarm.
 	let (mut swarm, bandwidth) = {
@@ -87,7 +87,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 	// Listen on multiaddresses.
 	for addr in &config.listen_addresses {
 		if let Err(err) = Swarm::listen_on(&mut swarm, addr.clone()) {
-			warn!(target: "sub-libp2p", "Can't listen on {} because: {:?}", addr, err)
+			warn!(target: "sub-libp2p-foreign", "Can't listen on {} because: {:?}", addr, err)
 		}
 	}
 
@@ -174,11 +174,16 @@ impl<TMessage, I> Service<TMessage, I>
 where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 	/// Returns a struct containing tons of useful information about the network.
 	pub fn state(&mut self) -> NetworkState {
+
+		let peerset_router = self.swarm.peerset_router();
+
 		let connected_peers = {
 			let swarm = &mut self.swarm;
 			self.nodes_info.iter().map(move |(peer_id, info)| {
 				let known_addresses = NetworkBehaviour::addresses_of_peer(&mut **swarm, peer_id)
 					.into_iter().collect();
+
+				let shard_num = peerset_router.get_shard_num(peer_id);
 
 				(peer_id.to_base58(), NetworkStatePeer {
 					endpoint: info.endpoint.clone().into(),
@@ -187,6 +192,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 					enabled: swarm.is_enabled(&peer_id),
 					open: swarm.is_open(&peer_id),
 					known_addresses,
+					shard_num,
 				})
 			}).collect()
 		};
@@ -276,7 +282,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 	/// Corresponding closing events will be generated once the closing actually happens.
 	pub fn drop_node(&mut self, peer_id: &PeerId) {
 		if let Some(info) = self.nodes_info.get(peer_id) {
-			debug!(target: "sub-libp2p", "Dropping {:?} on purpose ({:?}, {:?})",
+			debug!(target: "sub-libp2p-foreign", "Dropping {:?} on purpose ({:?}, {:?})",
 				peer_id, info.endpoint, info.client_version);
 			self.swarm.drop_node(peer_id);
 		}

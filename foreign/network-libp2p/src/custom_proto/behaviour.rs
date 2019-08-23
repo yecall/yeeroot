@@ -25,6 +25,7 @@ use log::{debug, error, trace, warn};
 use smallvec::SmallVec;
 use std::{borrow::Cow, collections::hash_map::Entry, cmp, error, marker::PhantomData, mem, time::Duration, time::Instant};
 use tokio_io::{AsyncRead, AsyncWrite};
+use crate::peerset::{ForeignPeerset, ForeignPeerRouter};
 
 /// Network behaviour that handles opening substreams for custom protocols with other nodes.
 ///
@@ -351,6 +352,10 @@ impl<TMessage, TSubstream> CustomProto<TMessage, TSubstream> {
 	/// Returns the state of the peerset manager, for debugging purposes.
 	pub fn peerset_debug_info(&self) -> serde_json::Value {
 		self.peerset.debug_info()
+	}
+
+	pub fn peerset_router(&self) -> ForeignPeerRouter{
+		self.peerset.router()
 	}
 
 	/// Function that is called when the peerset wants us to connect to a node.
@@ -881,9 +886,9 @@ where
 
 			CustomProtoHandlerOut::Clogged { messages } => {
 				debug_assert!(self.is_open(&source));
-				trace!(target: "sub-libp2p", "Handler({:?}) => Clogged", source);
-				trace!(target: "sub-libp2p", "External API <= Clogged({:?})", source);
-				warn!(target: "sub-libp2p", "Queue of packets to send to {:?} is \
+				trace!(target: "sub-libp2p-foreign", "Handler({:?}) => Clogged", source);
+				trace!(target: "sub-libp2p-foreign", "External API <= Clogged({:?})", source);
+				warn!(target: "sub-libp2p-foreign", "Queue of packets to send to {:?} is \
 					pretty large", source);
 				self.events.push(NetworkBehaviourAction::GenerateEvent(CustomProtoOut::Clogged {
 					peer_id: source,
@@ -893,12 +898,12 @@ where
 
 			// Don't do anything for non-severe errors except report them.
 			CustomProtoHandlerOut::ProtocolError { is_severe, ref error } if !is_severe => {
-				debug!(target: "sub-libp2p", "Handler({:?}) => Benign protocol error: {:?}",
+				debug!(target: "sub-libp2p-foreign", "Handler({:?}) => Benign protocol error: {:?}",
 					source, error)
 			}
 
 			CustomProtoHandlerOut::ProtocolError { error, .. } => {
-				debug!(target: "sub-libp2p", "Handler({:?}) => Severe protocol error: {:?}",
+				debug!(target: "sub-libp2p-foreign", "Handler({:?}) => Severe protocol error: {:?}",
 					source, error);
 				self.disconnect_peer_inner(&source, Some(Duration::from_secs(5)));
 			}
@@ -931,12 +936,12 @@ where
 					self.peerset_report_disconnect(id);
 				}
 				Ok(Async::Ready(None)) => {
-					error!(target: "sub-libp2p", "Peerset receiver stream has returned None");
+					error!(target: "sub-libp2p-foreign", "Peerset receiver stream has returned None");
 					break;
 				}
 				Ok(Async::NotReady) => break,
 				Err(err) => {
-					error!(target: "sub-libp2p", "Peerset receiver stream has errored: {:?}", err);
+					error!(target: "sub-libp2p-foreign", "Peerset receiver stream has errored: {:?}", err);
 					break
 				}
 			}
@@ -950,7 +955,7 @@ where
 						continue;
 					}
 
-					debug!(target: "sub-libp2p", "Libp2p <= Dial {:?} now that ban has expired", peer_id);
+					debug!(target: "sub-libp2p-foreign", "Libp2p <= Dial {:?} now that ban has expired", peer_id);
 					self.events.push(NetworkBehaviourAction::DialPeer { peer_id: peer_id.clone() });
 					*peer_state = PeerState::Requested;
 				}
@@ -961,7 +966,7 @@ where
 						continue;
 					}
 
-					debug!(target: "sub-libp2p", "Handler({:?}) <= Enable now that ban has expired", peer_id);
+					debug!(target: "sub-libp2p-foreign", "Handler({:?}) <= Enable now that ban has expired", peer_id);
 					self.events.push(NetworkBehaviourAction::SendEvent {
 						peer_id: peer_id.clone(),
 						event: CustomProtoHandlerIn::Enable(connected_point.clone().into()),

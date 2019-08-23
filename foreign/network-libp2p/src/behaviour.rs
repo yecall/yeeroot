@@ -33,6 +33,7 @@ use std::{borrow::Cow, cmp, fmt, time::Duration};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_timer::{Delay, clock::Clock};
 use void;
+use crate::peerset::{ForeignPeerset, ForeignPeerRouter};
 
 /// General behaviour of the network.
 #[derive(NetworkBehaviour)]
@@ -100,7 +101,7 @@ where I: IdentifySpecialization{
 				match Mdns::new() {
 					Ok(mdns) => Some(mdns).into(),
 					Err(err) => {
-						warn!(target: "sub-libp2p", "Failed to initialize mDNS: {:?}", err);
+						warn!(target: "sub-libp2p-foreign", "Failed to initialize mDNS: {:?}", err);
 						None.into()
 					}
 				}
@@ -168,13 +169,17 @@ where I: IdentifySpecialization{
 	pub fn add_discovered_node(&mut self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) {
 
 		let (should, shard_num) = self.identify_specialization.should_add_discovered_node(&peer_id, identify_info);
-		debug!(target: "sub-libp2p", "Check identify_info, should_add_discovered_node: {}, shard_num:{:?}, peer_id: {}, identify_info: {:?}", should, shard_num, peer_id, identify_info);
+		debug!(target: "sub-libp2p-foreign", "Check identify_info, should_add_discovered_node: {}, shard_num:{:?}, peer_id: {}, identify_info: {:?}", should, shard_num, peer_id, identify_info);
 
 		if should {
 			if let Some(shard_num) = shard_num {
 				self.custom_protocols.add_discovered_node(peer_id, shard_num);
 			}
 		}
+	}
+
+	pub fn peerset_router(&self) -> ForeignPeerRouter {
+		self.custom_protocols.peerset_router()
 	}
 }
 
@@ -267,18 +272,18 @@ impl<TMessage, TSubstream, I> NetworkBehaviourEventProcess<IdentifyEvent> for Be
 	fn inject_event(&mut self, event: IdentifyEvent) {
 		match event {
 			IdentifyEvent::Identified { peer_id, mut info, .. } => {
-				trace!(target: "sub-libp2p", "Identified {:?} => {:?}", peer_id, info);
+				trace!(target: "sub-libp2p-foreign", "Identified {:?} => {:?}", peer_id, info);
 
 				if !self.identify_specialization.should_accept_identify_info(&peer_id, &info){
-					warn!(target: "sub-libp2p", "Connected to unacceptable node: {:?}", info);
+					warn!(target: "sub-libp2p-foreign", "Connected to unacceptable node: {:?}", info);
 					self.drop_node(&peer_id);
 					return;
 				}
 				if !info.protocol_version.contains("substrate") {
-					warn!(target: "sub-libp2p", "Connected to a non-Substrate node: {:?}", info);
+					warn!(target: "sub-libp2p-foreign", "Connected to a non-Substrate node: {:?}", info);
 				}
 				if info.listen_addrs.len() > 30 {
-					warn!(target: "sub-libp2p", "Node {:?} has reported more than 30 addresses; \
+					warn!(target: "sub-libp2p-foreign", "Node {:?} has reported more than 30 addresses; \
 						it is identified by {:?} and {:?}", peer_id, info.protocol_version,
 						info.agent_version
 					);
@@ -292,7 +297,7 @@ impl<TMessage, TSubstream, I> NetworkBehaviourEventProcess<IdentifyEvent> for Be
 			}
 			IdentifyEvent::Error { .. } => {}
 			IdentifyEvent::SendBack { result: Err(ref err), ref peer_id } =>
-				debug!(target: "sub-libp2p", "Error when sending back identify info \
+				debug!(target: "sub-libp2p-foreign", "Error when sending back identify info \
 					to {:?} => {}", peer_id, err),
 			IdentifyEvent::SendBack { .. } => {}
 		}
@@ -307,10 +312,10 @@ impl<TMessage, TSubstream, I> NetworkBehaviourEventProcess<KademliaOut> for Beha
 				self.add_discovered_node(&peer_id, None);
 			}
 			KademliaOut::FindNodeResult { key, closer_peers } => {
-				trace!(target: "sub-libp2p", "Libp2p => Query for {:?} yielded {:?} results",
+				trace!(target: "sub-libp2p-foreign", "Libp2p => Query for {:?} yielded {:?} results",
 					key, closer_peers.len());
 				if closer_peers.is_empty() {
-					warn!(target: "sub-libp2p", "Libp2p => Random Kademlia query has yielded empty \
+					warn!(target: "sub-libp2p-foreign", "Libp2p => Random Kademlia query has yielded empty \
 						results");
 				}
 			}
@@ -324,7 +329,7 @@ impl<TMessage, TSubstream, I> NetworkBehaviourEventProcess<PingEvent> for Behavi
 	fn inject_event(&mut self, event: PingEvent) {
 		match event {
 			PingEvent { peer, result: Ok(PingSuccess::Ping { rtt }) } => {
-				trace!(target: "sub-libp2p", "Ping time with {:?}: {:?}", peer, rtt);
+				trace!(target: "sub-libp2p-foreign", "Ping time with {:?}: {:?}", peer, rtt);
 				self.events.push(BehaviourOut::PingSuccess { peer_id: peer, ping_time: rtt });
 			}
 			_ => ()
@@ -388,13 +393,13 @@ where
 			.filter_map(|(p, a)| if p == peer_id { Some(a.clone()) } else { None })
 			.collect::<Vec<_>>();
 		list.extend(self.kademlia.addresses_of_peer(peer_id));
-		trace!(target: "sub-libp2p", "Addresses of {:?} are {:?}", peer_id, list);
+		trace!(target: "sub-libp2p-foreign", "Addresses of {:?} are {:?}", peer_id, list);
 		if list.is_empty() {
 			if self.kademlia.kbuckets_entries().any(|p| p == peer_id) {
-				debug!(target: "sub-libp2p", "Requested dialing to {:?} (peer in k-buckets), \
+				debug!(target: "sub-libp2p-foreign", "Requested dialing to {:?} (peer in k-buckets), \
 					and no address was found", peer_id);
 			} else {
-				debug!(target: "sub-libp2p", "Requested dialing to {:?} (peer not in k-buckets), \
+				debug!(target: "sub-libp2p-foreign", "Requested dialing to {:?} (peer not in k-buckets), \
 					and no address was found", peer_id);
 			}
 		}
@@ -424,11 +429,11 @@ where
 	fn inject_new_external_addr(&mut self, addr: &Multiaddr) {
 		let new_addr = addr.clone()
 			.with(Protocol::P2p(self.local_peer_id.clone().into()));
-		info!(target: "sub-libp2p", "Discovered new external address for our node: {}", new_addr);
+		info!(target: "sub-libp2p-foreign", "Discovered new external address for our node: {}", new_addr);
 	}
 
 	fn inject_expired_listen_addr(&mut self, addr: &Multiaddr) {
-		info!(target: "sub-libp2p", "No longer listening on {}", addr);
+		info!(target: "sub-libp2p-foreign", "No longer listening on {}", addr);
 	}
 
 	fn poll(
@@ -452,7 +457,7 @@ where
 				Ok(Async::NotReady) => break,
 				Ok(Async::Ready(_)) => {
 					let random_peer_id = PeerId::random();
-					debug!(target: "sub-libp2p", "Libp2p <= Starting random Kademlia request for \
+					debug!(target: "sub-libp2p-foreign", "Libp2p <= Starting random Kademlia request for \
 						{:?}", random_peer_id);
 					self.kademlia.find_node(random_peer_id);
 
@@ -462,7 +467,7 @@ where
 						Duration::from_secs(60));
 				},
 				Err(err) => {
-					warn!(target: "sub-libp2p", "Kademlia query timer errored: {:?}", err);
+					warn!(target: "sub-libp2p-foreign", "Kademlia query timer errored: {:?}", err);
 					break
 				}
 			}

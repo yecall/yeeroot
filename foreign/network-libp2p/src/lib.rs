@@ -151,6 +151,8 @@ pub struct NetworkStatePeer {
 	pub open: bool,
 	/// List of addresses known for this node.
 	pub known_addresses: HashSet<Multiaddr>,
+	/// shard num
+	pub shard_num: Option<u16>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
