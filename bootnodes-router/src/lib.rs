@@ -17,7 +17,7 @@
 
 use crate::params::BootnodesRouterCommandCmd;
 use log::{info, trace};
-use substrate_cli::{VersionInfo, error};
+use substrate_cli::{VersionInfo};
 use std::path::{PathBuf, Path};
 use app_dirs::{AppDataType, AppInfo};
 use std::thread;
@@ -27,13 +27,12 @@ use std::collections::HashMap;
 use jsonrpc_core::IoHandler;
 use jsonrpc_derive::rpc;
 use jsonrpc_http_server::ServerBuilder;
-use jsonrpc_client_http::{self, HttpTransport, HttpHandle};
 use serde_derive::{Deserialize, Serialize};
 use futures::future::Future;
-use error_chain::ChainedError;
 
 pub mod params;
 pub mod client;
+pub mod error;
 
 #[macro_use]
 extern crate jsonrpc_client_core;
@@ -56,9 +55,9 @@ const TARGET : &str = "bootnodes-router";
 /// native = ["/ip4/127.0.0.1/tcp/60011/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"]
 /// foreign = ["/ip4/127.0.0.1/tcp/61011/p2p/QmXiB3jqqn2rpiKU7k1h7NJYeBg8WNSx9DiTRKz9ti2KSK"]
 /// ```
-pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> substrate_cli::error::Result<()> {
+pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> error::Result<()> {
 
-    let conf: BootnodesRouterConf = get_from_conf(&cmd, &version)?;
+    let conf: BootnodesRouterConf = get_config(&cmd, &version)?;
 
     info!(target: TARGET, "Bootnodes router_conf={:?}", conf);
 
@@ -69,7 +68,7 @@ pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> substrate_cl
 
     let (signal, exit) = exit_future::signal();
 
-    let thread = thread::Builder::new().name("bootnodes_router".to_string()).spawn(move || {
+    let _thread = thread::Builder::new().name("bootnodes_router".to_string()).spawn(move || {
 
         let server = ServerBuilder::new(io).
             threads(4).start_http(&addr.parse().unwrap()).unwrap();
@@ -89,32 +88,65 @@ pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> substrate_cl
     Ok(())
 }
 
+fn get_config(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> error::Result<BootnodesRouterConf> {
+
+    if cmd.dev {
+        return get_dev_config();
+    }
+
+    let conf: BootnodesRouterConf = get_from_conf_file(cmd, version)?;
+
+    Ok(conf)
+}
+
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Shard {
     pub native: Vec<String>,
     pub foreign: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BootnodesRouterConf {
     pub shards: HashMap<String, Shard>,
 }
 
-fn get_from_conf(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> substrate_cli::error::Result<BootnodesRouterConf> {
+fn get_dev_config() -> error::Result<BootnodesRouterConf> {
+
+    let params = yee_dev::get_bootnodes_router_params().map_err(|e| format!("{:?}", e))?;
+
+    let mut shards = HashMap::new();
+
+    for param in params {
+        let shard_num = param.shard_num;
+        let port = param.port;
+        let peer_id = param.peer_id;
+        let foreign_port = param.foreign_port;
+        shards.insert(format!("{}", shard_num).to_string(), Shard {
+            native: vec![format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", port, peer_id).to_string()],
+            foreign: vec![format!("/ip4/127.0.0.1/tcp/{}/p2p/{}", foreign_port, peer_id).to_string()],
+        });
+    }
+
+    Ok(BootnodesRouterConf {
+        shards
+    })
+}
+
+fn get_from_conf_file(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> error::Result<BootnodesRouterConf> {
     let conf_path = conf_path(&base_path(cmd, version));
 
     let bootnodes_router_conf_path = conf_path.join("bootnodes-router.toml");
 
     trace!(target: TARGET, "conf_path:{}", bootnodes_router_conf_path.to_string_lossy());
 
-    let mut file = File::open(&bootnodes_router_conf_path).map_err(|e|"Non-existed conf file")?;
+    let mut file = File::open(&bootnodes_router_conf_path).map_err(|_e|"Non-existed conf file")?;
 
     let mut str_val = String::new();
     file.read_to_string(&mut str_val)?;
 
-    let conf: BootnodesRouterConf = toml::from_str(&str_val).map_err(|e| "Error reading conf file")?;
+    let conf: BootnodesRouterConf = toml::from_str(&str_val).map_err(|_e| "Error reading conf file")?;
 
     Ok(conf)
 }

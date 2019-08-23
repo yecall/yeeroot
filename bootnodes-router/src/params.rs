@@ -16,7 +16,7 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::PathBuf;
-use structopt::{StructOpt, clap::{AppSettings, SubCommand}};
+use structopt::StructOpt;
 
 pub const DEFAULT_BOOTNODES_ROUTER_PORT : u16 = 50001;
 
@@ -34,6 +34,10 @@ pub struct BootnodesRouterCommandCmd {
     /// Sets a custom logging filter
     #[structopt(short = "l", long = "log", value_name = "LOG_PATTERN")]
     pub log: Option<String>,
+
+    /// Specify the development chain
+    #[structopt(long = "dev")]
+    pub dev: bool,
 
 }
 
