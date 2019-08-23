@@ -12,7 +12,7 @@ use substrate_service::{
 };
 use basic_authorship::ProposerFactory;
 use substrate_client as client;
-use primitives::{ed25519::Pair, Pair as PairT, crypto::Ss58Codec};
+use primitives::{ed25519::Pair, Pair as PairT};
 use inherents::InherentDataProviders;
 use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
@@ -28,14 +28,20 @@ use {
     yee_rpc::CustomRpcHandlerConstructor,
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
-use super::{
-    cli::error,
-};
 
 mod sharding;
 use sharding::prepare_sharding;
 
+mod foreign;
+use foreign::{Params, start_foreign_network};
+
 pub use substrate_executor::NativeExecutor;
+use yee_bootnodes_router::BootnodesRouterConf;
+
+pub const IMPL_NAME : &str = "yee-node";
+pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
+pub const FOREIGN_PROTOCOL_VERSION : &str = "/yee-foreign/1.0.0";
+
 // Our native executor instance.
 native_executor_instance!(
 	pub Executor,
@@ -53,9 +59,10 @@ pub type NodeConfig = NodeConfigRaw<Block,
 #[derive(Clone)]
 pub struct NodeConfigRaw<B, C, E> {
 	inherent_data_providers: InherentDataProviders,
-    coin_base: AccountId,
+    pub coin_base: AccountId,
     pub shard_num: u16,
-    pub bootnodes_routers: Vec<String>,
+	pub foreign_port: Option<u16>,
+	pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     template_builder_reg: Arc<RwLock<Option<Arc<JobTemplateBuilder<B, C, E>>>>>,
 }
 
@@ -65,22 +72,10 @@ impl<B, C, E> Default for NodeConfigRaw<B, C, E> {
             inherent_data_providers: Default::default(),
             coin_base: Default::default(),
             shard_num: Default::default(),
-            bootnodes_routers: Default::default(),
+			foreign_port: Default::default(),
+			bootnodes_router_conf: Default::default(),
             template_builder_reg: Arc::new(RwLock::new(None)),
         }
-    }
-}
-
-impl NodeConfig {
-    pub fn parse_coin_base(&mut self, input: String) -> error::Result<()> {
-        self.coin_base = <AccountId as Ss58Codec>::from_string(&input)
-            .map_err(|e| format!("{:?}", e))?;
-        Ok(())
-    }
-
-    pub fn set_bootnodes_routers(&mut self, input: Vec<String>) -> error::Result<()>{
-        self.bootnodes_routers = input;
-        Ok(())
     }
 }
 
@@ -129,6 +124,18 @@ construct_service_factory! {
 					)?);
 				}
 
+                //foreign network setup
+                let config = &service.config;
+				let foreign_network_param = Params{
+                    client_version: config.network.client_version.clone(),
+			        protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
+			        node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
+			        shard_num: config.custom.shard_num,
+			        foreign_port: config.custom.foreign_port,
+			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
+			    };
+                start_foreign_network::<Self, _>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
+
 				Ok(service)
 			}
 		},
@@ -160,7 +167,7 @@ construct_service_factory! {
 		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
 		IdentifySpecialization = ShardingIdentifySpecialization
 		    { |config: &FactoryFullConfiguration<Self>| {
-		        Ok(ShardingIdentifySpecialization::new("/yee/1.0.0".to_string(), config.custom.shard_num))
+		        Ok(ShardingIdentifySpecialization::new(NATIVE_PROTOCOL_VERSION.to_string(), config.custom.shard_num))
 		        }
 		    },
 	}

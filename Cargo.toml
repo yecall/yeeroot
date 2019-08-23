@@ -9,6 +9,7 @@ license = "GPL-3.0"
 [[bin]]
 name = "yee"
 path = "src/main.rs"
+
 [dependencies]
 hyper = "0.11"
 tokio-proto = "0.1"
@@ -49,10 +50,13 @@ basic-authorship = { package = "substrate-basic-authorship", git = "https://gith
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 structopt = "0.2"
+ansi_term = "0.11"
 yee-switch = { package = "yee-switch", path = "switch" }
 yee-rpc = { package = "yee-rpc", path = "rpc" }
 yee-bootnodes-router = { package = "yee-bootnodes-router", path = "bootnodes-router" }
 yee-sharding = { package = "yee-sharding", path = "sharding" }
+yee-foreign-network = { package = "yee-foreign-network", path = "foreign/network" }
+yee-dev = { package = "yee-dev", path = "dev" }
 
 [build-dependencies]
 vergen = "3"
