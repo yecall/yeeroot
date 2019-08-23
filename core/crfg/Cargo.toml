@@ -1,7 +1,7 @@
 [package]
 name = "crfg"
-version = "0.1.0"
-authors = ["dingyouzhen <moses_paul@163.com>"]
+version = "0.4.0"
+authors = ["YeeCo contact@yeefoundation.com"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
