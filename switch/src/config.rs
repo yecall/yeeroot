@@ -70,7 +70,7 @@ impl From<SwitchConf> for yee_switch_rpc::Config {
 }
 
 pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> error::Result<SwitchConf> {
-    if cmd.dev {
+    if cmd.dev_params {
         return get_dev_config();
     }
 
