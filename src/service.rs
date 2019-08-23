@@ -18,7 +18,9 @@ use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use {
-    consensus::{import_queue, start_pow, PowImportQueue},
+    parking_lot::RwLock,
+    consensus::{import_queue, start_pow, PowImportQueue, JobTemplateBuilder},
+    substrate_service::{Components, ComponentClient, ServiceFactory},
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
         AccountId,
@@ -48,13 +50,33 @@ native_executor_instance!(
 	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
-#[derive(Default, Clone)]
-pub struct NodeConfig {
+pub type NodeConfig = NodeConfigRaw<Block,
+    ComponentClient<<Factory as ServiceFactory>::FullService>,
+    ProposerFactory<ComponentClient<<Factory as ServiceFactory>::FullService>,
+        <<Factory as ServiceFactory>::FullService as Components>::TransactionPoolApi>,
+>;
+
+#[derive(Clone)]
+pub struct NodeConfigRaw<B, C, E> {
 	inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
     pub shard_num: u16,
-    pub foreign_port: Option<u16>,
-    pub bootnodes_router_conf: Option<BootnodesRouterConf>,
+	pub foreign_port: Option<u16>,
+	pub bootnodes_router_conf: Option<BootnodesRouterConf>,
+    template_builder_reg: Arc<RwLock<Option<Arc<JobTemplateBuilder<B, C, E>>>>>,
+}
+
+impl<B, C, E> Default for NodeConfigRaw<B, C, E> {
+    fn default() -> Self {
+        Self {
+            inherent_data_providers: Default::default(),
+            coin_base: Default::default(),
+            shard_num: Default::default(),
+			foreign_port: Default::default(),
+			bootnodes_router_conf: Default::default(),
+            template_builder_reg: Arc::new(RwLock::new(None)),
+        }
+    }
 }
 
 construct_simple_protocol! {
@@ -97,6 +119,7 @@ construct_service_factory! {
 						service.on_exit(),
 						service.config.custom.inherent_data_providers.clone(),
 						service.config.custom.coin_base.clone(),
+						service.config.custom.template_builder_reg.clone(),
 						service.config.force_authoring,
 					)?);
 				}

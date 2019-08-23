@@ -20,6 +20,8 @@
 use {
     std::{fmt::Debug, marker::PhantomData, sync::Arc},
     futures::{Future, IntoFuture},
+    log::warn,
+    parking_lot::RwLock,
 };
 use {
     client::{
@@ -50,9 +52,11 @@ use {
     pow_primitives::YeePOWApi,
 };
 
+pub use builder::JobTemplateBuilder;
 pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce};
 
+mod builder;
 mod digest;
 mod pow;
 mod verifier;
@@ -67,6 +71,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
+    template_builder_reg: Arc<RwLock<Option<Arc<JobTemplateBuilder<B, C, E>>>>>,
     _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
@@ -76,26 +81,41 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     E: Environment<B> + 'static,
+    <E as Environment<B>>::Error: Debug + Send,
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
-    let worker = worker::DefaultWorker {
-        authority_key: local_key.clone(),
-        client: client.clone(),
+    let template_builder = Arc::new(builder::JobTemplateBuilder::new(
+        client.clone(),
+        env.clone(),
+        inherent_data_providers.clone(),
+        PhantomData,
+    ));
+    let mut reg_lock = template_builder_reg.write();
+    match *reg_lock {
+        Some(_) => {
+            warn!("template_builder already registered");
+            panic!("template_builder can only be registered once");
+        },
+        None => {
+            *reg_lock = Some(template_builder.clone());
+        }
+    }
+    let worker = Arc::new(worker::DefaultWorker::new(
+        template_builder.clone(),
+        local_key.clone(),
+        client.clone(),
         block_import,
-        env,
-        sync_oracle: sync_oracle.clone(),
-        inherent_data_providers: inherent_data_providers.clone(),
-        coin_base: coin_base.clone(),
-        stop_sign: Default::default(),
-        phantom: PhantomData,
-    };
-    worker::start_worker::<_, _, I, _, _, _>(
-        client,
-        Arc::new(worker),
+        sync_oracle.clone(),
+        inherent_data_providers.clone(),
+        coin_base,
+        PhantomData,
+    ));
+    worker::start_worker(
+        worker,
         sync_oracle,
         on_exit)
 }
