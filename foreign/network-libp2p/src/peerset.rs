@@ -25,13 +25,17 @@ use futures::{prelude::*, sync::mpsc, try_ready};
 use futures::stream::Fuse;
 use log::{info, debug};
 use parking_lot::RwLock;
+use std::time::{Instant, Duration};
+use std::ops::Add;
+
+const INCOMING_LIFE : Duration = Duration::from_secs(30);
 
 pub struct ForeignPeerset {
     peersets: HashMap<u16, Peerset>,
     handle: ForeignPeersetHandle,
     config: ForeignPeersetConfig,
     router: ForeignPeerRouter,
-    incoming_queue: VecDeque<(PeerId, IncomingIndex)>,
+    incoming_queue: VecDeque<(PeerId, IncomingIndex, Instant)>,
 }
 
 #[derive(Clone)]
@@ -81,7 +85,8 @@ impl ForeignPeerset {
 
     pub fn incoming(&mut self, peer_id: PeerId, index: IncomingIndex) {
         debug!(target: "sub-libp2p-foreign", "queue incoming: peer_id: {}, index: {:?}", peer_id, index);
-        self.incoming_queue.push_back((peer_id, index));
+        let expire_at = Instant::now().add(INCOMING_LIFE);
+        self.incoming_queue.push_back((peer_id, index, expire_at));
     }
 
     pub fn discovered(&mut self, peer_id: PeerId, shard_num: u16) {
@@ -125,21 +130,24 @@ impl Stream for ForeignPeerset {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 
+        let now = Instant::now();
         let mut requeue = Vec::new();
-        while let Some((peer_id, index)) = self.incoming_queue.pop_front() {
+        while let Some((peer_id, index, expire_at)) = self.incoming_queue.pop_front() {
             if let Some(shard_num) = self.router.get_shard_num(&peer_id) {
                 if let Some(peerset) = self.peersets.get_mut(&shard_num) {
                     debug!(target: "sub-libp2p-foreign", "process incoming: peer_id: {}, index: {:?}, shard_num: {}", peer_id, index, shard_num);
                     peerset.incoming(peer_id, index);
                 }
             } else {
-                debug!(target: "sub-libp2p-foreign", "requeue incoming: peer_id: {}, index: {:?}", peer_id, index);
-                requeue.push((peer_id, index));
+                if expire_at > now {
+                    debug!(target: "sub-libp2p-foreign", "requeue incoming: peer_id: {}, index: {:?}", peer_id, index);
+                    requeue.push((peer_id, index, expire_at));
+                }
             }
         }
 
-        for (peer_id, index) in requeue{
-            self.incoming_queue.push_back((peer_id, index));
+        for (peer_id, index, expire_at) in requeue{
+            self.incoming_queue.push_back((peer_id, index, expire_at));
         }
 
         for (_shard_num, peerset) in &mut self.peersets {
