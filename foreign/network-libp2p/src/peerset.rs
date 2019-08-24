@@ -36,6 +36,7 @@ pub struct ForeignPeerset {
     config: ForeignPeersetConfig,
     router: ForeignPeerRouter,
     incoming_queue: VecDeque<(PeerId, IncomingIndex, Instant)>,
+    message_queue: VecDeque<Message>,
 }
 
 #[derive(Clone)]
@@ -70,6 +71,7 @@ impl ForeignPeerset {
             config,
             router,
             incoming_queue: VecDeque::new(),
+            message_queue: VecDeque::new(),
         };
 
         (peerset, handle)
@@ -130,8 +132,16 @@ impl Stream for ForeignPeerset {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 
+        // return reject message
+        while let Some(message) = self.message_queue.pop_front() {
+            return Ok(Async::Ready(Some(message)));
+        }
+
+        // exam incoming
         let now = Instant::now();
         let mut requeue = Vec::new();
+        let mut rejects = Vec::new();
+
         while let Some((peer_id, index, expire_at)) = self.incoming_queue.pop_front() {
             if let Some(shard_num) = self.router.get_shard_num(&peer_id) {
                 if let Some(peerset) = self.peersets.get_mut(&shard_num) {
@@ -142,6 +152,9 @@ impl Stream for ForeignPeerset {
                 if expire_at > now {
                     debug!(target: "sub-libp2p-foreign", "requeue incoming: peer_id: {}, index: {:?}", peer_id, index);
                     requeue.push((peer_id, index, expire_at));
+                }else{
+                    debug!(target: "sub-libp2p-foreign", "reject incoming: peer_id: {}, index: {:?}", peer_id, index);
+                    rejects.push((peer_id, index));
                 }
             }
         }
@@ -150,6 +163,11 @@ impl Stream for ForeignPeerset {
             self.incoming_queue.push_back((peer_id, index, expire_at));
         }
 
+        for (peer_id, index) in rejects{
+            self.message_queue.push_back(Message::Reject(index));
+        }
+
+        // poll peersets of every shard
         for (_shard_num, peerset) in &mut self.peersets {
             match peerset.fuse().poll() {
                 Ok(Async::Ready(t)) => {
