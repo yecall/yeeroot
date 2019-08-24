@@ -136,6 +136,12 @@ construct_service_factory! {
 			    };
                 start_foreign_network::<Self, _>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
+				// relay-transfer
+				yee_relay::start_relay_transfer::<Self, _>(
+					service.client(),
+					&executor
+				).map_err(|e| format!("{:?}", e))?;
+
 				Ok(service)
 			}
 		},

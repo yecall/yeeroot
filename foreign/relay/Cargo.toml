@@ -1,5 +1,5 @@
 [package]
-name = "relay"
+name = "yee-relay"
 version = "0.4.0"
 authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
@@ -7,3 +7,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+futures = "0.1"
+log = "0.4"
+parity-codec = "3.5"
+parking_lot = "0.7.1"
+tokio = "0.1"
+substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+pool-graph = { package = "substrate-transaction-graph", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+yee-runtime = { package = "yee-runtime", path = "../../runtime" }
+yee-balances = { package = "yee-srml-balances", path="../../srml/yee-balances", default_features = false }
+yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives", default-features = false }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-primitives = { package = "substrate-primitives",  git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
