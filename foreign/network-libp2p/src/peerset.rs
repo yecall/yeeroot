@@ -31,6 +31,7 @@ use std::ops::Add;
 const INCOMING_LIFE : Duration = Duration::from_secs(30);
 
 pub struct ForeignPeerset {
+    native_shard_num: u16,
     peersets: HashMap<u16, Peerset>,
     handle: ForeignPeersetHandle,
     config: ForeignPeersetConfig,
@@ -49,6 +50,8 @@ pub struct ForeignPeersetHandle {
 pub struct ForeignPeerRouter(Arc<RwLock<HashMap<PeerId, u16>>>);
 
 pub struct ForeignPeersetConfig {
+    pub native_shard_num: u16,
+
     pub in_peers: u32,
 
     pub out_peers: u32,
@@ -66,6 +69,7 @@ impl ForeignPeerset {
         };
 
         let peerset = ForeignPeerset {
+            native_shard_num: config.native_shard_num,
             peersets: HashMap::new(),
             handle: handle.clone(),
             config,
@@ -92,8 +96,12 @@ impl ForeignPeerset {
     }
 
     pub fn discovered(&mut self, peer_id: PeerId, shard_num: u16) {
-        self.touch(shard_num);
+        if shard_num == self.native_shard_num{
+            debug!(target: "sub-libp2p-foreign", "will not maintain peers from native shard");
+            return;
+        }
 
+        self.touch(shard_num);
         match self.peersets.get_mut(&shard_num) {
             Some(peerset) => {
                 peerset.discovered(peer_id.clone());
