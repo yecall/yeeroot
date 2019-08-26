@@ -45,6 +45,10 @@ pub struct YeeCliConfig {
     /// Specify foreign p2p protocol TCP port
     #[structopt(long = "foreign-port", value_name = "PORT")]
     pub foreign_port: Option<u16>,
+
+    /// Whether use dev params or not
+    #[structopt(long = "dev-params")]
+    pub dev_params: bool,
 }
 
 impl_augment_clap!(YeeCliConfig);

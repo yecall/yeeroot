@@ -53,10 +53,11 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 		for bootnode in shard_boot_nodes.iter() {
 			match parse_str_addr(bootnode) {
 				Ok((peer_id, addr)) => {
-
-					let entry = foreign_boot_nodes.entry(shard_num).or_insert(Vec::new());
-					entry.push(peer_id.clone());
-					known_addresses.push((peer_id, addr));
+					if shard_num != config.shard_num {
+						let entry = foreign_boot_nodes.entry(shard_num).or_insert(Vec::new());
+						entry.push(peer_id.clone());
+						known_addresses.push((peer_id, addr));
+					}
 				},
 				Err(_) => warn!(target: "sub-libp2p-foreign", "Not a valid bootnode address: {}", bootnode),
 			}
@@ -65,6 +66,7 @@ where TMessage: CustomMessage + Send + 'static, I: IdentifySpecialization {
 
 	// Build the peerset.
 	let (peerset, peerset_handle) = peerset::ForeignPeerset::from_config(peerset::ForeignPeersetConfig {
+		native_shard_num: config.shard_num,
 		in_peers: config.in_peers,
 		out_peers: config.out_peers,
 		foreign_boot_nodes,

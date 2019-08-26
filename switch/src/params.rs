@@ -40,9 +40,9 @@ pub struct SwitchCommandCmd {
     #[structopt(long = "ws-external")]
     pub ws_external: bool,
 
-    /// Specify the development chain
-    #[structopt(long = "dev")]
-    pub dev: bool,
+    /// Whether use dev params or not
+    #[structopt(long = "dev-params")]
+    pub dev_params: bool,
 
     /// Specify custom base path.
     #[structopt(long = "base-path", short = "b", value_name = "PATH", parse(from_os_str))]
