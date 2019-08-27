@@ -25,13 +25,19 @@ use futures::{prelude::*, sync::mpsc, try_ready};
 use futures::stream::Fuse;
 use log::{info, debug};
 use parking_lot::RwLock;
+use std::time::{Instant, Duration};
+use std::ops::Add;
+
+const INCOMING_LIFE : Duration = Duration::from_secs(30);
 
 pub struct ForeignPeerset {
+    native_shard_num: u16,
     peersets: HashMap<u16, Peerset>,
     handle: ForeignPeersetHandle,
     config: ForeignPeersetConfig,
     router: ForeignPeerRouter,
-    incoming_queue: VecDeque<(PeerId, IncomingIndex)>,
+    incoming_queue: VecDeque<(PeerId, IncomingIndex, Instant)>,
+    message_queue: VecDeque<Message>,
 }
 
 #[derive(Clone)]
@@ -44,6 +50,8 @@ pub struct ForeignPeersetHandle {
 pub struct ForeignPeerRouter(Arc<RwLock<HashMap<PeerId, u16>>>);
 
 pub struct ForeignPeersetConfig {
+    pub native_shard_num: u16,
+
     pub in_peers: u32,
 
     pub out_peers: u32,
@@ -61,11 +69,13 @@ impl ForeignPeerset {
         };
 
         let peerset = ForeignPeerset {
+            native_shard_num: config.native_shard_num,
             peersets: HashMap::new(),
             handle: handle.clone(),
             config,
             router,
             incoming_queue: VecDeque::new(),
+            message_queue: VecDeque::new(),
         };
 
         (peerset, handle)
@@ -81,12 +91,17 @@ impl ForeignPeerset {
 
     pub fn incoming(&mut self, peer_id: PeerId, index: IncomingIndex) {
         debug!(target: "sub-libp2p-foreign", "queue incoming: peer_id: {}, index: {:?}", peer_id, index);
-        self.incoming_queue.push_back((peer_id, index));
+        let expire_at = Instant::now().add(INCOMING_LIFE);
+        self.incoming_queue.push_back((peer_id, index, expire_at));
     }
 
     pub fn discovered(&mut self, peer_id: PeerId, shard_num: u16) {
-        self.touch(shard_num);
+        if shard_num == self.native_shard_num{
+            debug!(target: "sub-libp2p-foreign", "will not maintain peers from native shard");
+            return;
+        }
 
+        self.touch(shard_num);
         match self.peersets.get_mut(&shard_num) {
             Some(peerset) => {
                 peerset.discovered(peer_id.clone());
@@ -125,23 +140,42 @@ impl Stream for ForeignPeerset {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
 
+        // return reject message
+        while let Some(message) = self.message_queue.pop_front() {
+            return Ok(Async::Ready(Some(message)));
+        }
+
+        // exam incoming
+        let now = Instant::now();
         let mut requeue = Vec::new();
-        while let Some((peer_id, index)) = self.incoming_queue.pop_front() {
+        let mut rejects = Vec::new();
+
+        while let Some((peer_id, index, expire_at)) = self.incoming_queue.pop_front() {
             if let Some(shard_num) = self.router.get_shard_num(&peer_id) {
                 if let Some(peerset) = self.peersets.get_mut(&shard_num) {
                     debug!(target: "sub-libp2p-foreign", "process incoming: peer_id: {}, index: {:?}, shard_num: {}", peer_id, index, shard_num);
                     peerset.incoming(peer_id, index);
                 }
             } else {
-                debug!(target: "sub-libp2p-foreign", "requeue incoming: peer_id: {}, index: {:?}", peer_id, index);
-                requeue.push((peer_id, index));
+                if expire_at > now {
+                    debug!(target: "sub-libp2p-foreign", "requeue incoming: peer_id: {}, index: {:?}", peer_id, index);
+                    requeue.push((peer_id, index, expire_at));
+                }else{
+                    debug!(target: "sub-libp2p-foreign", "reject incoming: peer_id: {}, index: {:?}", peer_id, index);
+                    rejects.push((peer_id, index));
+                }
             }
         }
 
-        for (peer_id, index) in requeue{
-            self.incoming_queue.push_back((peer_id, index));
+        for (peer_id, index, expire_at) in requeue{
+            self.incoming_queue.push_back((peer_id, index, expire_at));
         }
 
+        for (peer_id, index) in rejects{
+            self.message_queue.push_back(Message::Reject(index));
+        }
+
+        // poll peersets of every shard
         for (_shard_num, peerset) in &mut self.peersets {
             match peerset.fuse().poll() {
                 Ok(Async::Ready(t)) => {

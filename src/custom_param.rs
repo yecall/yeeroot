@@ -45,6 +45,10 @@ pub struct YeeCliConfig {
     /// Specify foreign p2p protocol TCP port
     #[structopt(long = "foreign-port", value_name = "PORT")]
     pub foreign_port: Option<u16>,
+
+    /// Whether use dev params or not
+    #[structopt(long = "dev-params")]
+    pub dev_params: bool,
 }
 
 impl_augment_clap!(YeeCliConfig);
@@ -71,7 +75,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
                         config.network.boot_nodes = bootnodes;
                     },
                     Err(e) => {
-                        warn!("Failed to get bootnodes: {:?}", e);
+                        warn!("Failed to get bootnodes: {:?}", bootnodes_routers);
                     }
                 }
 

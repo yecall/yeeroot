@@ -43,14 +43,14 @@ pub fn call<F: FnOnce(BootnodesRouterClient<HttpHandle>) -> error::Result<R> + C
                 match result {
                     Ok(result) => return Ok(result),
                     Err(e) => {
-                        warn!("Bootnodes router client call error: {}", e);
+                        warn!("Bootnodes router client call error");
                         error = e;
                         continue;
                     }
                 }
             }
             Err(e) => {
-                warn!("Bootnodes router client call error: {}", e);
+                warn!("Bootnodes router client call error");
                 error = e;
                 continue;
             }
