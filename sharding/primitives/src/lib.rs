@@ -26,6 +26,8 @@ use {
 };
 
 pub trait ShardingInfo<N> {
+    /// get total shard number in genesis block
+    fn get_genesis_shard_count() -> N;
     /// get shard number for current chain
     fn get_curr_shard() -> Option<N>;
     /// get total shard number
@@ -34,6 +36,8 @@ pub trait ShardingInfo<N> {
 
 decl_runtime_apis! {
     pub trait ShardingAPI {
+        /// get total shard number in genesis block
+        fn get_genesis_shard_count() -> u32;
         /// get shard number for current chain
         fn get_curr_shard() -> Option<u32>;
         /// get total shard number

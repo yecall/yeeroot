@@ -155,6 +155,7 @@ fn testnet_template_genesis(
 			vesting: vec![],
 		}),
         sharding: Some(ShardingConfig {
+            genesis_sharding_count: 4,
             sharding_count: 4,
         }),
 	}

@@ -23,7 +23,7 @@ use {
     substrate_service::{Components, ComponentClient, ServiceFactory},
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
-        AccountId,
+        AccountId, AuthorityId, AuthoritySignature,
     },
     yee_rpc::CustomRpcHandlerConstructor,
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
@@ -143,7 +143,7 @@ construct_service_factory! {
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
 		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
-			        prepare_sharding::<Self, _, _>(&config.custom, client.clone(), client.backend().to_owned())?;
+			        prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
 					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 						client.clone(),
 						None,
@@ -154,7 +154,7 @@ construct_service_factory! {
 			},
 		LightImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-			        prepare_sharding::<Self, _, _>(&config.custom, client.clone(), client.backend().to_owned())?;
+			        prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
 					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 						client.clone(),
 						None,
