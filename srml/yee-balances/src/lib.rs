@@ -181,16 +181,19 @@ use srml_support::traits::{
     Imbalance, SignedImbalance, ReservableCurrency,
 };
 use srml_support::dispatch::Result;
-use primitives::traits::{
+use primitives::{
+    generic::UncheckedMortalCompactExtrinsic,
+    traits::{
     Zero, SimpleArithmetic, As, StaticLookup, Member, CheckedAdd, CheckedSub,
     MaybeSerializeDebug, Saturating,
-};
+}};
 use system::{IsDeadAccount, OnNewAccount, ensure_signed};
 use {
     yee_sharding_primitives::ShardingInfo,
 };
 
 mod mock;
+mod decode;
 mod tests;
 
 pub use self::imbalances::{PositiveImbalance, NegativeImbalance};
@@ -405,6 +408,19 @@ decl_module! {
 			Self::set_free_balance(&who, free);
 			Self::set_reserved_balance(&who, reserved);
 		}
+
+		/// execute relay transfer part
+		///
+		///
+		fn relay_transfer(
+		    transfer: Vec<u8>,
+		    hash: T::Hash,
+		    proof: Vec<u8>
+		){
+		    let empty_transactor = T::AccountId::default();
+		    let (dest, amount) = Self::resolve_origin_transfer(&transfer);
+            <Self as Currency<_>>::transfer(&empty_transactor, &dest, amount);
+		}
 	}
 }
 
@@ -515,6 +531,16 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if Self::free_balance(who).is_zero() {
             Self::reap_account(who);
         }
+    }
+
+    ///  resolve origin transfer for dest address and amount
+    fn resolve_origin_transfer(tx: &Vec<u8>) -> (T::AccountId, T::Balance){
+        // todo
+//        let ex: UncheckedMortalCompactExtrinsic = Decode::decode(tx).unwrap();
+//        if let Call::Balances(super::transfer(dest, value)) = &ex.function {
+//            return (dest, value);
+//        }
+        (T::AccountId::default(), T::Balance::default())
     }
 }
 
