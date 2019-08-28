@@ -18,8 +18,6 @@ use yee_runtime::{
     Call,
     Block,
     UncheckedExtrinsic,
-
-    //opaque::UncheckedExtrinsic,
 };
 use runtime_primitives::{
     generic::{BlockId, UncheckedMortalCompactExtrinsic},
@@ -41,6 +39,7 @@ use pool_graph::{
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
+use yee_relay_primitives as relay_primitives;
 
 
 pub fn start_relay_transfer<F, C>(
@@ -61,7 +60,7 @@ pub fn start_relay_transfer<F, C>(
             let body = client.block_body(&blockId).unwrap().unwrap();
             for mut tx in &body {
                 let ec = tx.encode();
-                let ex: UncheckedExtrinsic = Decode::decode(&mut tx.encode().as_slice()).unwrap();
+                let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).unwrap();
                 let sig = &ex.signature;
                 if let None = sig {
                     continue;
@@ -84,6 +83,8 @@ pub fn start_relay_transfer<F, C>(
                     // create relay transfer
                     // todo
                     println!("zh: {}", HexDisplay::from(&ec));
+                    let relay = relay_primitives::RelayTransfer::new(ec, hash, vec![]);
+
                 }
             }
 
