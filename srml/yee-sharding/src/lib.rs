@@ -56,8 +56,8 @@ pub type InherentType = ShardInfo<u32>;
 #[derive(Decode, Encode)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize))]
 pub struct ShardInfo<N> {
-    num: N,
-    count: N,
+    pub num: N,
+    pub count: N,
 }
 
 pub trait YeeShardInherentData {
@@ -138,15 +138,8 @@ decl_storage! {
         /// Total sharding count used in genesis block
         pub GenesisShardingCount get(genesis_sharding_count) config(): T::ShardNum;
 
-        /// Temporary storage for ShardInfo used for current block
+        /// Storage for ShardInfo used for current block
         pub CurrentShardInfo get(current_shard_info): Option<ShardInfo<T::ShardNum>>;
-
-        /// Shard number for this chain
-        /// may be not configured, and generated in generated block One
-        pub CurrentShard get(current_shard): Option<T::ShardNum>;
-
-        /// Total sharding count, configured from genesis block
-        pub ShardingCount get(sharding_count) config(): T::ShardNum;
     }
 }
 
@@ -182,11 +175,16 @@ impl<T: Trait> ShardingInfo<T::ShardNum> for Module<T> {
     }
 
     fn get_curr_shard() -> Option<T::ShardNum> {
-        Self::current_shard()
+        Some(Self::current_shard_info()
+            .expect("shard info must be ready for runtime modules")
+            .num
+        )
     }
 
     fn get_shard_count() -> T::ShardNum {
-        Self::sharding_count()
+        Self::current_shard_info()
+            .expect("shard info must be ready for runtime modules")
+            .count
     }
 }
 

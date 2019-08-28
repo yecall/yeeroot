@@ -315,11 +315,13 @@ impl_runtime_apis! {
         }
 
         fn get_curr_shard() -> Option<u32> {
-            Sharding::current_shard()
+            Sharding::current_shard_info()
+                .map(|info| info.num.into())
         }
 
         fn get_shard_count() -> u32 {
-            Sharding::sharding_count()
+            Sharding::current_shard_info()
+                .map_or_else(|| Sharding::genesis_sharding_count(), |info| info.count.into())
         }
 	}
 }
