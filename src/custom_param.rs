@@ -75,7 +75,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
                         config.network.boot_nodes = bootnodes;
                     },
                     Err(e) => {
-                        warn!("Failed to get bootnodes: {:?}", e);
+                        warn!("Failed to get bootnodes: {:?}", bootnodes_routers);
                     }
                 }
 

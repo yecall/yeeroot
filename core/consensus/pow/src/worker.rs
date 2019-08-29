@@ -305,7 +305,7 @@ pub fn start_worker<B, W, SO, OnExit>(
 
     info!("worker loop start");
     let work = future::loop_fn((), move |()| {
-        let delay = Delay::new(Instant::now() + Duration::new(5, 0));
+        let delay = Delay::new(Instant::now() + Duration::from_secs(5));
         let delayed_continue = Either::A(delay.then(|_| future::ok(Loop::Continue(()))));
         let no_delay_stop = Either::B(future::ok(Loop::Break(())));
 
