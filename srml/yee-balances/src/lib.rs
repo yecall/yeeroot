@@ -198,7 +198,7 @@ mod tests;
 
 pub use self::imbalances::{PositiveImbalance, NegativeImbalance};
 
-pub trait Subtrait<I: Instance = DefaultInstance>: sharding::Trait {
+pub trait Subtrait<I: Instance = DefaultInstance> : system::Trait{
     /// The balance of an account.
     type Balance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64> + MaybeSerializeDebug;
 
@@ -211,10 +211,10 @@ pub trait Subtrait<I: Instance = DefaultInstance>: sharding::Trait {
     /// Handler for when a new account is created.
     type OnNewAccount: OnNewAccount<Self::AccountId>;
 
-    type Sharding: ShardingInfo<Self::ShardNum>;
+    // type Sharding: ShardingInfo<Self::ShardNum>;
 }
 
-pub trait Trait<I: Instance = DefaultInstance>: sharding::Trait {
+pub trait Trait<I: Instance = DefaultInstance> : system::Trait{
     /// The balance of an account.
     type Balance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64> + MaybeSerializeDebug;
 
@@ -240,14 +240,14 @@ pub trait Trait<I: Instance = DefaultInstance>: sharding::Trait {
     /// The overarching event type.
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 
-    type Sharding: ShardingInfo<Self::ShardNum>;
+    // type Sharding: ShardingInfo<Self::ShardNum>;
 }
 
 impl<T: Trait<I>, I: Instance> Subtrait<I> for T {
     type Balance = T::Balance;
     type OnFreeBalanceZero = T::OnFreeBalanceZero;
     type OnNewAccount = T::OnNewAccount;
-    type Sharding = T::Sharding;
+    // type Sharding = T::Sharding;
 }
 
 decl_event!(
@@ -388,6 +388,9 @@ decl_module! {
 		) {
 			let transactor = ensure_signed(origin)?;
 			let dest = T::Lookup::lookup(dest)?;
+			let cn:u32 = <sharding::Module<T>>::get_curr_shard().expect("can't get current shard num");
+			let t_c:u32 = <sharding::Module<T>>::get_shard_count();
+
 			<Self as Currency<_>>::transfer(&transactor, &dest, value)?;
 		}
 
@@ -724,10 +727,10 @@ impl<T: Subtrait<I>, I: Instance> system::Trait for ElevatedTrait<T, I> {
     type Log = <T as system::Trait>::Log;
 }
 
-impl<T: Subtrait<I>, I: Instance> sharding::Trait for ElevatedTrait<T, I> {
-    type ShardNum = T::ShardNum;
-    type Log = <T as sharding::Trait>::Log;
-}
+//impl<T: Subtrait<I>, I: Instance> sharding::Trait for ElevatedTrait<T, I> {
+//    type ShardNum = T::ShardNum;
+//    type Log = <T as sharding::Trait>::Log;
+//}
 
 impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
     type Balance = T::Balance;
@@ -737,7 +740,7 @@ impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
     type TransactionPayment = ();
     type TransferPayment = ();
     type DustRemoval = ();
-    type Sharding = T::Sharding;
+    // type Sharding = T::Sharding;
 }
 
 impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
@@ -812,7 +815,8 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
         )?;
         let to_balance = Self::free_balance(dest);
 
-        let (cn, c) = (T::Sharding::get_curr_shard().expect("can't get current shard num").as_() as u16, T::Sharding::get_shard_count().as_() as u16);
+        let (cn, c) = (0u16,4u16);
+        //let (cn, c) = (T::<u32>::get_curr_shard().expect("can't get current shard num").as_() as u16, T::<u32>::get_shard_count().as_() as u16);
         let dn = yee_sharding_primitives::utils::shard_num_for(dest, c).expect("can't get target shard num");
         if cn != dn {
             Self::set_free_balance(transactor, new_from_balance);
