@@ -191,6 +191,8 @@ use system::{IsDeadAccount, OnNewAccount, ensure_signed};
 use {
     yee_sharding_primitives::ShardingInfo,
 };
+//use sharding::Module;
+
 
 mod mock;
 mod decode;
@@ -388,9 +390,6 @@ decl_module! {
 		) {
 			let transactor = ensure_signed(origin)?;
 			let dest = T::Lookup::lookup(dest)?;
-			let cn:u32 = <sharding::Module<T>>::get_curr_shard().expect("can't get current shard num");
-			let t_c:u32 = <sharding::Module<T>>::get_shard_count();
-
 			<Self as Currency<_>>::transfer(&transactor, &dest, value)?;
 		}
 
@@ -425,6 +424,16 @@ decl_module! {
             <Self as Currency<_>>::transfer(&empty_transactor, &dest, amount);
 		}
 	}
+}
+
+impl <T:Trait<I>, I: Instance> Module<T,I>
+where T : sharding::Trait
+{
+    pub fn test_sharding(){
+
+        let _cn = <sharding::Module<T>>::current_shard_info().unwrap();
+        //let t_c:u32 = <sharding::Module<T>>::get_shard_count();
+    }
 }
 
 impl<T: Trait<I>, I: Instance> Module<T, I> {
@@ -543,6 +552,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 //        if let Call::Balances(super::transfer(dest, value)) = &ex.function {
 //            return (dest, value);
 //        }
+        <Self as Module<T,I>>::test_sharding();
         (T::AccountId::default(), T::Balance::default())
     }
 }
