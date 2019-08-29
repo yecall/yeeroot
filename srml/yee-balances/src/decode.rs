@@ -1,5 +1,4 @@
-use std::io;
-use std::io::prelude::*;
+use rstd::vec::Vec;
 use parity_codec::{Decode, Compact,Input};
 
 struct OriginTransfer<Address, Signature> {
@@ -32,7 +31,7 @@ impl<Address, Signature>  OriginTransfer<Address, Signature>
         let mut sender = Address::default();
         let mut signature=Signature::default();
         let mut index = Compact(0u64);
-        let mut era = vec![];
+        let mut era = Vec::new();
         if is_signed {
             sender = Decode::decode(&mut input).unwrap();
             // signature
