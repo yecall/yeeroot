@@ -36,10 +36,10 @@ use pool_graph::{
     ChainApi,
     ExtrinsicFor,
 };
+use log::{debug, warn};
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
-use yee_relay_primitives as relay_primitives;
 
 
 pub fn start_relay_transfer<F, C>(
@@ -65,26 +65,27 @@ pub fn start_relay_transfer<F, C>(
                 if let None = sig {
                     continue;
                 }
-                // todo check signature
-
                 if let Call::Balances(BalancesCall::transfer(dest, value)) = &ex.function {
                     let api = client.runtime_api();
-                    let t_c = api.get_shard_count(&blockId).unwrap();
-                    let c_n = api.get_curr_shard(&blockId).unwrap().unwrap();
-                    let t_n = yee_sharding_primitives::utils::shard_num_for(dest, t_c as u16);
-                    if t_n.is_none() {
+                    let tc = api.get_shard_count(&blockId).unwrap();    // total count
+                    let cs = api.get_curr_shard(&blockId).unwrap().unwrap();    // current shard
+                    let ds = yee_sharding_primitives::utils::shard_num_for(dest, tc as u16);    // dest shard
+                    if ds.is_none() {
                         continue;
                     }
-                    let t_n = t_n.unwrap();
-                    let c_n = c_n as u16;
-                    if c_n == t_n {
+                    let ds = ds.unwrap();
+                    if cs as u16 == ds {
                         continue;
                     }
                     // create relay transfer
-                    // todo
-                    println!("zh: {}", HexDisplay::from(&ec));
-                    let relay = relay_primitives::RelayTransfer::new(ec, hash, vec![]);
+                    let proof: Vec<u8> = vec![]; // todo
+                    let function = Call::Balances(BalancesCall::relay_transfer(ec, hash, proof));
+                    let relay = UncheckedExtrinsic::new_unsigned(function);
+                    let buf = relay.encode();
+                    debug!(target: "relay", "encode: {}", HexDisplay::from(&buf));
 
+                    // broadcast relay transfer
+                    // todo
                 }
             }
 
