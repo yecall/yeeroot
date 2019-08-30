@@ -1,21 +1,21 @@
 use rstd::vec::Vec;
-use parity_codec::{Decode, Compact,Input};
+use parity_codec::{Decode, Compact, Input};
 
-struct OriginTransfer<Address, Signature> {
+pub struct OriginTransfer<Address, Balance> {
     sender: Address,
-    signature: Signature,
+    signature: Vec<u8>,
     index: Compact<u64>,
     era: Vec<u8>,
     dest: Address,
-    amount: Compact<u128>,
+    amount: Balance,
 }
 
-impl<Address, Signature>  OriginTransfer<Address, Signature>
+impl<Address, Balance> OriginTransfer<Address, Balance>
     where
-        Address: Decode + Default,
-        Signature:Decode + Default
+        Address: Decode + Default + Clone,
+        Balance: Decode + Clone
 {
-    fn decode(data: Vec<u8>) -> Option<Self> {
+    pub fn decode(data: Vec<u8>) -> Option<Self> {
         if data.len() < 1 + 64 + 1 + 1 + 1 + 1 {
             return None;
         }
@@ -29,15 +29,16 @@ impl<Address, Signature>  OriginTransfer<Address, Signature>
         }
 
         let mut sender = Address::default();
-        let mut signature=Signature::default();
+        let mut signature = Vec::new();
         let mut index = Compact(0u64);
         let mut era = Vec::new();
         if is_signed {
             sender = Decode::decode(&mut input).unwrap();
             // signature
-            signature = Decode::decode(&mut input).unwrap();
+            signature = input[..64].to_vec();
+            input = &input[64..];
             // index
-           index = Decode::decode(&mut input).unwrap();
+            index = Decode::decode(&mut input).unwrap();
             // era
             let e = input.read_byte().unwrap();
             if e == 0 {
@@ -47,11 +48,11 @@ impl<Address, Signature>  OriginTransfer<Address, Signature>
                 input = &input[2..];
             }
         }
-        let module:Compact<u64> = Decode::decode(&mut input).unwrap();
-        let func:Compact<u64> = Decode::decode(&mut input).unwrap();
+        let _module: Compact<u64> = Decode::decode(&mut input).unwrap();
+        let _func: Compact<u64> = Decode::decode(&mut input).unwrap();
 
-        let dest:Address = Decode::decode(&mut input).unwrap();
-        let mut amount: Compact<u128> = Decode::decode(&mut input).unwrap();
+        let dest: Address = Decode::decode(&mut input).unwrap();
+        let amount = Decode::decode(&mut input).unwrap();
         Some(OriginTransfer {
             sender,
             signature,
@@ -60,6 +61,14 @@ impl<Address, Signature>  OriginTransfer<Address, Signature>
             dest,
             amount,
         })
+    }
+
+    pub fn dest(&self) -> Address {
+        self.dest.clone()
+    }
+
+    pub fn amount(&self) -> Balance {
+        self.amount.clone()
     }
 }
 

@@ -419,9 +419,7 @@ decl_module! {
 		    hash: T::Hash,
 		    proof: Vec<u8>
 		){
-		    let empty_transactor = T::AccountId::default();
-		    let (dest, amount) = Self::resolve_origin_transfer(&transfer);
-            <Self as Currency<_>>::transfer(&empty_transactor, &dest, amount);
+		    Self::execute_relay_transfer(transfer, hash, proof)?;
 		}
 	}
 }
@@ -535,15 +533,20 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         }
     }
 
-    ///  resolve origin transfer for dest address and amount
-    fn resolve_origin_transfer(tx: &Vec<u8>) -> (T::AccountId, T::Balance) {
-        //let tx = OriginTransfer::decode(tx);
-        // todo
-//        let ex: UncheckedMortalCompactExtrinsic = Decode::decode(tx).unwrap();
-//        if let Call::Balances(super::transfer(dest, value)) = &ex.function {
-//            return (dest, value);
-//        }
-        (T::AccountId::default(), T::Balance::default())
+    /// execute relay transfer
+    fn execute_relay_transfer(transfer: Vec<u8>, _hash: T::Hash, _proof: Vec<u8>) -> Result {
+        let tx: OriginTransfer<T::AccountId, T::Balance> = OriginTransfer::decode(transfer).unwrap();
+        if !<FreeBalance<T, I>>::exists(tx.dest()) {
+            Self::new_account(&tx.dest(), tx.amount());
+        }
+        Self::set_free_balance(&tx.dest(), tx.amount());
+        Self::deposit_event(RawEvent::Transfer(
+            T::AccountId::default(),
+            tx.dest().clone(),
+            tx.amount(),
+            Zero::zero(),
+        ));
+        Ok(())
     }
 }
 
