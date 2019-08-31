@@ -56,7 +56,10 @@ use log::info;
 use {
     pow_primitives::{YeePOWApi, DifficultyType},
 };
+#[cfg(feature = "std")]
+use serde::Serialize;
 
+#[derive(Clone, Serialize)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone>{
     /// Hash for header with consensus post-digests (unknown WorkProof) applied
     /// The hash has 2 uses:
@@ -67,15 +70,21 @@ pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone>{
     pub header: B::Header,
     /// Block's body
     pub body: Vec<B::Extrinsic>,
-    /// PoW seal to build consensus post-digests
-    pub pow_seal: PowSeal<B, AuthorityId>,
+    /// Digest item
+    pub digest_item: JobDigestItem<AuthorityId>,
 }
 
-pub trait JobManager<B, AuthorityId> where
-    B: Block,
-    AuthorityId: Decode + Encode + Clone,
+#[derive(Clone, Serialize)]
+pub struct JobDigestItem<AuthorityId: Decode + Encode + Clone>{
+    pub authority_id: AuthorityId,
+    pub difficulty: DifficultyType,
+    pub timestamp: u64,
+}
+
+pub trait JobManager : Send + Sync
 {
-    fn get_job(&self) -> Box<dyn Future<Item=DefaultJob<B, AuthorityId>, Error=consensus_common::Error> + Send>;
+    type Job;
+    fn get_job(&self) -> Box<dyn Future<Item=Self::Job, Error=consensus_common::Error> + Send>;
 
     //TODO submit_job
 }
@@ -114,7 +123,7 @@ impl<B, C, E, AuthorityId> DefaultJobManager<B, C, E, AuthorityId> where
     }
 }
 
-impl<B, C, E, AuthorityId> JobManager<B, AuthorityId> for DefaultJobManager<B, C, E, AuthorityId>
+impl<B, C, E, AuthorityId> JobManager for DefaultJobManager<B, C, E, AuthorityId>
     where B: Block,
           DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId>,
           C: ChainHead<B> + Send + Sync + 'static,
@@ -128,7 +137,9 @@ impl<B, C, E, AuthorityId> JobManager<B, AuthorityId> for DefaultJobManager<B, C
           AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {
 
-    fn get_job(&self) -> Box<dyn Future<Item=DefaultJob<B, AuthorityId>, Error=consensus_common::Error> + Send> {
+    type Job = DefaultJob<B, AuthorityId>;
+
+    fn get_job(&self) -> Box<dyn Future<Item=Self::Job, Error=consensus_common::Error> + Send> {
         let get_data = || {
             let chain_head = self.client.best_block_header()
                 .map_err(to_common_error)?;
@@ -159,6 +170,11 @@ impl<B, C, E, AuthorityId> JobManager<B, AuthorityId> for DefaultJobManager<B, C
             let authority_id = authority_id;
             let work_proof = WorkProof::Unknown;
 
+            let digest_item = JobDigestItem{
+                authority_id: authority_id.clone(),
+                difficulty,
+                timestamp,
+            };
             let pow_seal = PowSeal{
                 authority_id,
                 difficulty,
@@ -176,7 +192,7 @@ impl<B, C, E, AuthorityId> JobManager<B, AuthorityId> for DefaultJobManager<B, C
                 hash,
                 header,
                 body,
-                pow_seal,
+                digest_item,
             })
         };
 

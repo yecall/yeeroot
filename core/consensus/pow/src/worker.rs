@@ -55,26 +55,27 @@ use {
     pow_primitives::{YeePOWApi, DifficultyType},
 };
 use super::{
-    CompatibleDigestItem, JobTemplateBuilder, WorkProof, ProofNonce,
+    CompatibleDigestItem, WorkProof, ProofNonce,
     pow::PowSeal,
 };
+use crate::job::{JobManager, DefaultJob};
 
-pub trait PowWorker<B: Block> {
+pub trait PowWorker<JM: JobManager> {
     type Error: Debug + Send;
-    type OnTemplate: IntoFuture<Item=B, Error=Self::Error>;
-    type OnJob: IntoFuture<Item=(), Error=Self::Error>;
+    type OnJob: IntoFuture<Item=JM::Job, Error=Self::Error>;
+    type OnWork: IntoFuture<Item=(), Error=Self::Error>;
 
     fn stop_sign(&self) -> Arc<RwLock<bool>>;
 
     fn on_start(&self) -> Result<(), Self::Error>;
 
-    fn on_template(&self) -> Self::OnTemplate;
+    fn on_job(&self) -> Self::OnJob;
 
-    fn on_job(&self, iter: u64) -> Self::OnJob;
+    fn on_work(&self, iter: u64) -> Self::OnWork;
 }
 
-pub struct DefaultWorker<B, P, C, I, E, AccountId, SO> {
-    template_builder: Arc<JobTemplateBuilder<B, C, E>>,
+pub struct DefaultWorker<B, P, C, I, AccountId, SO, JM> {
+    job_manager: Arc<JM>,
     authority_key: Arc<P>,
     client: Arc<C>,
     block_import: Arc<I>,
@@ -85,13 +86,14 @@ pub struct DefaultWorker<B, P, C, I, E, AccountId, SO> {
     phantom: PhantomData<(B, AccountId)>,
 }
 
-impl<B, P, C, I, E, AccountId, SO> DefaultWorker<B, P, C, I, E, AccountId, SO> where
+impl<B, P, C, I, AccountId, SO, JM> DefaultWorker<B, P, C, I, AccountId, SO, JM> where
     B: Block,
-    E: Environment<B> + 'static,
-    <E as Environment<B>>::Error: Debug + Send,
+    P: Pair,
+    <P as Pair>::Public: Clone + Encode + Decode,
+    JM: JobManager,
 {
     pub fn new(
-        template_builder: Arc<JobTemplateBuilder<B, C, E>>,
+        job_manager: Arc<JM>,
         authority_key: Arc<P>,
         client: Arc<C>,
         block_import: Arc<I>,
@@ -101,7 +103,7 @@ impl<B, P, C, I, E, AccountId, SO> DefaultWorker<B, P, C, I, E, AccountId, SO> w
         phantom: PhantomData<(B, AccountId)>,
     ) -> Self {
         DefaultWorker {
-            template_builder,
+            job_manager,
             authority_key,
             client,
             block_import,
@@ -114,7 +116,7 @@ impl<B, P, C, I, E, AccountId, SO> DefaultWorker<B, P, C, I, E, AccountId, SO> w
     }
 }
 
-impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E, AccountId, SO> where
+impl<B, P, C, I, AccountId, SO, JM> PowWorker<JM> for DefaultWorker<B, P, C, I, AccountId, SO, JM> where
     B: Block,
     DigestFor<B>: Digest,
     P: Pair,
@@ -122,18 +124,14 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
     C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
-    E: Environment<B> + 'static,
-    <E as Environment<B>>::Proposer: Proposer<B>,
-    <E as Environment<B>>::Error: Debug,
-    <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
-    <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Clone,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
+    JM: JobManager<Job=DefaultJob<B, P::Public>>,
 {
     type Error = consensus_common::Error;
-    type OnTemplate = Box<dyn Future<Item=B, Error=Self::Error> + Send>;
-    type OnJob = Box<dyn Future<Item=(), Error=Self::Error> + Send>;
+    type OnJob = Box<dyn Future<Item=DefaultJob<B, P::Public>, Error=Self::Error> + Send>;
+    type OnWork = Box<dyn Future<Item=(), Error=Self::Error> + Send>;
 
     fn stop_sign(&self) -> Arc<RwLock<bool>> {
         self.stop_sign.clone()
@@ -143,26 +141,26 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
         super::register_inherent_data_provider(&self.inherent_data_providers)
     }
 
-    fn on_template(&self) -> Self::OnTemplate {
-        self.template_builder.get_template()
+    fn on_job(&self) -> Self::OnJob {
+        self.job_manager.get_job()
     }
 
-    fn on_job(&self,
+    fn on_work(&self,
               iter: u64,
-    ) -> Self::OnJob {
-        let client = self.client.clone();
+    ) -> Self::OnWork {
         let block_import = self.block_import.clone();
-        let authority_id = self.authority_key.public();
 
-        let proposal_work = self.on_template().into_future();
+        let job = self.on_job().into_future();
 
-        // let coin_base = self.coin_base.clone();
-        let on_proposal_block = move |block: B| -> Result<(), consensus_common::Error> {
-            let (header, body) = block.deconstruct();
+        let on_proposal_block = move |job: DefaultJob<B, P::Public>| -> Result<(), consensus_common::Error> {
+
+            let header = job.header;
+            let body = job.body;
             let header_num = header.number().clone();
             let header_pre_hash = header.hash();
-            let timestamp = timestamp_now()?;
-            let difficulty = calc_difficulty(client, &header, timestamp)?;
+            let digest_item = job.digest_item;
+            let difficulty = digest_item.difficulty;
+
             info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
 
             // TODO: remove hardcoded
@@ -171,11 +169,11 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
             for i in 0_u64..iter {
                 let mut work_header = header.clone();
                 let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
-                let seal = PowSeal {
-                    authority_id: authority_id.clone(),
-                    difficulty,
-                    timestamp,
-                    work_proof: proof,
+                let seal = PowSeal{
+                    authority_id : digest_item.authority_id.clone(),
+                    difficulty: digest_item.difficulty,
+                    timestamp: digest_item.timestamp,
+                    work_proof : proof,
                 };
                 let item = <DigestItemFor<B> as CompatibleDigestItem<B, P::Public>>::pow_seal(seal.clone());
                 work_header.digest_mut().push(item);
@@ -204,10 +202,10 @@ impl<B, P, C, I, E, AccountId, SO> PowWorker<B> for DefaultWorker<B, P, C, I, E,
         };
 
         Box::new(
-            proposal_work
+            job
                 .map_err(to_common_error)
-                .map(|block| {
-                    if let Err(e) = on_proposal_block(block) {
+                .map(move |job| {
+                    if let Err(e) = on_proposal_block(job) {
                         warn!("block proposal failed {:?}", e);
                     }
                 })
@@ -289,15 +287,15 @@ pub fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
     consensus_common::ErrorKind::ClientImport(format!("{:?}", e)).into()
 }
 
-pub fn start_worker<B, W, SO, OnExit>(
+pub fn start_worker<W, SO, OnExit, JM>(
     worker: Arc<W>,
     sync_oracle: SO,
     on_exit: OnExit,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
-    B: Block,
-    W: PowWorker<B>,
+    W: PowWorker<JM>,
     SO: SyncOracle,
     OnExit: Future<Item=(), Error=()>,
+    JM : JobManager,
 {
     worker.on_start().map_err(to_common_error)?;
 
@@ -328,7 +326,7 @@ pub fn start_worker<B, W, SO, OnExit>(
             return Either::A(delayed_continue);
         }
 
-        let task = worker.on_job(10000).into_future();
+        let task = worker.on_work(10000).into_future();
         Either::B(
             task.then(|_| Delay::new(Instant::now()))
                 .then(|_| Ok(Loop::Continue(())))

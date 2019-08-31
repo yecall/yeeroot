@@ -15,7 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_service::{Components, ComponentClient, ComponentBlock, ComponentExHash, RpcHandlerConstructor};
+#![allow(unused_imports)]
+
+mod mining;
+mod errors;
+pub use mining::ProvideJobManager;
+use substrate_service::{Components, ComponentClient, ComponentBlock, ComponentExHash, RpcHandlerConstructor, FactoryFullConfiguration,
+                        ServiceFactory, DefaultRpcHandlerConstructor};
 use tokio::runtime::TaskExecutor;
 use std::sync::Arc;
 use substrate_rpc_services::{self, apis::system::SystemInfo};
@@ -25,14 +31,45 @@ use runtime_primitives::{
 use client::{self, Client, runtime_api};
 use network::{self, OnDemand};
 use transaction_pool::txpool::{self, Options as TransactionPoolOptions, Pool as TransactionPool};
-use jsonrpc_derive::rpc;
-use std::error::Error;
+use std::marker::PhantomData;
+use crate::mining::{Mining, MiningApi};
+use parking_lot::RwLock;
+use yee_consensus_pow::{JobManager, DefaultJob};
+use yee_runtime::opaque::{Block};
+use primitives::{ed25519::Pair, Pair as PairT};
+use parity_codec::{Decode, Encode, Codec};
 
-pub struct CustomRpcHandlerConstructor;
+pub struct FullRpcHandlerConstructor;
 
-impl<C: Components> RpcHandlerConstructor<C> for CustomRpcHandlerConstructor where
+pub type LightRpcHandlerConstructor = DefaultRpcHandlerConstructor;
+
+#[derive(Default, Clone)]
+pub struct FullRpcExtra<J> {
+    job_manager: Arc<RwLock<Option<Arc<JobManager<Job=J>>>>>,
+}
+//
+//impl<F: ServiceFactory> Clone for FullRpcExtra<F> {
+//    fn clone(&self) -> Self{
+//        Self{
+//            template_builder_reg: self.template_builder_reg.clone(),
+//        }
+//    }
+//}
+
+impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
     ComponentClient<C>: ProvideRuntimeApi,
-    <ComponentClient<C> as ProvideRuntimeApi>::Api: runtime_api::Metadata<ComponentBlock<C>>{
+    <ComponentClient<C> as ProvideRuntimeApi>::Api: runtime_api::Metadata<ComponentBlock<C>>,
+    <C::Factory as ServiceFactory>::Configuration: ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>>,
+{
+
+    type RpcExtra = FullRpcExtra<DefaultJob<Block, <Pair as PairT>::Public>>;
+
+    fn build_rpc_extra(config: &FactoryFullConfiguration<C::Factory>) -> Self::RpcExtra{
+        FullRpcExtra{
+            job_manager: config.custom.provide_job_manager(),
+        }
+    }
+
     fn new_rpc_handler(
         client: Arc<ComponentClient<C>>,
         network: Arc<network::SyncProvider<ComponentBlock<C>>>,
@@ -40,6 +77,7 @@ impl<C: Components> RpcHandlerConstructor<C> for CustomRpcHandlerConstructor whe
         rpc_system_info: SystemInfo,
         task_executor: TaskExecutor,
         transaction_pool: Arc<TransactionPool<C::TransactionPoolApi>>,
+        extra: Self::RpcExtra,
     ) -> substrate_rpc_services::RpcHandler{
         let client = client.clone();
         let subscriptions = substrate_rpc_services::apis::Subscriptions::new(task_executor);
@@ -59,24 +97,9 @@ impl<C: Components> RpcHandlerConstructor<C> for CustomRpcHandlerConstructor whe
             system,
         );
 
-        let test = Test{};
-        io.extend_with(test.to_delegate());
+        let mining = Mining::new(extra.job_manager);
+        io.extend_with(mining.to_delegate());
 
         io
-    }
-}
-
-#[rpc]
-pub trait TestApi{
-
-    #[rpc(name = "test_foo")]
-    fn foo(&self) -> Result<Option<String>, jsonrpc_core::Error>;
-}
-
-pub struct Test;
-
-impl TestApi for Test{
-    fn foo(&self) -> Result<Option<String>, jsonrpc_core::Error>{
-        Ok(Some("bar".to_string()))
     }
 }

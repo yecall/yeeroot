@@ -52,12 +52,11 @@ use {
     pow_primitives::YeePOWApi,
 };
 
-pub use builder::JobTemplateBuilder;
 pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce};
+pub use crate::job::{JobManager, DefaultJobManager, DefaultJob};
 
 mod job;
-mod builder;
 mod digest;
 mod pow;
 mod verifier;
@@ -72,16 +71,16 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
     coin_base: AccountId,
-    template_builder_reg: Arc<RwLock<Option<Arc<JobTemplateBuilder<B, C, E>>>>>,
+    job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, P::Public>>>>>>,
     _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     P: Pair + 'static,
-    <P as Pair>::Public: Clone + Debug + Decode + Encode + Send,
+    <P as Pair>::Public: Clone + Debug + Decode + Encode + Send + Sync,
     C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
-    E: Environment<B> + 'static,
+    E: Environment<B> + Send + Sync + 'static,
     <E as Environment<B>>::Error: Debug + Send,
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
@@ -89,24 +88,26 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
 {
-    let template_builder = Arc::new(builder::JobTemplateBuilder::new(
+    let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
         env.clone(),
         inherent_data_providers.clone(),
-        PhantomData,
+        local_key.public()
     ));
-    let mut reg_lock = template_builder_reg.write();
+
+    let mut reg_lock = job_manager.write();
     match *reg_lock {
         Some(_) => {
-            warn!("template_builder already registered");
-            panic!("template_builder can only be registered once");
+            warn!("job manager already registered");
+            panic!("job manager can only be registered once");
         },
         None => {
-            *reg_lock = Some(template_builder.clone());
+            *reg_lock = Some(inner_job_manager.clone());
         }
     }
+
     let worker = Arc::new(worker::DefaultWorker::new(
-        template_builder.clone(),
+        inner_job_manager.clone(),
         local_key.clone(),
         client.clone(),
         block_import,
