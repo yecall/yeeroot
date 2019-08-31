@@ -1,11 +1,12 @@
 use rstd::vec::Vec;
+use primitives::{traits::Zero, generic::Era};
 use parity_codec::{Decode, Compact, Input};
 
 pub struct OriginTransfer<Address, Balance> {
     sender: Address,
     signature: Vec<u8>,
     index: Compact<u64>,
-    era: Vec<u8>,
+    era: Era,
     dest: Address,
     amount: Balance,
 }
@@ -13,15 +14,25 @@ pub struct OriginTransfer<Address, Balance> {
 impl<Address, Balance> OriginTransfer<Address, Balance>
     where
         Address: Decode + Default + Clone,
-        Balance: Decode + Clone
+        Balance: Decode + Zero + Clone
 {
     pub fn decode(data: Vec<u8>) -> Option<Self> {
         if data.len() < 1 + 64 + 1 + 1 + 1 + 1 {
             return None;
         }
         let mut input = data.as_slice();
-        let _len: Vec<()> = Decode::decode(&mut input).unwrap();
-        let version = input.read_byte().unwrap();
+        if let Some(len) = Decode::decode(&mut input) {
+            let _len: Vec<()> = len;
+        } else {
+            return None;
+        }
+
+        let mut version = 0;
+        if let Some(v) = input.read_byte() {
+            version = v;
+        } else {
+            return None;
+        }
         let is_signed = version & 0b1000_0000 != 0;
         let version = version & 0b0111_1111;
         if version != 1u8 {
@@ -31,28 +42,56 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
         let mut sender = Address::default();
         let mut signature = Vec::new();
         let mut index = Compact(0u64);
-        let mut era = Vec::new();
+        let mut era = Era::Immortal;
         if is_signed {
-            sender = Decode::decode(&mut input).unwrap();
+            // sender
+            if let Some(s) = Decode::decode(&mut input) {
+                sender = s
+            } else {
+                return None;
+            }
             // signature
             signature = input[..64].to_vec();
             input = &input[64..];
             // index
-            index = Decode::decode(&mut input).unwrap();
-            // era
-            let e = input.read_byte().unwrap();
-            if e == 0 {
-                era.push(e);
+            if let Some(i) = Decode::decode(&mut input) {
+                index = i;
             } else {
-                era = input[..2].to_vec();
-                input = &input[2..];
+                return None;
+            }
+            // era
+            if let Some(e) = Decode::decode(&mut input) {
+                era = e;
+            } else {
+                return None;
             }
         }
-        let _module: Compact<u64> = Decode::decode(&mut input).unwrap();
-        let _func: Compact<u64> = Decode::decode(&mut input).unwrap();
-
-        let dest: Address = Decode::decode(&mut input).unwrap();
-        let amount = Decode::decode(&mut input).unwrap();
+        // module
+        if let Some(m) = Decode::decode(&mut input) {
+            let _module: Compact<u64> = m;
+        } else {
+            return None;
+        }
+        // function
+        if let Some(f) = Decode::decode(&mut input) {
+            let _func: Compact<u64> = f;
+        } else {
+            return None;
+        }
+        // dest address
+        let mut dest = Address::default();
+        if let Some(d) = Decode::decode(&mut input) {
+            dest = d;
+        } else {
+            return None;
+        }
+        // amount
+        let mut amount = Zero::zero();
+        if let Some(a) = Decode::decode(&mut input) {
+            amount = a;
+        } else {
+            return None;
+        }
         Some(OriginTransfer {
             sender,
             signature,
@@ -78,8 +117,8 @@ fn test_decode() {
     let data = hex::decode(tx).unwrap();
     let ot = OriginTransfer::decode(data).unwrap();
     let mut ot_a = ot.amount;
-    //let amount: u128 = Decode::decode(&mut ot_a).unwrap().into();
+    let amount: u128 = Decode::decode(&mut ot_a).unwrap().into();
 
-    //assert_eq!(amount, 123);
+    assert_eq!(amount, 1000u128);
     //assert_eq!(ot.index, 1);
 }
