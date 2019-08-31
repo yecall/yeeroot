@@ -19,7 +19,7 @@ support = { package = "srml-support", git = "https://github.com/yeeco/substrate.
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 balances = { package = "yee-srml-balances", path="../srml/yee-balances", default_features = false }
 consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-executive = { package = "srml-executive", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+executive = { package = "yee-srml-executive", path="../srml/yee-executive", default_features = false }
 indices = { package = "srml-indices", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
