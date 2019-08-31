@@ -47,14 +47,6 @@ pub type LightRpcHandlerConstructor = DefaultRpcHandlerConstructor;
 pub struct FullRpcExtra<J> {
     job_manager: Arc<RwLock<Option<Arc<JobManager<Job=J>>>>>,
 }
-//
-//impl<F: ServiceFactory> Clone for FullRpcExtra<F> {
-//    fn clone(&self) -> Self{
-//        Self{
-//            template_builder_reg: self.template_builder_reg.clone(),
-//        }
-//    }
-//}
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
     ComponentClient<C>: ProvideRuntimeApi,
