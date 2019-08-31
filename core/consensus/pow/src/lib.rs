@@ -56,6 +56,7 @@ pub use builder::JobTemplateBuilder;
 pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce};
 
+mod job;
 mod builder;
 mod digest;
 mod pow;
