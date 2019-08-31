@@ -1,5 +1,5 @@
 use rstd::vec::Vec;
-use primitives::{traits::Zero, generic::Era};
+use primitives::{traits::Zero, generic::Era, };
 use parity_codec::{Decode, Compact, Input};
 
 pub struct OriginTransfer<Address, Balance> {

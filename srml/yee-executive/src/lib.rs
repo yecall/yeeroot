@@ -30,6 +30,7 @@ use parity_codec::{Codec, Encode};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
+use runtime_primitives::{Signature};
 
 mod internal {
 	pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
@@ -253,7 +254,8 @@ impl<
 		const MISSING_SENDER: i8 = -20;
 		const INVALID_INDEX: i8 = -10;
 
-		let encoded_len = uxt.encode().len();
+		let origin_data = utx.encode();
+		let encoded_len = origin_data.len();
 
 		let xt = match uxt.check(&Default::default()) {
 			// Checks out. Carry on.
@@ -294,6 +296,10 @@ impl<
 				longevity: TransactionLongevity::max_value(),
 			}
 		} else {
+			if xt.sender().is_none(){
+
+			}
+
 			return TransactionValidity::Invalid(if xt.sender().is_none() {
 				MISSING_SENDER
 			} else {

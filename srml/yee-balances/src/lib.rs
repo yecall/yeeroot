@@ -190,10 +190,10 @@ use system::{IsDeadAccount, OnNewAccount, ensure_signed};
 use {
     yee_sharding_primitives::ShardingInfo,
 };
-//use sharding::Module;
+use node_primitives::Signature;
+use yee_relay::OriginTransfer;
 
 mod mock;
-mod decode;
 mod tests;
 
 use decode::OriginTransfer;
@@ -535,7 +535,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
 
     /// execute relay transfer
     fn execute_relay_transfer(transfer: Vec<u8>, _hash: T::Hash, _proof: Vec<u8>) -> Result {
-        let tx: OriginTransfer<T::AccountId, T::Balance> = OriginTransfer::decode(transfer).unwrap();
+        let tx: OriginTransfer<T::AccountId, T::Balance, Signature> = OriginTransfer::decode(transfer).unwrap();
         if !<FreeBalance<T, I>>::exists(tx.dest()) {
             Self::new_account(&tx.dest(), tx.amount());
         }

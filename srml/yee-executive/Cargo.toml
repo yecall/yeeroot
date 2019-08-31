@@ -12,6 +12,8 @@ runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git"
 primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 srml-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+balances = { package = "yee-srml-balances", path = "../yee-balances", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.1.0"

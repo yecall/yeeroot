@@ -36,7 +36,7 @@ use pool_graph::{
     ChainApi,
     ExtrinsicFor,
 };
-use log::{debug, warn};
+use log::{debug, info, warn};
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
@@ -60,6 +60,7 @@ pub fn start_relay_transfer<F, C>(
             let body = client.block_body(&blockId).unwrap().unwrap();
             for mut tx in &body {
                 let ec = tx.encode();
+                debug!(target: "relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
                 let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).unwrap();
                 let sig = &ex.signature;
                 if let None = sig {
@@ -82,7 +83,7 @@ pub fn start_relay_transfer<F, C>(
                     let function = Call::Balances(BalancesCall::relay_transfer(ec, hash, proof));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
-                    debug!(target: "relay", "encode: {}", HexDisplay::from(&buf));
+                    info!(target: "relay", "amount: {}, encode: {}", value, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
                     // todo
