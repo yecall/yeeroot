@@ -208,7 +208,7 @@ construct_runtime!(
 		Pow: pow::{Module, Storage, Config<T>},
 		Indices: indices,
 		Balances: balances,
-		Sharding: sharding::{Module, Storage, Config<T>, Log()},
+		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 	}
 );
 
@@ -310,12 +310,18 @@ impl_runtime_apis! {
 	}
 
 	impl sharding_primitives::ShardingAPI<Block> for Runtime {
+        fn get_genesis_shard_count() -> u32 {
+            Sharding::genesis_sharding_count()
+        }
+
         fn get_curr_shard() -> Option<u32> {
-            Sharding::current_shard()
+            Sharding::current_shard_info()
+                .map(|info| info.num.into())
         }
 
         fn get_shard_count() -> u32 {
-            Sharding::sharding_count()
+            Sharding::current_shard_info()
+                .map_or_else(|| Sharding::genesis_sharding_count(), |info| info.count.into())
         }
 	}
 }
