@@ -2,16 +2,13 @@
 name = "crfg-primitives"
 version = "0.4.0"
 authors = ["YeeCo contact@yeefoundation.com"]
+edition = "2018"
 
 [dependencies]
-#client = { package = "substrate-client", path = "../../client", default-features = false }
 client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", default-features = false , branch = "yee-v1.0"}
-#substrate-primitives = { path = "../../primitives", default-features = false }
 substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false , branch = "yee-v1.0" }
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
-#sr-primitives = { path = "../../sr-primitives", default-features = false }
 sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false , branch = "yee-v1.0" }
-#rstd = { package = "sr-std", path = "../../sr-std", default-features = false }
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 
 [features]
