@@ -19,13 +19,12 @@ use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
-    consensus::{import_queue, start_pow, PowImportQueue, JobTemplateBuilder},
-    substrate_service::{Components, ComponentClient, ServiceFactory},
+    consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
         AccountId, AuthorityId, AuthoritySignature,
     },
-    yee_rpc::CustomRpcHandlerConstructor,
+    yee_rpc::{FullRpcHandlerConstructor, LightRpcHandlerConstructor},
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
 
@@ -37,6 +36,7 @@ use foreign::{Params, start_foreign_network};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
+use yee_rpc::ProvideJobManager;
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -50,32 +50,32 @@ native_executor_instance!(
 	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
-pub type NodeConfig = NodeConfigRaw<Block,
-    ComponentClient<<Factory as ServiceFactory>::FullService>,
-    ProposerFactory<ComponentClient<<Factory as ServiceFactory>::FullService>,
-        <<Factory as ServiceFactory>::FullService as Components>::TransactionPoolApi>,
->;
-
 #[derive(Clone)]
-pub struct NodeConfigRaw<B, C, E> {
+pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
     pub shard_num: u16,
 	pub foreign_port: Option<u16>,
 	pub bootnodes_router_conf: Option<BootnodesRouterConf>,
-    template_builder_reg: Arc<RwLock<Option<Arc<JobTemplateBuilder<B, C, E>>>>>,
+    pub job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
 }
 
-impl<B, C, E> Default for NodeConfigRaw<B, C, E> {
-    fn default() -> Self {
-        Self {
+impl Default for NodeConfig {
+    fn default() -> Self{
+        Self{
             inherent_data_providers: Default::default(),
             coin_base: Default::default(),
             shard_num: Default::default(),
-			foreign_port: Default::default(),
-			bootnodes_router_conf: Default::default(),
-            template_builder_reg: Arc::new(RwLock::new(None)),
+            foreign_port: Default::default(),
+            bootnodes_router_conf: Default::default(),
+            job_manager: Arc::new(RwLock::new(None)),
         }
+    }
+}
+
+impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig{
+    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
+        self.job_manager.clone()
     }
 }
 
@@ -110,7 +110,7 @@ construct_service_factory! {
 						inherents_pool: service.inherents_pool(),
 					});
 					let client = service.client();
-					executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
+                    executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                         key.clone(),
 						client.clone(),
 						client,
@@ -119,7 +119,7 @@ construct_service_factory! {
 						service.on_exit(),
 						service.config.custom.inherent_data_providers.clone(),
 						service.config.custom.coin_base.clone(),
-						service.config.custom.template_builder_reg.clone(),
+						service.config.custom.job_manager.clone(),
 						service.config.force_authoring,
 					)?);
 				}
@@ -169,8 +169,8 @@ construct_service_factory! {
 					).map_err(Into::into)
 				}
 			},
-		FullRpcHandlerConstructor = CustomRpcHandlerConstructor,
-		LightRpcHandlerConstructor = CustomRpcHandlerConstructor,
+		FullRpcHandlerConstructor = FullRpcHandlerConstructor,
+		LightRpcHandlerConstructor = LightRpcHandlerConstructor,
 		IdentifySpecialization = ShardingIdentifySpecialization
 		    { |config: &FactoryFullConfiguration<Self>| {
 		        Ok(ShardingIdentifySpecialization::new(NATIVE_PROTOCOL_VERSION.to_string(), config.custom.shard_num))

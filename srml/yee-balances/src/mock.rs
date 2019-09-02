@@ -55,6 +55,7 @@ impl Trait for Runtime {
     type TransactionPayment = ();
     type DustRemoval = ();
     type TransferPayment = ();
+    type Sharding = Module<Runtime>;
 }
 
 pub struct ExtBuilder {
