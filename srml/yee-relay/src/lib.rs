@@ -3,26 +3,25 @@ use primitives::{traits::Zero, generic::Era, };
 use parity_codec::{Decode, Compact, Input};
 
 
-pub struct OriginTransfer<Address, Balance, Signature>{
+pub struct OriginTransfer<Address, Balance>{
     sender: Address,
-    signature: Signature,
+    signature: Vec<u8>,
     index: Compact<u64>,
     era: Era,
     dest: Address,
     amount: Balance,
 }
 
-pub struct RelayTransfer<Address, Balance,Signature, Hash> {
-    transfer: OriginTransfer<Address, Balance, Signature>,
+pub struct RelayTransfer<Address, Balance, Hash> {
+    transfer: OriginTransfer<Address, Balance>,
     hash: Hash,
     proof: Vec<u8>,
 }
 
-impl<Address, Balance, Signature> OriginTransfer<Address, Balance, Signature>
+impl<Address, Balance> OriginTransfer<Address, Balance>
     where
         Address: Decode + Default + Clone,
-        Balance: Decode + Zero + Clone,
-        Signature: Decode + Default + Clone
+        Balance: Decode + Zero + Clone
 {
     pub fn decode(data: Vec<u8>) -> Option<Self> {
         let mut input = data.as_slice();
@@ -45,7 +44,7 @@ impl<Address, Balance, Signature> OriginTransfer<Address, Balance, Signature>
         }
 
         let mut sender = Address::default();
-        let mut signature = Signature::default();
+        let mut signature = Vec::new();
         let mut index = Compact(0u64);
         let mut era = Era::Immortal;
         if is_signed {
@@ -56,11 +55,13 @@ impl<Address, Balance, Signature> OriginTransfer<Address, Balance, Signature>
                 return None;
             }
             // signature
-            if let Some(s) = Decode::decode(&mut input) {
-                signature = s
-            } else {
-                return None;
-            }
+            signature = input[..64].to_vec();
+            input = &input[64..];
+//            if let Some(s) = Decode::decode(&mut input) {
+//                signature = s
+//            } else {
+//                return None;
+//            }
             // index
             if let Some(i) = Decode::decode(&mut input) {
                 index = i;
@@ -119,7 +120,7 @@ impl<Address, Balance, Signature> OriginTransfer<Address, Balance, Signature>
     }
 }
 
-impl<Address, Balance,Signature, Hash> RelayTransfer<Address, Balance,Signature, Hash>
+impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
     where
         Address: Decode + Default + Clone,
         Balance: Decode + Zero + Clone,

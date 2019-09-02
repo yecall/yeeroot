@@ -30,7 +30,8 @@ use parity_codec::{Codec, Encode};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
-use runtime_primitives::{Signature};
+// use runtime_primitives::{Signature};
+use yee_relay::RelayTransfer;
 
 mod internal {
 	pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
@@ -254,7 +255,7 @@ impl<
 		const MISSING_SENDER: i8 = -20;
 		const INVALID_INDEX: i8 = -10;
 
-		let origin_data = utx.encode();
+		let origin_data = uxt.encode();
 		let encoded_len = origin_data.len();
 
 		let xt = match uxt.check(&Default::default()) {
@@ -297,7 +298,14 @@ impl<
 			}
 		} else {
 			if xt.sender().is_none(){
-
+				if let Some(_rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data){
+					return TransactionValidity::Valid {
+						priority: encoded_len as TransactionPriority,
+						requires: vec![],
+						provides: vec![],
+						longevity: TransactionLongevity::max_value(),
+					};
+				}
 			}
 
 			return TransactionValidity::Invalid(if xt.sender().is_none() {

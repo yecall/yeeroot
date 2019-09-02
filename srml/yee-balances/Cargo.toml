@@ -14,7 +14,7 @@ substrate-keyring = { git = "https://github.com/yeeco/substrate.git", optional =
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-node-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+#node-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
