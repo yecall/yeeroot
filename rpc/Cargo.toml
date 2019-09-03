@@ -19,10 +19,11 @@ jsonrpc-derive = "10.0.2"
 jsonrpc-core = "10.0.1"
 substrate-rpc = { package = "substrate-rpc", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 serde = { version = "1.0", features = ["derive"] }
 yee-runtime = { package = "yee-runtime", path = "../runtime" }
 yee-consensus-pow = { package = "yee-consensus-pow", path = "../core/consensus/pow" }
+yee-consensus-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives" }
 parking_lot = "0.7.1"
 log = "0.4"
 parity-codec = "3.5"
