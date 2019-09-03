@@ -22,8 +22,7 @@ use runtime_primitives::traits::{Block as BlockT, ProvideRuntimeApi};
 use parity_codec::{Decode, Encode};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::DeserializeOwned;
-use serde_hex::{SerHex, SerHexSeq, StrictPfx, CompactPfx};
-use super::serde_hex::SerdeHex;
+use yee_serde_hex::SerdeHex;
 
 #[derive(Clone, Serialize)]
 pub struct Job<Hash, Header, AuthorityId> where
@@ -134,29 +133,4 @@ impl<B> From<DefaultProofMulti<B>> for ProofMulti<B::Hash> where
             merkle_proof: dpm.merkle_proof,
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::mining::primitives::{JobResult, DigestItem, WorkProof};
-    use substrate_primitives::sr25519::Public;
-    use runtime_primitives::traits::BlakeTwo256;
-    use substrate_primitives::{H256, U256};
-
-    #[test]
-    fn test_log1(){
-
-        let s: JobResult<H256, Public> = serde_json::from_str(r#"{	"digest_item": {      "authority_id": "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu",      "difficulty": "0x141d60fdeba093869f5954234b8342c79970d5ba5d2846fbb3c25eb2d9514",      "timestamp": "0x16cf22f502c",      "work_proof": {        "Nonce": {          "extra_data": "0x010203040506",          "nonce": "0x400"        }      }    },    "hash": "0x2f9f279997f6da548ad0aebddf3d8f6ff5e5ff292042f1df4b23cd406f486c40"}"#).unwrap();
-
-        assert_eq!(s, JobResult{
-            hash: H256::from([0; 32]),
-            digest_item : DigestItem {
-                authority_id: Public([0; 32]),
-                difficulty: U256::from(0u128),
-                timestamp : 0,
-                work_proof: WorkProof::Unknown,
-            }
-        })
-    }
-
 }

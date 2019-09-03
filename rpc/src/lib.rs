@@ -17,7 +17,7 @@
 
 #![allow(unused_imports)]
 
-mod mining;
+pub mod mining;
 mod errors;
 use substrate_service::{Components, ComponentClient, ComponentBlock, ComponentExHash, RpcHandlerConstructor, FactoryFullConfiguration,
                         ServiceFactory, DefaultRpcHandlerConstructor};

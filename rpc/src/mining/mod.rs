@@ -15,8 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-mod primitives;
-mod serde_hex;
+pub mod primitives;
 
 use substrate_service::{ServiceFactory, ComponentClient, FullComponents, Components};
 use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
@@ -36,11 +35,11 @@ use crate::errors;
 use client::{ChainHead, blockchain::HeaderBackend};
 use tokio::timer::Interval;
 use std::time::{Instant, Duration};
-use futures::stream::Stream;
 use parity_codec::alloc::collections::HashMap;
 use parity_codec::{Decode, Encode};
 use std::ops::Add;
 use self::primitives::{Job, WorkProof, ProofNonce, ProofMulti, JobResult};
+use std::fmt::Debug;
 
 const JOB_LIFE: Duration = Duration::from_secs(300);
 
@@ -84,7 +83,7 @@ impl<B, AuthorityId> Mining<B, AuthorityId> where
 
 impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, AuthorityId> where
     B: BlockT,
-    AuthorityId: Decode + Encode + Clone + Send + Sync + 'static
+    AuthorityId: Decode + Encode + Clone + Send + Sync + Debug + 'static
 {
     fn get_job(&self) -> BoxFuture<Job<B::Hash, B::Header, AuthorityId>> {
         let job_manager = match self.job_manager.read().as_ref() {
@@ -102,7 +101,9 @@ impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, Au
 
     fn submit_job(&self, job_result: JobResult<B::Hash, AuthorityId>) -> BoxFuture<B::Hash>{
 
-        Box::new(future::err(errors::Error::from(errors::ErrorKind::NotReady).into()))
+        log::info!("job_result: {:?}", job_result);
+
+        Box::new(future::err(errors::Error::from(errors::ErrorKind::Unimplemented).into()))
 
     }
 }
