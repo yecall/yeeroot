@@ -5139,6 +5139,7 @@ dependencies = [
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-consensus-pow 0.1.0",
  "yee-runtime 1.0.0",
+ "yee-serde-hex 0.4.0",
 ]
 
 [[package]]
@@ -5167,6 +5168,17 @@ dependencies = [
  "yee-consensus-pow-primitives 0.1.0",
  "yee-sharding-primitives 0.1.0",
  "yee-srml-sharding 0.1.0",
+]
+
+[[package]]
+name = "yee-serde-hex"
+version = "0.4.0"
+dependencies = [
+ "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-bigint 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "smallvec 0.6.10 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -5267,6 +5279,7 @@ dependencies = [
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-runtime 1.0.0",
+ "yee-serde-hex 0.4.0",
  "yee-sharding-primitives 0.1.0",
 ]
 
