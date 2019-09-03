@@ -26,6 +26,7 @@ use jsonrpc_client_transports::RpcError;
 use impl_serde::serialize;
 use num_bigint::BigUint;
 use jsonrpc_core::BoxFuture;
+use yee_serde_hex::SerdeHex;
 
 pub struct RpcClient{
     config: Config,
@@ -103,19 +104,4 @@ impl RpcClient{
 fn parse_error(error: RpcError) -> errors::Error{
 
     errors::Error::from(errors::ErrorKind::RpcError(error))
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Hex(#[serde(with="serialize")] pub Vec<u8>);
-
-impl From<u32> for Hex{
-    fn from(t: u32) -> Self{
-        Hex(t.to_be_bytes().to_vec().iter().filter(|b|**b!=0).map(|x|x.to_owned()).collect())
-    }
-}
-
-impl From<BigUint> for Hex{
-    fn from(t: BigUint) -> Self{
-        Hex(t.to_bytes_be())
-    }
 }

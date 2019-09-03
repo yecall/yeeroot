@@ -26,3 +26,4 @@ yee-consensus-pow = { package = "yee-consensus-pow", path = "../core/consensus/p
 parking_lot = "0.7.1"
 log = "0.4"
 parity-codec = "3.5"
+yee-serde-hex = { package = "yee-serde-hex", path = "serde-hex" }
