@@ -85,9 +85,6 @@ pub struct ProofMulti<B: Block> {
     pub merkle_root: B::Hash,
     /// POW block nonce
     pub nonce: u64,
-    /// shard info
-    pub shard_num: u32,
-    pub shard_cnt: u32,
     /// merkle tree spv proof
     pub merkle_proof: Vec<u8>,
 }

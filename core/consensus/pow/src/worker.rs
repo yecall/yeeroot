@@ -169,12 +169,8 @@ impl<B, P, C, I, AccountId, SO, JM> PowWorker<JM> for DefaultWorker<B, P, C, I, 
             for i in 0_u64..iter {
                 let mut work_header = header.clone();
                 let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
-                let seal = PowSeal{
-                    authority_id : digest_item.authority_id.clone(),
-                    difficulty: digest_item.difficulty,
-                    timestamp: digest_item.timestamp,
-                    work_proof : proof,
-                };
+                let mut seal = digest_item.clone();
+                seal.work_proof = proof;
                 let item = <DigestItemFor<B> as CompatibleDigestItem<B, P::Public>>::pow_seal(seal.clone());
                 work_header.digest_mut().push(item);
 

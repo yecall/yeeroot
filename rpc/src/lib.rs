@@ -19,7 +19,6 @@
 
 mod mining;
 mod errors;
-pub use mining::ProvideJobManager;
 use substrate_service::{Components, ComponentClient, ComponentBlock, ComponentExHash, RpcHandlerConstructor, FactoryFullConfiguration,
                         ServiceFactory, DefaultRpcHandlerConstructor};
 use tokio::runtime::TaskExecutor;
@@ -36,12 +35,16 @@ use crate::mining::{Mining, MiningApi};
 use parking_lot::RwLock;
 use yee_consensus_pow::{JobManager, DefaultJob};
 use yee_runtime::opaque::{Block};
-use primitives::{ed25519::Pair, Pair as PairT};
+use substrate_primitives::{ed25519::Pair, Pair as PairT};
 use parity_codec::{Decode, Encode, Codec};
 
 pub struct FullRpcHandlerConstructor;
 
 pub type LightRpcHandlerConstructor = DefaultRpcHandlerConstructor;
+
+pub trait ProvideJobManager<J> {
+    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=J>>>>>;
+}
 
 #[derive(Default, Clone)]
 pub struct FullRpcExtra<J> {
