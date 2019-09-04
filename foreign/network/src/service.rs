@@ -38,6 +38,7 @@ use tokio::prelude::task::AtomicTask;
 use tokio::runtime::Builder as RuntimeBuilder;
 
 pub use network_libp2p::PeerId;
+use serde::export::PhantomData;
 
 /// Sync status
 pub trait SyncProvider<B: BlockT>: Send + Sync {
@@ -76,8 +77,8 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
 
 impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 	/// Creates and register protocol with the network service
-	pub fn new(
-		params: Params<I>,
+	pub fn new<H: ExHashT>(
+		params: Params<B, I, H>,
 		protocol_id: ProtocolId,
 	) -> Result<(Arc<Service<B, I>>, NetworkChan<B>), Error> {
 		let (network_chan, network_port) = network_channel();
@@ -88,6 +89,8 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 			is_offline.clone(),
 			is_major_syncing.clone(),
 			network_chan.clone(),
+			params.chain,
+			params.hash_phantom
 		)?;
 		let versions = [(protocol::CURRENT_VERSION as u8)];
 		let registered = RegisteredProtocol::new(protocol_id, &versions[..]);

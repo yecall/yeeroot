@@ -37,6 +37,9 @@ use runtime_primitives::traits::{ProvideRuntimeApi, Header, Block};
 use runtime_primitives::generic::BlockId;
 use sharding_primitives::ShardingAPI;
 use ansi_term::Colour;
+use std::marker::PhantomData;
+use primitives::H256;
+use substrate_service::{Components, ComponentClient};
 
 const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -50,15 +53,15 @@ pub struct Params {
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
-pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &TaskExecutor) -> error::Result<()>
-    where F: ServiceFactory,
-          <FactoryBlock<F> as Block>::Header: Header,
-          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-          <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor) -> error::Result<()> where
+    <FactoryBlock<C::Factory> as Block>::Header: Header,
+    C: Components,
+    ComponentClient<C>: ProvideRuntimeApi + ChainHead<FactoryBlock<C::Factory>>,
+    <ComponentClient<C> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<C::Factory>>,
 {
     let peer_id = get_peer_id(&param.node_key_pair);
 
-    let shard_count = get_shard_count::<F, _>(&client)?;
+    let shard_count = get_shard_count::<C::Factory, _>(&client)?;
 
     info!("Start foreign network: ");
     info!("  shard count: {}", shard_count);
@@ -85,14 +88,16 @@ pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &Tas
     ];
     network_config.foreign_boot_nodes = get_foreign_boot_nodes(&param.bootnodes_router_conf);
 
-    let network_params = NetworkParams {
+    let network_params = NetworkParams::<_,_,H256> {
         network_config,
+        chain: client.clone(),
         identify_specialization: ForeignIdentifySpecialization::new(param.protocol_version.to_string(), param.shard_num),
+        hash_phantom: PhantomData,
     };
 
     let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    let (service, _network_chan) = network::Service::<F::Block, _>::new(
+    let (service, _network_chan) = network::Service::<<C::Factory as ServiceFactory>::Block, _>::new(
         network_params,
         protocol_id,
     ).map_err(|e| format!("{:?}", e))?;

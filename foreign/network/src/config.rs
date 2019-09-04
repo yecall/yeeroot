@@ -18,12 +18,20 @@
 //! Configuration for the networking layer of Substrate.
 
 pub use network_libp2p::NetworkConfiguration;
-use crate::IdentifySpecialization;
+use crate::chain::Client;
+use crate::{IdentifySpecialization, ExHashT};
+use runtime_primitives::traits::{Block as BlockT};
+use std::sync::Arc;
+use serde::export::PhantomData;
 
 /// Service initialization parameters.
-pub struct Params<I: IdentifySpecialization> {
+pub struct Params<B: BlockT, I: IdentifySpecialization, H: ExHashT> {
 	/// Network layer configuration.
 	pub network_config: NetworkConfiguration,
+	/// Substrate relay chain access point.
+	pub chain: Arc<Client<B>>,
 	/// Identify specialization.
 	pub identify_specialization: I,
+	/// Hash phantom
+	pub hash_phantom: PhantomData<H>
 }

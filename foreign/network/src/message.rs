@@ -23,7 +23,15 @@ use parity_codec::{Encode, Decode, Input, Output};
 
 /// Type alias for using the message type using block type parameters.
 pub type Message<B> = generic::Message<
-	<B as BlockT>::Extrinsic
+	<B as BlockT>::Hash,
+	<<B as BlockT>::Header as HeaderT>::Number,
+	<B as BlockT>::Extrinsic,
+>;
+
+/// Type alias for using the status type using block type parameters.
+pub type Status<B> = generic::Status<
+	<B as BlockT>::Hash,
+	<<B as BlockT>::Header as HeaderT>::Number,
 >;
 
 /// A set of transactions.
@@ -37,12 +45,29 @@ pub mod generic {
 
 	/// A network message.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-	pub enum Message<Extrinsic> {
+	pub enum Message<Hash, Number, Extrinsic> {
+		/// Status packet.
+		Status(Status<Hash, Number>),
 		/// Transactions.
 		Transactions(Transactions<Extrinsic>),
 	}
 
-	impl<Extrinsic> CustomMessage for Message<Extrinsic>
+	/// Status sent on connection.
+	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
+	pub struct Status<Hash, Number> {
+		/// Protocol version.
+		pub version: u32,
+		/// Minimum supported version.
+		pub min_supported_version: u32,
+		/// Best block number.
+		pub best_number: Number,
+		/// Best block hash.
+		pub best_hash: Hash,
+		/// Genesis block hash.
+		pub genesis_hash: Hash,
+	}
+
+	impl<Hash, Number, Extrinsic> CustomMessage for Message<Hash, Number, Extrinsic>
 		where Self: Decode + Encode
 	{
 		fn into_bytes(self) -> Vec<u8> {

@@ -134,7 +134,7 @@ construct_service_factory! {
 			        foreign_port: config.custom.foreign_port,
 			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
 			    };
-                start_foreign_network::<Self, _>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
+                start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
 				Ok(service)
 			}
