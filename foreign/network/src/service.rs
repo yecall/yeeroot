@@ -57,7 +57,7 @@ impl<T> ExHashT for T where
 }
 
 /// Substrate network service. Handles network IO and manages connectivity.
-pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
+pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 	/// Are we connected to any peer?
 	is_offline: Arc<AtomicBool>,
 	/// Are we actively catching up with the chain?
@@ -73,24 +73,25 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
 	/// Dropping the sender should close the task and the thread.
 	/// This is an `Option` because we need to extract it in the destructor.
 	bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
+
+	phantom: PhantomData<H>,
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H> {
 	/// Creates and register protocol with the network service
-	pub fn new<H: ExHashT>(
-		params: Params<B, I, H>,
+	pub fn new(
+		params: Params<B, I>,
 		protocol_id: ProtocolId,
-	) -> Result<(Arc<Service<B, I>>, NetworkChan<B>), Error> {
+	) -> Result<(Arc<Service<B, I, H>>, NetworkChan<B>), Error> {
 		let (network_chan, network_port) = network_channel();
 		// Start in off-line mode, since we're not connected to any nodes yet.
 		let is_offline = Arc::new(AtomicBool::new(true));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
-		let (protocol_sender, network_to_protocol_sender) = Protocol::new(
+		let (protocol_sender, network_to_protocol_sender) = Protocol::<_, H>::new(
 			is_offline.clone(),
 			is_major_syncing.clone(),
 			network_chan.clone(),
-			params.chain,
-			params.hash_phantom
+			params.chain
 		)?;
 		let versions = [(protocol::CURRENT_VERSION as u8)];
 		let registered = RegisteredProtocol::new(protocol_id, &versions[..]);
@@ -109,6 +110,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 			network,
 			protocol_sender: protocol_sender.clone(),
 			bg_thread: Some(thread),
+			phantom: PhantomData,
 		});
 
 		Ok((service, network_chan))
@@ -143,7 +145,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Service<B, I, H> {
 	fn drop(&mut self) {
 		info!("Foreign network service dropping");
 		if let Some((sender, join)) = self.bg_thread.take() {
@@ -155,7 +157,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> SyncProvider<B> for Service<B, I> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B> for Service<B, I, H> {
 
 	fn network_state(&self) -> NetworkState {
 		self.network.lock().state()

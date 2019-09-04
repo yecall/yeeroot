@@ -125,7 +125,6 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		is_major_syncing: Arc<AtomicBool>,
 		network_chan: NetworkChan<B>,
 		chain: Arc<Client<B>>,
-		hash_phantom: PhantomData<H>,
 	) -> error::Result<(Sender<ProtocolMsg<B>>, Sender<FromNetworkMsg<B>>)> {
 		let (protocol_sender, port) = channel::unbounded();
 		let (from_network_sender, from_network_port) = channel::bounded(4);

@@ -25,13 +25,11 @@ use std::sync::Arc;
 use serde::export::PhantomData;
 
 /// Service initialization parameters.
-pub struct Params<B: BlockT, I: IdentifySpecialization, H: ExHashT> {
+pub struct Params<B: BlockT, I: IdentifySpecialization> {
 	/// Network layer configuration.
 	pub network_config: NetworkConfiguration,
 	/// Substrate relay chain access point.
 	pub chain: Arc<Client<B>>,
 	/// Identify specialization.
 	pub identify_specialization: I,
-	/// Hash phantom
-	pub hash_phantom: PhantomData<H>
 }

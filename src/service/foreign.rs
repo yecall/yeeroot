@@ -88,16 +88,15 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
     ];
     network_config.foreign_boot_nodes = get_foreign_boot_nodes(&param.bootnodes_router_conf);
 
-    let network_params = NetworkParams::<_,_,H256> {
+    let network_params = NetworkParams {
         network_config,
         chain: client.clone(),
         identify_specialization: ForeignIdentifySpecialization::new(param.protocol_version.to_string(), param.shard_num),
-        hash_phantom: PhantomData,
     };
 
     let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    let (service, _network_chan) = network::Service::<<C::Factory as ServiceFactory>::Block, _>::new(
+    let (service, _network_chan) = network::Service::<<C::Factory as ServiceFactory>::Block, _, H256>::new(
         network_params,
         protocol_id,
     ).map_err(|e| format!("{:?}", e))?;
