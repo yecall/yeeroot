@@ -17,6 +17,7 @@
 
 use {
     std::{
+        collections::HashMap,
         marker::PhantomData,
         sync::Arc,
     },
@@ -33,9 +34,8 @@ use {
     },
     substrate_client::ChainHead,
     substrate_service::{
-        FactoryBlock, FactoryFullConfiguration,
-        LightComponents,
-        ServiceFactory,
+        Configuration, FactoryFullConfiguration,
+        FactoryBlock, LightComponents, ServiceFactory,
     },
 };
 use {
@@ -44,26 +44,25 @@ use {
 
 pub struct ForeignChain<F: ServiceFactory, C> {
     _phantom: PhantomData<(F, C)>,
-    components: Vec<LightComponents<F>>,
+    components: HashMap<u32, LightComponents<F>>,
 }
 
 impl<F, C> ForeignChain<F, C> where
     F: ServiceFactory,
     <FactoryBlock<F> as Block>::Header: Header,
+    FactoryFullConfiguration<F>: Clone,
     C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
     pub fn new(
-        config: FactoryFullConfiguration<F>,
+        config: &FactoryFullConfiguration<F>,
+        curr_shard: u32,
         client: Arc<C>,
         task_executor: TaskExecutor,
     ) -> Result<Self, substrate_service::Error> {
         let api = client.runtime_api();
         let last_block_header = client.best_block_header()?;
         let last_block_id = BlockId::hash(last_block_header.hash());
-        let curr_shard = api
-            .get_curr_shard(&last_block_id)?
-            .expect("shard info MUST be ready when foreign chain starts");
         let shard_count = api.get_shard_count(&last_block_id)?;
 
         info!(
@@ -71,6 +70,24 @@ impl<F, C> ForeignChain<F, C> where
             curr_shard, shard_count
         );
 
-        unimplemented!()
+        let mut components = HashMap::new();
+        for i in 0_u32..shard_count {
+            if i == curr_shard {
+                continue;
+            }
+            info!("create foreign chain {}", i);
+            let mut shard_config = config.to_owned();
+            shard_config.keystore_path = format!("{}-{}", config.keystore_path, i);
+            shard_config.database_path = format!("{}-{}", config.database_path, i);
+            let shard_component = LightComponents::new(
+                shard_config, task_executor.clone(),
+            )?;
+            components.insert(i, shard_component);
+        }
+
+        Ok(Self {
+            _phantom: Default::default(),
+            components,
+        })
     }
 }

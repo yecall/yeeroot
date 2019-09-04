@@ -20,6 +20,7 @@ use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
     consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
+    foreign_chain::ForeignChain,
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
         AccountId, AuthorityId, AuthoritySignature,
@@ -135,6 +136,15 @@ construct_service_factory! {
 			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
 			    };
                 start_foreign_network::<Self, _>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
+
+                // TODO: link with foreign_network
+                let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
+                    config,
+                    config.custom.shard_num.into(),
+                    service.client(),
+                    executor,
+                )?;
+                // TODO: register to transaction pool
 
 				Ok(service)
 			}
