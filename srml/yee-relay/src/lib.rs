@@ -14,7 +14,9 @@ pub struct OriginTransfer<Address, Balance>{
 
 pub struct RelayTransfer<Address, Balance, Hash> {
     transfer: OriginTransfer<Address, Balance>,
+    height: Compact<u64>,
     hash: Hash,
+    parent: Hash,
     proof: Vec<u8>,
 }
 
@@ -57,11 +59,6 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
             // signature
             signature = input[..64].to_vec();
             input = &input[64..];
-//            if let Some(s) = Decode::decode(&mut input) {
-//                signature = s
-//            } else {
-//                return None;
-//            }
             // index
             if let Some(i) = Decode::decode(&mut input) {
                 index = i;
@@ -165,10 +162,24 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         } else {
             return None;
         }
+        // which block's height the origin transfer in
+        let mut height = Compact(0u64);
+        if let Some(h) = Decode::decode(&mut input){
+            height = h;
+        }else{
+            return None;
+        }
         // block hash
         let mut hash = Hash::default();
         if let Some(h) = Decode::decode(&mut input) {
             hash = h;
+        } else {
+            return None;
+        }
+        // which block's parent hash the origin transfer in
+        let mut parent = Hash::default();
+        if let Some(h) = Decode::decode(&mut input){
+            parent = h;
         } else {
             return None;
         }
@@ -183,7 +194,9 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         if let Some(ot) = OriginTransfer::decode(origin_transfer){
             return Some(RelayTransfer{
                 transfer: ot,
+                height,
                 hash,
+                parent,
                 proof,
             });
         }
