@@ -297,14 +297,9 @@ impl<
 				longevity: TransactionLongevity::max_value(),
 			}
 		} else {
-			if xt.sender().is_none(){
-				if let Some(_rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data){
-					return TransactionValidity::Valid {
-						priority: encoded_len as TransactionPriority,
-						requires: vec![],
-						provides: vec![],
-						longevity: TransactionLongevity::max_value(),
-					};
+			if xt.sender().is_none() {
+				if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data){
+                    return Self::relay_check(&rtx);
 				}
 			}
 
@@ -315,6 +310,20 @@ impl<
 			})
 		}
 	}
+
+    fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>) -> TransactionValidity {
+        // check origin signature
+        // todo
+
+		let shard_count = yee_sharding_primitives::ShardingInfo::<u16>::get_shard_count();
+        let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
+        TransactionValidity::Valid {
+            priority: 0u64 as TransactionPriority,
+            requires: vec![(shard_num, rtx.hash(), rtx.parent()).encode()],
+            provides: vec![],
+            longevity: TransactionLongevity::max_value(),
+        }
+    }
 
 	/// Start an offchain worker and generate extrinsics.
 	pub fn offchain_worker(n: System::BlockNumber) {

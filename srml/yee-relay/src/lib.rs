@@ -13,7 +13,7 @@ pub struct OriginTransfer<Address, Balance>{
 }
 
 pub struct RelayTransfer<Address, Balance, Hash> {
-    transfer: OriginTransfer<Address, Balance>,
+    pub transfer: OriginTransfer<Address, Balance>,
     height: Compact<u64>,
     hash: Hash,
     parent: Hash,
@@ -121,7 +121,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
     where
         Address: Decode + Default + Clone,
         Balance: Decode + Zero + Clone,
-        Hash:  Decode + Default
+        Hash:  Decode + Clone + Default
 {
     pub fn decode(data: Vec<u8>) -> Option<Self>{
         let mut input = data.as_slice();
@@ -202,6 +202,22 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         }
 
         None
+    }
+
+    pub fn height(&self) -> u64 {
+        self.height.into()
+    }
+
+    pub fn hash(&self) -> Hash {
+        self.hash.clone()
+    }
+
+    pub fn parent(&self) -> Hash {
+        self.parent.clone()
+    }
+
+    pub fn sender(&self) -> Address {
+        self.transfer.sender.clone()
     }
 }
 
