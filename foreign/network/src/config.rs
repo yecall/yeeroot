@@ -26,10 +26,18 @@ use serde::export::PhantomData;
 
 /// Service initialization parameters.
 pub struct Params<B: BlockT, I: IdentifySpecialization> {
+	/// Configuration.
+	pub config: ProtocolConfig,
 	/// Network layer configuration.
 	pub network_config: NetworkConfiguration,
 	/// Substrate relay chain access point.
 	pub chain: Arc<Client<B>>,
 	/// Identify specialization.
 	pub identify_specialization: I,
+}
+
+/// Configuration for the Substrate-specific part of the networking layer.
+#[derive(Clone)]
+pub struct ProtocolConfig {
+	pub shard_num: u16,
 }

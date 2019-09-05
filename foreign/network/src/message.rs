@@ -34,22 +34,18 @@ pub type Status<B> = generic::Status<
 	<<B as BlockT>::Header as HeaderT>::Number,
 >;
 
-/// A set of transactions.
-pub type Transactions<E> = Vec<E>;
-
 /// Generic types.
 pub mod generic {
 	use parity_codec::{Encode, Decode};
 	use network_libp2p::CustomMessage;
-	use super::Transactions;
 
 	/// A network message.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
 	pub enum Message<Hash, Number, Extrinsic> {
 		/// Status packet.
 		Status(Status<Hash, Number>),
-		/// Transactions.
-		Transactions(Transactions<Extrinsic>),
+		/// Extrinsics.
+		Extrinsics(Vec<Extrinsic>),
 	}
 
 	/// Status sent on connection.
@@ -65,6 +61,14 @@ pub mod generic {
 		pub best_hash: Hash,
 		/// Genesis block hash.
 		pub genesis_hash: Hash,
+		/// Shard num
+		pub shard_num: u16,
+	}
+
+	#[derive(Debug, Clone)]
+	pub enum OutMessage<Extrinsic>{
+		/// Extrinsics.
+		Extrinsics(Vec<Extrinsic>),
 	}
 
 	impl<Hash, Number, Extrinsic> CustomMessage for Message<Hash, Number, Extrinsic>

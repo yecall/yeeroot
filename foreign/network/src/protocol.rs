@@ -23,7 +23,7 @@ use primitives::storage::StorageKey;
 use runtime_primitives::{generic::BlockId, ConsensusEngineId};
 use runtime_primitives::traits::{As, Block as BlockT, Header as HeaderT, NumberFor, Zero};
 use crate::message::{self, Message};
-use crate::message::generic::{Message as GenericMessage};
+use crate::message::generic::{Message as GenericMessage, OutMessage};
 use crate::service::{NetworkChan, NetworkMsg, ExHashT};
 use parking_lot::RwLock;
 use rustc_hex::ToHex;
@@ -35,6 +35,7 @@ use log::{trace, debug, warn};
 use crate::{error, util::LruHashSet};
 use crate::chain::Client;
 use serde::export::PhantomData;
+use crate::config::{NetworkConfiguration, ProtocolConfig};
 
 /// Interval at which we propagate exstrinsics;
 const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(2900);
@@ -46,9 +47,11 @@ const MIN_VERSION: u32 = 2;
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT, H: ExHashT> {
+	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B::Extrinsic>>>>>,
 	network_chan: NetworkChan<B>,
-	port: Receiver<ProtocolMsg<B>>,
+	port: Receiver<ProtocolMsg<B, H>>,
 	from_network_port: Receiver<FromNetworkMsg<B>>,
+	config: ProtocolConfig,
 	genesis_hash: B::Hash,
 	context_data: ContextData<B, H>,
 	// Connected peers pending Status message.
@@ -78,6 +81,8 @@ pub struct PeerInfo<B: BlockT> {
 	pub best_hash: B::Hash,
 	/// Peer best block number
 	pub best_number: <B::Header as HeaderT>::Number,
+	/// Shard num
+	pub shard_num: u16,
 }
 
 /// Data necessary to create a context.
@@ -88,14 +93,13 @@ struct ContextData<B: BlockT, H: ExHashT> {
 }
 
 /// Messages sent to Protocol from elsewhere inside the system.
-pub enum ProtocolMsg<B: BlockT> {
-	/// Tell protocol to propagate extrinsics.
-	PropagateExtrinsics,
+pub enum ProtocolMsg<B: BlockT, H: ExHashT> {
+	/// Relay Extrinsics
+	RelayExtrinsics(u16, Vec<(H, B::Extrinsic)>),
 	Stop,
 	/// Synchronization request.
 	#[cfg(any(test, feature = "test-helpers"))]
 	Synchronize,
-	Phantom(B),
 }
 
 /// Messages sent to Protocol from Network-libp2p.
@@ -113,19 +117,21 @@ pub enum FromNetworkMsg<B: BlockT> {
 	Synchronize,
 }
 
-enum Incoming<B: BlockT> {
+enum Incoming<B: BlockT, H: ExHashT> {
 	FromNetwork(FromNetworkMsg<B>),
-	FromClient(ProtocolMsg<B>)
+	FromClient(ProtocolMsg<B, H>)
 }
 
 impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	/// Create a new instance.
 	pub fn new(
+		out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B::Extrinsic>>>>>,
 		is_offline: Arc<AtomicBool>,
 		is_major_syncing: Arc<AtomicBool>,
 		network_chan: NetworkChan<B>,
+		config: ProtocolConfig,
 		chain: Arc<Client<B>>,
-	) -> error::Result<(Sender<ProtocolMsg<B>>, Sender<FromNetworkMsg<B>>)> {
+	) -> error::Result<(Sender<ProtocolMsg<B, H>>, Sender<FromNetworkMsg<B>>)> {
 		let (protocol_sender, port) = channel::unbounded();
 		let (from_network_sender, from_network_port) = channel::bounded(4);
 		let info = chain.info()?;
@@ -133,8 +139,10 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 			.name("Protocol".into())
 			.spawn(move || {
 				let mut protocol = Protocol {
+					out_message_sinks,
 					network_chan,
 					from_network_port,
+					config,
 					port,
 					genesis_hash: info.chain.genesis_hash,
 					context_data: ContextData {
@@ -143,8 +151,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 					},
 					handshaking_peers: HashMap::new(),
 				};
-				let propagate_timeout = channel::tick(PROPAGATE_TIMEOUT);
-				while protocol.run(&propagate_timeout) {
+				while protocol.run() {
 					// Running until all senders have been dropped...
 				}
 			})
@@ -153,8 +160,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	}
 
 	fn run(
-		&mut self,
-		propagate_timeout: &Receiver<time::Instant>,
+		&mut self
 	) -> bool {
 		let msg = select! {
 			recv(self.port) -> event => {
@@ -175,30 +181,27 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 					},
 				}
 			},
-			recv(propagate_timeout) -> _ => {
-				Incoming::FromClient(ProtocolMsg::PropagateExtrinsics)
-			},
 		};
 		self.handle_msg(msg)
 	}
 
-	fn handle_msg(&mut self, msg: Incoming<B>) -> bool {
+	fn handle_msg(&mut self, msg: Incoming<B, H>) -> bool {
 		match msg {
 			Incoming::FromNetwork(msg) => self.handle_network_msg(msg),
 			Incoming::FromClient(msg) => self.handle_client_msg(msg),
 		}
 	}
 
-	fn handle_client_msg(&mut self, msg: ProtocolMsg<B>) -> bool {
+	fn handle_client_msg(&mut self, msg: ProtocolMsg<B, H>) -> bool {
 		match msg {
-			ProtocolMsg::PropagateExtrinsics => self.propagate_extrinsics(),
+			ProtocolMsg::RelayExtrinsics(shard_num, extrinsics) =>
+				self.on_relay_extrinsics(shard_num, extrinsics),
 			ProtocolMsg::Stop => {
 				self.stop();
 				return false;
 			},
 			#[cfg(any(test, feature = "test-helpers"))]
 			ProtocolMsg::Synchronize => self.network_chan.send(NetworkMsg::Synchronized),
-			ProtocolMsg::Phantom(..) => {},
 		}
 		true
 	}
@@ -220,7 +223,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_custom_message(&mut self, who: PeerId, message: Message<B>) {
 		match message {
 			GenericMessage::Status(s) => self.on_status_message(who, s),
-			GenericMessage::Transactions(m) => self.on_extrinsics(who, m),
+			GenericMessage::Extrinsics(m) => self.on_extrinsics(who, m),
 		}
 	}
 
@@ -290,7 +293,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 					let peer_info = PeerInfo {
 						protocol_version: status.version,
 						best_hash: status.best_hash,
-						best_number: status.best_number
+						best_number: status.best_number,
+						shard_num: status.shard_num,
 					};
 					peer_info
 				},
@@ -311,13 +315,31 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	}
 
 	/// Called when peer sends us new extrinsics
-	fn on_extrinsics(&mut self, who: PeerId, extrinsics: message::Transactions<B::Extrinsic>) {
+	fn on_extrinsics(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
 		trace!(target: "sync-foreign", "Received {} extrinsics from {}", extrinsics.len(), who);
+
+		let message = OutMessage::Extrinsics(extrinsics);
+		self.out_message_sinks.lock().retain(|sink| sink.unbounded_send(message.clone()).is_ok());
 	}
 
-	/// Called when we propagate ready extrinsics to peers.
-	fn propagate_extrinsics(&mut self) {
-		debug!(target: "sync-foreign", "Propagating extrinsics");
+	fn on_relay_extrinsics(&mut self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>){
+		debug!(target: "sync-foreign", "Relay extrinsics");
+
+		let targets = self.context_data.peers.iter_mut().filter(|(_, peer)| peer.info.shard_num == shard_num);
+
+		for (who, peer) in targets{
+
+			let (hashes, to_send): (Vec<_>, Vec<_>) = extrinsics
+				.iter()
+				.filter(|&(ref hash, _)| peer.known_extrinsics.insert(hash.clone()))
+				.cloned()
+				.unzip();
+
+			if !to_send.is_empty() {
+				trace!(target: "sync-foreign", "Sending {} transactions to {}", to_send.len(), who);
+				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::Extrinsics(to_send)));
+			}
+		}
 	}
 
 	/// Send Status message
@@ -329,6 +351,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				genesis_hash: info.chain.genesis_hash,
 				best_number: info.chain.best_number,
 				best_hash: info.chain.best_hash,
+				shard_num: self.config.shard_num,
 			};
 			self.send_message(who, GenericMessage::Status(status))
 		}
@@ -340,7 +363,6 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 
 	fn send_message(&mut self, who: PeerId, message: Message<B>) {
 		send_message::<B, H>(
-			&mut self.context_data.peers,
 			&self.network_chan,
 			who,
 			message,
@@ -349,7 +371,6 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 }
 
 fn send_message<B: BlockT, H: ExHashT>(
-	peers: &mut HashMap<PeerId, Peer<B, H>>,
 	network_chan: &NetworkChan<B>,
 	who: PeerId,
 	message: Message<B>,
