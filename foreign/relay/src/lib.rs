@@ -2,7 +2,7 @@ use std::{
     sync::Arc,
     marker::{Send, Sync},
 };
-use parity_codec::{Decode, Encode};
+use parity_codec::{Decode, Encode, Compact};
 use futures::{
     Stream,
     future::{self, Loop},
@@ -20,17 +20,21 @@ use yee_runtime::{
     UncheckedExtrinsic,
 };
 use runtime_primitives::{
-    generic::{BlockId, UncheckedMortalCompactExtrinsic},
-    traits::{ProvideRuntimeApi, Block as BlockT},
+    generic::{ BlockId, UncheckedMortalCompactExtrinsic },
+    traits::{ ProvideRuntimeApi, Block as BlockT, Header },
 };
 use substrate_client::{
     self,
     BlockchainEvents,
     ChainHead,
+    blockchain::HeaderBackend,
     BlockBody,
 };
 use substrate_primitives::{
     hexdisplay::HexDisplay,
+    H256,
+    Blake2Hasher,
+    Hasher,
 };
 use pool_graph::{
     ChainApi,
@@ -48,15 +52,16 @@ pub fn start_relay_transfer<F, C>(
 ) -> error::Result<()>
     where F: ServiceFactory,
           C: 'static + Send + Sync,
-          C: BlockBody<FactoryBlock<F>>,
+          C: HeaderBackend<FactoryBlock<F>> + BlockBody<FactoryBlock<F>>,
           C: BlockchainEvents<FactoryBlock<F>>,
-          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+          C: ProvideRuntimeApi,
           <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
     let events = client.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
             let blockId = BlockId::Hash(hash);
+            let header = client.header(blockId).unwrap().unwrap();
             let body = client.block_body(&blockId).unwrap().unwrap();
             for mut tx in &body {
                 let ec = tx.encode();
@@ -78,12 +83,17 @@ pub fn start_relay_transfer<F, C>(
                     if cs as u16 == ds {
                         continue;
                     }
+
                     // create relay transfer
                     let proof: Vec<u8> = vec![]; // todo
-                    let function = Call::Balances(BalancesCall::relay_transfer(ec, hash, proof));
+                    let h = header.number().encode();
+                    let mut h = h.as_slice();
+                    let h: Compact<u64> = Decode::decode(&mut h).unwrap();
+                    let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash(), proof));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
-                    info!(target: "relay", "amount: {}, encode: {}", value, HexDisplay::from(&buf));
+                    let relay_hash = Blake2Hasher::hash(buf.as_slice());
+                    info!(target: "relay", "shard: {}, amount: {}, hash:{}, encode: {}", ds, value, relay_hash, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
                     // todo

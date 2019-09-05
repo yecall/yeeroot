@@ -173,7 +173,7 @@
 
 use rstd::prelude::*;
 use rstd::{cmp, result};
-use parity_codec::{Codec, Encode, Decode};
+use parity_codec::{Codec, Encode, Decode, Compact};
 use srml_support::{StorageValue, StorageMap, Parameter, decl_event, decl_storage, decl_module};
 use srml_support::traits::{
     UpdateBalanceOutcome, Currency, OnFreeBalanceZero, MakePayment, OnUnbalanced,
@@ -414,10 +414,12 @@ decl_module! {
 		///
 		fn relay_transfer(
 		    transfer: Vec<u8>,
+		    height: Compact<u64>,
 		    hash: T::Hash,
+		    parent: T::Hash,
 		    proof: Vec<u8>
 		){
-		    Self::execute_relay_transfer(transfer, hash, proof)?;
+		    Self::execute_relay_transfer(transfer, height, hash, parent, proof)?;
 		}
 	}
 }
@@ -532,7 +534,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     /// execute relay transfer
-    fn execute_relay_transfer(transfer: Vec<u8>, _hash: T::Hash, _proof: Vec<u8>) -> Result {
+    fn execute_relay_transfer(transfer: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash, _proof: Vec<u8>) -> Result {
         let tx: OriginTransfer<T::AccountId, T::Balance> = OriginTransfer::decode(transfer).unwrap();
         if !<FreeBalance<T, I>>::exists(tx.dest()) {
             Self::new_account(&tx.dest(), tx.amount());

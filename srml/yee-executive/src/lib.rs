@@ -370,6 +370,7 @@ mod tests {
 		type TransactionPayment = ();
 		type DustRemoval = ();
 		type TransferPayment = ();
+		type Sharding = ();
 	}
 
 	type TestXt = primitives::testing::TestXt<Call<Runtime>>;
