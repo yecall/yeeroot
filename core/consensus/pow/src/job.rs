@@ -56,10 +56,11 @@ use log::info;
 use {
     pow_primitives::{YeePOWApi, DifficultyType},
 };
+
 #[cfg(feature = "std")]
 use serde::Serialize;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone>{
     /// Hash for header with consensus post-digests (unknown WorkProof) applied
     /// The hash has 2 uses:
@@ -71,22 +72,15 @@ pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone>{
     /// Block's body
     pub body: Vec<B::Extrinsic>,
     /// Digest item
-    pub digest_item: JobDigestItem<AuthorityId>,
-}
-
-#[derive(Clone, Serialize)]
-pub struct JobDigestItem<AuthorityId: Decode + Encode + Clone>{
-    pub authority_id: AuthorityId,
-    pub difficulty: DifficultyType,
-    pub timestamp: u64,
+    pub digest_item: PowSeal<B, AuthorityId>,
 }
 
 pub trait JobManager : Send + Sync
 {
     type Job;
-    fn get_job(&self) -> Box<dyn Future<Item=Self::Job, Error=consensus_common::Error> + Send>;
 
-    //TODO submit_job
+    /// get job with unknown proof
+    fn get_job(&self) -> Box<dyn Future<Item=Self::Job, Error=consensus_common::Error> + Send>;
 }
 
 pub struct DefaultJobManager<B, C, E, AuthorityId>{
@@ -170,11 +164,6 @@ impl<B, C, E, AuthorityId> JobManager for DefaultJobManager<B, C, E, AuthorityId
             let authority_id = authority_id;
             let work_proof = WorkProof::Unknown;
 
-            let digest_item = JobDigestItem{
-                authority_id: authority_id.clone(),
-                difficulty,
-                timestamp,
-            };
             let pow_seal = PowSeal{
                 authority_id,
                 difficulty,
@@ -192,7 +181,7 @@ impl<B, C, E, AuthorityId> JobManager for DefaultJobManager<B, C, E, AuthorityId
                 hash,
                 header,
                 body,
-                digest_item,
+                digest_item: pow_seal,
             })
         };
 
