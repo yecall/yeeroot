@@ -20,7 +20,7 @@ use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
     consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
-    foreign_chain::ForeignChain,
+    foreign_chain::{ForeignChain, SetForeignChainInfo},
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
         AccountId, AuthorityId, AuthoritySignature,
@@ -71,6 +71,12 @@ impl Default for NodeConfig {
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
         }
+    }
+}
+
+impl SetForeignChainInfo for NodeConfig {
+    fn set_shard_num(&mut self, shard: u32) {
+        self.shard_num = shard as u16;
     }
 }
 

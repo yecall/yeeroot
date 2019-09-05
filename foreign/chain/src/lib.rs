@@ -34,13 +34,17 @@ use {
     },
     substrate_client::ChainHead,
     substrate_service::{
-        Configuration, FactoryFullConfiguration,
+        FactoryFullConfiguration,
         FactoryBlock, LightComponents, ServiceFactory,
     },
 };
 use {
     sharding_primitives::ShardingAPI,
 };
+
+pub trait SetForeignChainInfo {
+    fn set_shard_num(&mut self, shard: u32);
+}
 
 pub struct ForeignChain<F: ServiceFactory, C> {
     _phantom: PhantomData<(F, C)>,
@@ -51,6 +55,7 @@ impl<F, C> ForeignChain<F, C> where
     F: ServiceFactory,
     <FactoryBlock<F> as Block>::Header: Header,
     FactoryFullConfiguration<F>: Clone,
+    <F as ServiceFactory>::Configuration: SetForeignChainInfo,
     C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
@@ -79,6 +84,7 @@ impl<F, C> ForeignChain<F, C> where
             let mut shard_config = config.to_owned();
             shard_config.keystore_path = format!("{}-{}", config.keystore_path, i);
             shard_config.database_path = format!("{}-{}", config.database_path, i);
+            shard_config.custom.set_shard_num(i);
             let shard_component = LightComponents::new(
                 shard_config, task_executor.clone(),
             )?;
@@ -89,5 +95,9 @@ impl<F, C> ForeignChain<F, C> where
             _phantom: Default::default(),
             components,
         })
+    }
+
+    pub fn get_shard_component(&self, shard: u32) -> Option<&LightComponents<F>> {
+        self.components.get(&shard)
     }
 }
