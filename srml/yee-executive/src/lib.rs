@@ -182,6 +182,7 @@ impl<
 
 	/// Actually apply an extrinsic given its `encoded_len`; this doesn't note its hash.
 	fn apply_extrinsic_with_len(uxt: Block::Extrinsic, encoded_len: usize, to_note: Option<Vec<u8>>) -> result::Result<internal::ApplyOutcome, internal::ApplyError> {
+		let origin_data = uxt.encode();
 		// Verify the signature is good.
 		let xt = uxt.check(&Default::default()).map_err(internal::ApplyError::BadSignature)?;
 
@@ -204,6 +205,12 @@ impl<
 
 			// increment nonce in storage
 			<system::Module<System>>::inc_account_nonce(sender);
+		} else {
+			if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data){
+				// check origin signature
+				// todo
+
+			}
 		}
 
 		// make sure to `note_extrinsic` only after we know it's going to be executed
@@ -249,7 +256,7 @@ impl<
 	/// side-effects; it merely checks whether the transaction would panic if it were included or not.
 	///
 	/// Changes made to the storage should be discarded.
-	pub fn validate_transaction(uxt: Block::Extrinsic) -> TransactionValidity {
+	pub fn validate_transaction(uxt: Block::Extrinsic, shard_count: u16) -> TransactionValidity {
 		// Note errors > 0 are from ApplyError
 		const UNKNOWN_ERROR: i8 = -127;
 		const MISSING_SENDER: i8 = -20;
@@ -299,7 +306,7 @@ impl<
 		} else {
 			if xt.sender().is_none() {
 				if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data){
-                    return Self::relay_check(&rtx);
+                    return Self::relay_check(&rtx, shard_count);
 				}
 			}
 
@@ -311,11 +318,10 @@ impl<
 		}
 	}
 
-    fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>) -> TransactionValidity {
+    fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>, shard_count: u16) -> TransactionValidity {
         // check origin signature
         // todo
 
-		let shard_count = yee_sharding_primitives::ShardingInfo::<u16>::get_shard_count();
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,

@@ -281,7 +281,9 @@ impl_runtime_apis! {
 
 	impl runtime_api::TaggedTransactionQueue<Block> for Runtime {
 		fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-			Executive::validate_transaction(tx)
+			let count = Sharding::current_shard_info()
+                .map_or_else(|| Sharding::genesis_sharding_count(), |info| info.count.into());
+			Executive::validate_transaction(tx, count as u16)
 		}
 	}
 
