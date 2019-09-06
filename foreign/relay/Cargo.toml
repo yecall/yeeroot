@@ -16,6 +16,7 @@ substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "y
 substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 pool-graph = { package = "substrate-transaction-graph", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 yee-runtime = { package = "yee-runtime", path = "../../runtime" }
 yee-balances = { package = "yee-srml-balances", path="../../srml/yee-balances", default_features = false }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives", default-features = false }

@@ -139,10 +139,11 @@ construct_service_factory! {
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
 				// relay-transfer
-				yee_relay::start_relay_transfer::<Self, _>(
+				yee_relay::start_relay_transfer::<Self, _, _>(
 					service.client(),
 					&executor,
-					foreign_network
+					foreign_network,
+					service.transaction_pool()
 				).map_err(|e| format!("{:?}", e))?;
 
 				Ok(service)

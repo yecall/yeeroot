@@ -40,16 +40,18 @@ use pool_graph::{
     ChainApi,
     ExtrinsicFor,
 };
+use transaction_pool::txpool::{self, Pool as TransactionPool};
 use log::{debug, info, warn};
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
 
 
-pub fn start_relay_transfer<F, C>(
+pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
     foreign_network: Box<Arc<network::SyncProvider<FactoryBlock<F>, H256>>>,
+    pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
     where F: ServiceFactory,
           C: 'static + Send + Sync,
@@ -57,6 +59,7 @@ pub fn start_relay_transfer<F, C>(
           C: BlockchainEvents<FactoryBlock<F>>,
           C: ProvideRuntimeApi,
           <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+          A: txpool::ChainApi + 'static,
 {
     let network_send = foreign_network.clone();
     let network_rev = foreign_network.clone();
@@ -108,9 +111,22 @@ pub fn start_relay_transfer<F, C>(
         });
 
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
+        info!(target: "relay","received messages: {:?}", messages);
 
-        info!("foreign demo: received messages: {:?}", messages);
-
+        match messages {
+            network::message::generic::OutMessage::Extrinsics(txs) =>{
+                let h = 0u64;
+                let h = h.encode();
+                let h=Decode::decode(&mut h.as_slice()).unwrap();
+                let blockId = BlockId::number(h);
+                for tx in txs{
+                    let tx = tx.encode();
+                    let tx = Decode::decode(&mut tx.as_slice()).unwrap();
+                    pool.submit_one(&blockId, tx);
+                }
+            }
+            _ =>{ /* do nothing */ }
+        }
         Ok(())
     });
 
