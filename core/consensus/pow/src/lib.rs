@@ -53,7 +53,7 @@ use {
 };
 
 pub use digest::CompatibleDigestItem;
-pub use pow::{PowSeal, WorkProof, ProofNonce};
+pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti};
 pub use crate::job::{JobManager, DefaultJobManager, DefaultJob};
 
 mod job;
