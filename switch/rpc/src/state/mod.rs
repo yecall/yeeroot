@@ -19,7 +19,7 @@ use jsonrpc_derive::rpc;
 use primitives::{sr25519, storage::{StorageKey, StorageData}};
 use crate::rpc::futures::{Future, Stream};
 use crate::Config;
-use crate::client::{RpcClient, Hex};
+use crate::client::{RpcClient};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use parity_codec::{KeyedVec};
@@ -30,15 +30,16 @@ use yee_sharding_primitives::utils::shard_num_for_bytes;
 use crate::errors;
 use jsonrpc_core::BoxFuture;
 use crate::rpc::{self, futures::future::{self, FutureResult}};
+use yee_serde_hex::Hex;
 
 /// Substrate state API
 #[rpc]
 pub trait StateApi<Hash> {
 	#[rpc(name = "state_getBalance")]
-	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex>;
+	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>>;
 
 	#[rpc(name = "state_getNonce")]
-	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex>;
+	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>>;
 }
 
 /// State API with subscriptions support.
@@ -60,7 +61,7 @@ impl State {
 impl<Hash> StateApi<Hash> for State
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex> {
+	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>> {
 
 		let shard_count = self.config.get_shard_count();
 
@@ -99,11 +100,11 @@ impl<Hash> StateApi<Hash> for State
 
 			let reserved_balance = get_big_uint(result2);
 
-			(free_balance + reserved_balance).into()
+			Hex(free_balance + reserved_balance)
 		}))
 	}
 
-	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex> {
+	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>> {
 
 		let shard_count = self.config.get_shard_count();
 
@@ -123,7 +124,7 @@ impl<Hash> StateApi<Hash> for State
 
 					log::debug!("nonce storage: {}", result.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
 
-					get_big_uint(result).into()
+					Hex(get_big_uint(result))
 				}))
 			},
 			Err(e) => {
