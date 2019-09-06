@@ -138,17 +138,11 @@ construct_service_factory! {
 			    };
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
-                //foreign network demo
-                //TODO remove
-                let demo_param = foreign_demo::DemoParams{
-                    shard_num: config.custom.shard_num,
-                };
-                foreign_demo::start_foreign_demo(demo_param, foreign_network, &executor).map_err(|e| format!("{:?}", e))?;
-
 				// relay-transfer
 				yee_relay::start_relay_transfer::<Self, _>(
 					service.client(),
-					&executor
+					&executor,
+					foreign_network
 				).map_err(|e| format!("{:?}", e))?;
 
 				Ok(service)

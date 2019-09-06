@@ -49,6 +49,7 @@ use yee_sharding_primitives::ShardingAPI;
 pub fn start_relay_transfer<F, C>(
     client: Arc<C>,
     executor: &TaskExecutor,
+    foreign_network: Box<Arc<network::SyncProvider<FactoryBlock<F>, H256>>>,
 ) -> error::Result<()>
     where F: ServiceFactory,
           C: 'static + Send + Sync,
@@ -57,7 +58,9 @@ pub fn start_relay_transfer<F, C>(
           C: ProvideRuntimeApi,
           <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
-    let events = client.import_notification_stream()
+    let network_send = foreign_network.clone();
+    let network_rev = foreign_network.clone();
+    let import_events = client.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
             let blockId = BlockId::Hash(hash);
@@ -92,16 +95,26 @@ pub fn start_relay_transfer<F, C>(
                     let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash(), proof));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
+                    let relay = Decode::decode(&mut buf.as_slice()).unwrap();
                     let relay_hash = Blake2Hasher::hash(buf.as_slice());
                     info!(target: "relay", "shard: {}, amount: {}, hash:{}, encode: {}", ds, value, relay_hash, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
-                    // todo
+                    network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
                 }
             }
 
             Ok(())
         });
-    executor.spawn(events);
+
+    let foreign_events = network_rev.out_messages().for_each(move |messages| {
+
+        info!("foreign demo: received messages: {:?}", messages);
+
+        Ok(())
+    });
+
+    executor.spawn(import_events);
+    executor.spawn(foreign_events);
     Ok(())
 }
