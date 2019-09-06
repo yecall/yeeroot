@@ -20,7 +20,7 @@ use log::{info, warn};
 use yee_foreign_network as network;
 use yee_foreign_network::identity::Keypair;
 use yee_foreign_network::identify_specialization::ForeignIdentifySpecialization;
-use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration};
+use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration, ProtocolConfig};
 use yee_foreign_network::multiaddr::Protocol;
 use yee_foreign_network::{SyncProvider, NetworkState};
 use yee_bootnodes_router::BootnodesRouterConf;
@@ -37,6 +37,7 @@ use runtime_primitives::traits::{ProvideRuntimeApi, Header, Block};
 use runtime_primitives::generic::BlockId;
 use sharding_primitives::ShardingAPI;
 use ansi_term::Colour;
+use substrate_service::{Components, ComponentClient, ComponentExHash};
 
 const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -50,15 +51,16 @@ pub struct Params {
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
-pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &TaskExecutor) -> error::Result<()>
-    where F: ServiceFactory,
-          <FactoryBlock<F> as Block>::Header: Header,
-          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-          <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
+    -> error::Result<Box<Arc<network::SyncProvider<FactoryBlock<C::Factory>, ComponentExHash<C>>>>> where
+    <FactoryBlock<C::Factory> as Block>::Header: Header,
+    C: Components,
+    ComponentClient<C>: ProvideRuntimeApi + ChainHead<FactoryBlock<C::Factory>>,
+    <ComponentClient<C> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<C::Factory>>,
 {
     let peer_id = get_peer_id(&param.node_key_pair);
 
-    let shard_count = get_shard_count::<F, _>(&client)?;
+    let shard_count = get_shard_count::<C::Factory, _>(&client)?;
 
     info!("Start foreign network: ");
     info!("  shard count: {}", shard_count);
@@ -85,26 +87,34 @@ pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &Tas
     ];
     network_config.foreign_boot_nodes = get_foreign_boot_nodes(&param.bootnodes_router_conf);
 
+    let config = ProtocolConfig{
+        shard_num: param.shard_num,
+    };
+
     let network_params = NetworkParams {
+        config,
         network_config,
+        chain: client.clone(),
         identify_specialization: ForeignIdentifySpecialization::new(param.protocol_version.to_string(), param.shard_num),
     };
 
     let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    let (service, _network_chan) = network::Service::<F::Block, _>::new(
+    let (service, _network_chan) = network::Service::<<C::Factory as ServiceFactory>::Block, _, ComponentExHash<C>>::new(
         network_params,
         protocol_id,
     ).map_err(|e| format!("{:?}", e))?;
 
-    let task = Interval::new(Instant::now(), Duration::from_secs(3)).for_each(move |_instant| {
+    let service_clone = service.clone();
+
+    let task = Interval::new(Instant::now(), Duration::from_secs(5)).for_each(move |_instant| {
         info!(target: "foreign", "{}", get_status(&service.network_state(), shard_count));
         Ok(())
     }).map_err(|e| warn!("Foreign network error: {:?}", e));
 
     executor.spawn(task);
 
-    Ok(())
+    Ok(Box::new(service_clone))
 }
 
 fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>> {

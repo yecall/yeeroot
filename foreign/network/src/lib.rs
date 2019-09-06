@@ -22,6 +22,7 @@
 mod service;
 #[macro_use]
 mod protocol;
+mod chain;
 mod util;
 pub mod config;
 pub mod error;

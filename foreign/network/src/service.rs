@@ -38,9 +38,16 @@ use tokio::prelude::task::AtomicTask;
 use tokio::runtime::Builder as RuntimeBuilder;
 
 pub use network_libp2p::PeerId;
+use serde::export::PhantomData;
+use crate::message::generic::OutMessage;
 
 /// Sync status
-pub trait SyncProvider<B: BlockT>: Send + Sync {
+pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
+
+	fn on_relay_extrinsics(&self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>);
+
+	fn out_messages(&self) -> mpsc::UnboundedReceiver<OutMessage<B::Extrinsic>>;
+
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
 }
@@ -56,7 +63,9 @@ impl<T> ExHashT for T where
 }
 
 /// Substrate network service. Handles network IO and manages connectivity.
-pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
+pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
+	/// Sinks to propagate out messages.
+	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B::Extrinsic>>>>>,
 	/// Are we connected to any peer?
 	is_offline: Arc<AtomicBool>,
 	/// Are we actively catching up with the chain?
@@ -67,27 +76,33 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization> {
 	/// nodes it should be connected to or not.
 	peerset: ForeignPeersetHandle,
 	/// Protocol sender
-	protocol_sender: Sender<ProtocolMsg<B>>,
+	protocol_sender: Sender<ProtocolMsg<B, H>>,
 	/// Sender for messages to the background service task, and handle for the background thread.
 	/// Dropping the sender should close the task and the thread.
 	/// This is an `Option` because we need to extract it in the destructor.
 	bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
+
+	phantom: PhantomData<H>,
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H> {
 	/// Creates and register protocol with the network service
 	pub fn new(
-		params: Params<I>,
+		params: Params<B, I>,
 		protocol_id: ProtocolId,
-	) -> Result<(Arc<Service<B, I>>, NetworkChan<B>), Error> {
+	) -> Result<(Arc<Service<B, I, H>>, NetworkChan<B>), Error> {
 		let (network_chan, network_port) = network_channel();
+		let out_message_sinks = Arc::new(Mutex::new(Vec::new()));
 		// Start in off-line mode, since we're not connected to any nodes yet.
 		let is_offline = Arc::new(AtomicBool::new(true));
 		let is_major_syncing = Arc::new(AtomicBool::new(false));
-		let (protocol_sender, network_to_protocol_sender) = Protocol::new(
+		let (protocol_sender, network_to_protocol_sender) = Protocol::<_, H>::new(
+			out_message_sinks.clone(),
 			is_offline.clone(),
 			is_major_syncing.clone(),
 			network_chan.clone(),
+			params.config,
+			params.chain
 		)?;
 		let versions = [(protocol::CURRENT_VERSION as u8)];
 		let registered = RegisteredProtocol::new(protocol_id, &versions[..]);
@@ -100,12 +115,14 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 		)?;
 
 		let service = Arc::new(Service {
+			out_message_sinks,
 			is_offline,
 			is_major_syncing,
 			peerset,
 			network,
 			protocol_sender: protocol_sender.clone(),
 			bg_thread: Some(thread),
+			phantom: PhantomData,
 		});
 
 		Ok((service, network_chan))
@@ -128,9 +145,11 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 		self.network.lock().peer_id().clone()
 	}
 
-	/// Called when new transactons are imported by the client.
-	pub fn trigger_repropagate(&self) {
-		let _ = self.protocol_sender.send(ProtocolMsg::PropagateExtrinsics);
+	/// Called when new relay extrinsics generated.
+	pub fn on_relay_extrinsics(&self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>) {
+		let _ = self
+			.protocol_sender
+			.send(ProtocolMsg::RelayExtrinsics(shard_num, extrinsics));
 	}
 
 	/// Are we in the process of downloading the chain?
@@ -140,7 +159,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Service<B, I> {
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Service<B, I, H> {
 	fn drop(&mut self) {
 		info!("Foreign network service dropping");
 		if let Some((sender, join)) = self.bg_thread.take() {
@@ -152,9 +171,20 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> Drop for Service<B, I> {
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> SyncProvider<B> for Service<B, I> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B, H> for Service<B, I, H> {
+
+	fn on_relay_extrinsics(&self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>){
+		self.on_relay_extrinsics(shard_num, extrinsics);
+	}
+
+	fn out_messages(&self) -> mpsc::UnboundedReceiver<OutMessage<B::Extrinsic>>{
+		let (sink, stream) = mpsc::unbounded();
+		self.out_message_sinks.lock().push(sink);
+		stream
+	}
 
 	fn network_state(&self) -> NetworkState {
+
 		self.network.lock().state()
 	}
 
