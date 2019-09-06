@@ -53,7 +53,7 @@ pub trait MiningApi<Hash, Header, AuthorityId> where
     fn get_job(&self) -> BoxFuture<Job<Hash, Header, AuthorityId>>;
 
     #[rpc(name = "mining_submitJob")]
-    fn submit_job(&self, job_result: JobResult<Hash, AuthorityId>) -> BoxFuture<Hash>;
+    fn submit_job(&self, job_result: JobResult<Hash>) -> BoxFuture<Hash>;
 }
 
 pub struct Mining<B, AuthorityId> where
@@ -99,7 +99,7 @@ impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, Au
         }).map_err(parse_error).map_err(|e| e.into()))
     }
 
-    fn submit_job(&self, job_result: JobResult<B::Hash, AuthorityId>) -> BoxFuture<B::Hash>{
+    fn submit_job(&self, job_result: JobResult<B::Hash>) -> BoxFuture<B::Hash>{
 
         log::info!("job_result: {:?}", job_result);
 
