@@ -33,10 +33,10 @@ pub struct Job<Hash, Header, AuthorityId> where
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
-pub struct JobResult<Hash, AuthorityId> where
+pub struct JobResult<Hash> where
 {
     pub hash: Hash,
-    pub digest_item: DigestItem<Hash, AuthorityId>,
+    pub digest_item: ResultDigestItem<Hash>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -45,6 +45,11 @@ pub struct DigestItem<Hash, AuthorityId> {
     pub difficulty: DifficultyType,
     #[serde(with = "SerdeHex")]
     pub timestamp: u64,
+    pub work_proof: WorkProof<Hash>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
+pub struct ResultDigestItem<Hash> {
     pub work_proof: WorkProof<Hash>,
 }
 
