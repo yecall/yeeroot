@@ -32,7 +32,7 @@ pub struct DemoParams {
 
 pub fn start_foreign_demo(
     param: DemoParams,
-    foreign_network: Box<Arc<network::SyncProvider<Block, H256>>>,
+    foreign_network: Arc<network::SyncProvider<Block, H256>>,
     executor: &TaskExecutor,
 )
     -> error::Result<()>
