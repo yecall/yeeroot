@@ -31,7 +31,9 @@ use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 // use runtime_primitives::{Signature};
-use yee_relay::RelayTransfer;
+// use yee_relay::RelayTransfer;
+
+mod decode;
 
 mod internal {
 	pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
@@ -49,6 +51,8 @@ mod internal {
 		Fail(&'static str),
 	}
 }
+
+use decode::{ RelayTransfer, OriginTransfer };
 
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {

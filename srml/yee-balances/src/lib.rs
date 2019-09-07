@@ -191,10 +191,13 @@ use {
     yee_sharding_primitives::ShardingInfo,
 };
 // use node_primitives::Signature;
-use yee_relay::OriginTransfer;
+// use yee_relay::OriginTransfer;
 
 mod mock;
+mod decode;
 mod tests;
+
+use decode::OriginTransfer;
 
 pub use self::imbalances::{PositiveImbalance, NegativeImbalance};
 
