@@ -115,14 +115,14 @@ pub fn start_relay_transfer<F, C, A>(
             network::message::generic::OutMessage::Extrinsics(txs) =>{
                 let h = 0u64;
                 let h = h.encode();
-                let h=Decode::decode(&mut h.as_slice()).unwrap();
+                let h = Decode::decode(&mut h.as_slice()).unwrap();
                 let blockId = BlockId::number(h);
-                for tx in txs{
+                for tx in &txs{
                     let tx = tx.encode();
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
                     pool.submit_one(&blockId, tx);
                 }
-                info!(target: "relay","received relay transaction: {:?}", tx);
+                info!(target: "relay","received relay transaction: {:?}", txs);
             }
             _ =>{ /* do nothing */ }
         }
