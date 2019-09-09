@@ -20,7 +20,11 @@ use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
     consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
-    foreign_chain::{ForeignChain, SetForeignChainInfo},
+    consensus_common::import_queue::ImportQueue,
+    foreign_chain::{ForeignChain, ForeignChainConfig},
+    substrate_service::{
+        Components, ComponentParams, FactoryBlock, NetworkProvider,
+    },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
         AccountId, AuthorityId, AuthoritySignature,
@@ -88,7 +92,11 @@ impl Clone for NodeConfig {
     }
 }
 
-impl SetForeignChainInfo for NodeConfig {
+impl ForeignChainConfig for NodeConfig {
+    fn get_shard_num(&self) -> u32 {
+        self.shard_num as u32
+    }
+
     fn set_shard_num(&mut self, shard: u32) {
         self.shard_num = shard as u16;
     }
@@ -97,6 +105,19 @@ impl SetForeignChainInfo for NodeConfig {
 impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig{
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
+    }
+}
+
+#[derive(Clone)]
+struct DummyNetworkProvider {}
+
+impl<C: Components> NetworkProvider<C> for DummyNetworkProvider {
+    fn get_shard_network(&self,
+                         params: ComponentParams<C>,
+                         protocol_id: network::ProtocolId,
+                         import_queue: Box<dyn ImportQueue<FactoryBlock<C::Factory>>>
+    ) -> Result<network::NetworkChan<FactoryBlock<C::Factory>>, network::Error> {
+        unimplemented!()
     }
 }
 
@@ -160,7 +181,7 @@ construct_service_factory! {
                 // TODO: link with foreign_network
                 let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
                     config,
-                    config.custom.shard_num.into(),
+                    DummyNetworkProvider {},
                     service.client(),
                     executor,
                 )?;

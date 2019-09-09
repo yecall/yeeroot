@@ -34,7 +34,7 @@ use {
     },
     substrate_client::ChainHead,
     substrate_service::{
-        FactoryFullConfiguration,
+        FactoryFullConfiguration, NetworkProvider,
         FactoryBlock, LightComponents, ServiceFactory,
     },
 };
@@ -42,7 +42,8 @@ use {
     sharding_primitives::ShardingAPI,
 };
 
-pub trait SetForeignChainInfo {
+pub trait ForeignChainConfig {
+    fn get_shard_num(&self) -> u32;
     fn set_shard_num(&mut self, shard: u32);
 }
 
@@ -55,19 +56,20 @@ impl<F, C> ForeignChain<F, C> where
     F: ServiceFactory,
     <FactoryBlock<F> as Block>::Header: Header,
     FactoryFullConfiguration<F>: Clone,
-    <F as ServiceFactory>::Configuration: SetForeignChainInfo,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig,
     C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
     pub fn new(
         config: &FactoryFullConfiguration<F>,
-        curr_shard: u32,
+        network_provider: impl NetworkProvider<LightComponents<F>> + Clone,
         client: Arc<C>,
         task_executor: TaskExecutor,
     ) -> Result<Self, substrate_service::Error> {
         let api = client.runtime_api();
         let last_block_header = client.best_block_header()?;
         let last_block_id = BlockId::hash(last_block_header.hash());
+        let curr_shard = config.custom.get_shard_num();
         let shard_count = api.get_shard_count(&last_block_id)?;
 
         info!(
@@ -86,7 +88,7 @@ impl<F, C> ForeignChain<F, C> where
             shard_config.database_path = format!("{}-{}", config.database_path, i);
             shard_config.custom.set_shard_num(i);
             let shard_component = LightComponents::new_foreign(
-                shard_config, task_executor.clone(),
+                shard_config, network_provider.clone(), task_executor.clone(),
             )?;
             components.insert(i, shard_component);
         }
