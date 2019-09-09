@@ -111,8 +111,6 @@ pub fn start_relay_transfer<F, C, A>(
         });
 
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
-        info!(target: "relay","received messages: {:?}", messages);
-
         match messages {
             network::message::generic::OutMessage::Extrinsics(txs) =>{
                 let h = 0u64;
@@ -124,6 +122,7 @@ pub fn start_relay_transfer<F, C, A>(
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
                     pool.submit_one(&blockId, tx);
                 }
+                info!(target: "relay","received relay transaction: {:?}", tx);
             }
             _ =>{ /* do nothing */ }
         }

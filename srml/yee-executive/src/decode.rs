@@ -27,6 +27,9 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
 {
     pub fn decode(data: Vec<u8>) -> Option<Self> {
         let mut input = data.as_slice();
+        if input.len() < 64 + 1 + 1 {
+            return None;
+        }
         if let Some(len) = Decode::decode(&mut input) {
             let _len: Vec<()> = len;
         } else {
@@ -56,6 +59,9 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
             } else {
                 return None;
             }
+            if input.len() < 64 {
+                return None;
+            }
             // signature
             signature = input[..64].to_vec();
             input = &input[64..];
@@ -72,10 +78,16 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
                 return None;
             }
         }
+        if input.len() < 1 {
+            return None;
+        }
         // module
         if let Some(m) = Decode::decode(&mut input) {
             let _module: Compact<u64> = m;
         } else {
+            return None;
+        }
+        if input.len() < 1 {
             return None;
         }
         // function
@@ -84,11 +96,17 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
         } else {
             return None;
         }
+        if input.len() < 1 {
+            return None;
+        }
         // dest address
         let mut dest = Address::default();
         if let Some(d) = Decode::decode(&mut input) {
             dest = d;
         } else {
+            return None;
+        }
+        if input.len() < 1 {
             return None;
         }
         // amount
@@ -155,11 +173,17 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         } else {
             return None;
         }
+        if input.len() < 64 {   // origin transfer signature's length
+            return None;
+        }
         // origin transfer
         let mut origin_transfer = Vec::new();
         if let Some(ot) = Decode::decode(&mut input) {
             origin_transfer = ot;
         } else {
+            return None;
+        }
+        if input.len() < 1 {
             return None;
         }
         // which block's height the origin transfer in
@@ -169,6 +193,9 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         } else {
             return None;
         }
+        if input.len() < 32 {
+            return None;
+        }
         // block hash
         let mut block_hash = Hash::default();
         if let Some(h) = Decode::decode(&mut input) {
@@ -176,11 +203,17 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         } else {
             return None;
         }
+        if input.len() < 32 {
+            return None;
+        }
         // which block's parent hash the origin transfer in
         let mut parent = Hash::default();
         if let Some(h) = Decode::decode(&mut input) {
             parent = h;
         } else {
+            return None;
+        }
+        if input.len() < 1 {
             return None;
         }
         // proof
