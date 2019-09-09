@@ -39,5 +39,6 @@ pub struct Params<B: BlockT, I: IdentifySpecialization> {
 /// Configuration for the Substrate-specific part of the networking layer.
 #[derive(Clone)]
 pub struct ProtocolConfig {
+	/// Shard num
 	pub shard_num: u16,
 }

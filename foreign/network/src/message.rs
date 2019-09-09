@@ -23,6 +23,7 @@ use parity_codec::{Encode, Decode, Input, Output};
 
 /// Type alias for using the message type using block type parameters.
 pub type Message<B> = generic::Message<
+	<B as BlockT>::Header,
 	<B as BlockT>::Hash,
 	<<B as BlockT>::Header as HeaderT>::Number,
 	<B as BlockT>::Extrinsic,
@@ -41,11 +42,25 @@ pub mod generic {
 
 	/// A network message.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
-	pub enum Message<Hash, Number, Extrinsic> {
+	pub enum Message<Header, Hash, Number, Extrinsic> {
 		/// Status packet.
 		Status(Status<Hash, Number>),
-		/// Extrinsics.
-		Extrinsics(Vec<Extrinsic>),
+		/// Relay extrinsics
+		RelayExtrinsics(Vec<Extrinsic>),
+		/// VMessage
+		VMessage(vnetwork::generic_message::Message<Header, Hash, Number, Extrinsic>)
+	}
+
+	impl<Header, Hash, Number, Extrinsic> CustomMessage for Message<Header, Hash, Number, Extrinsic>
+		where Self: Decode + Encode
+	{
+		fn into_bytes(self) -> Vec<u8> {
+			self.encode()
+		}
+
+		fn from_bytes(bytes: &[u8]) -> Result<Self, ()> {
+			Decode::decode(&mut &bytes[..]).ok_or(())
+		}
 	}
 
 	/// Status sent on connection.
@@ -61,6 +76,8 @@ pub mod generic {
 		pub best_hash: Hash,
 		/// Genesis block hash.
 		pub genesis_hash: Hash,
+		/// Chain-specific status.
+		pub chain_status: Vec<u8>,
 		/// Shard num
 		pub shard_num: u16,
 	}
@@ -68,18 +85,6 @@ pub mod generic {
 	#[derive(Debug, Clone)]
 	pub enum OutMessage<Extrinsic>{
 		/// Extrinsics.
-		Extrinsics(Vec<Extrinsic>),
-	}
-
-	impl<Hash, Number, Extrinsic> CustomMessage for Message<Hash, Number, Extrinsic>
-		where Self: Decode + Encode
-	{
-		fn into_bytes(self) -> Vec<u8> {
-			self.encode()
-		}
-
-		fn from_bytes(bytes: &[u8]) -> Result<Self, ()> {
-			Decode::decode(&mut &bytes[..]).ok_or(())
-		}
+		RelayExtrinsics(Vec<Extrinsic>),
 	}
 }

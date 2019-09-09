@@ -223,7 +223,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_custom_message(&mut self, who: PeerId, message: Message<B>) {
 		match message {
 			GenericMessage::Status(s) => self.on_status_message(who, s),
-			GenericMessage::Extrinsics(m) => self.on_extrinsics(who, m),
+			GenericMessage::RelayExtrinsics(m) => self.on_replay_extrinsics(who, m),
+			_ => (),
 		}
 	}
 
@@ -315,10 +316,10 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	}
 
 	/// Called when peer sends us new extrinsics
-	fn on_extrinsics(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
+	fn on_replay_extrinsics(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
 		trace!(target: "sync-foreign", "Received {} extrinsics from {}", extrinsics.len(), who);
 
-		let message = OutMessage::Extrinsics(extrinsics);
+		let message = OutMessage::RelayExtrinsics(extrinsics);
 		self.out_message_sinks.lock().retain(|sink| sink.unbounded_send(message.clone()).is_ok());
 	}
 
@@ -337,7 +338,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 
 			if !to_send.is_empty() {
 				trace!(target: "sync-foreign", "Sending {} transactions to {}", to_send.len(), who);
-				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::Extrinsics(to_send)));
+				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::RelayExtrinsics(to_send)));
 			}
 		}
 	}
@@ -351,6 +352,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				genesis_hash: info.chain.genesis_hash,
 				best_number: info.chain.best_number,
 				best_hash: info.chain.best_hash,
+				chain_status: Vec::new(),
 				shard_num: self.config.shard_num,
 			};
 			self.send_message(who, GenericMessage::Status(status))
