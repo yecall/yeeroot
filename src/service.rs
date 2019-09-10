@@ -113,6 +113,7 @@ struct DummyNetworkProvider {}
 
 impl<C: Components> NetworkProvider<C> for DummyNetworkProvider {
     fn get_shard_network(&self,
+                         shard_num: u32,
                          params: ComponentParams<C>,
                          protocol_id: network::ProtocolId,
                          import_queue: Box<dyn ImportQueue<FactoryBlock<C::Factory>>>

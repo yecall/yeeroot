@@ -88,7 +88,7 @@ impl<F, C> ForeignChain<F, C> where
             shard_config.database_path = format!("{}-{}", config.database_path, i);
             shard_config.custom.set_shard_num(i);
             let shard_component = LightComponents::new_foreign(
-                shard_config, network_provider.clone(), task_executor.clone(),
+                shard_config, network_provider.clone(), i, task_executor.clone(),
             )?;
             components.insert(i, shard_component);
         }
