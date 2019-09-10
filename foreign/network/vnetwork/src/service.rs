@@ -21,9 +21,6 @@ use std::{io, thread};
 use log::{warn, debug, error, trace};
 use futures::{Async, Future, Stream, stream, sync::oneshot, sync::mpsc};
 use parking_lot::{Mutex, RwLock};
-use network_libp2p::{ProtocolId, NetworkConfiguration, Severity};
-use network_libp2p::{start_service, parse_str_addr, Service as NetworkService, ServiceEvent as NetworkServiceEvent};
-use network_libp2p::{RegisteredProtocol, NetworkState};
 use peerset::PeersetHandle;
 use consensus::import_queue::{ImportQueue, Link};
 use crate::consensus_gossip::ConsensusGossip;
@@ -39,14 +36,16 @@ use crate::IdentifySpecialization;
 use tokio::prelude::task::AtomicTask;
 use tokio::runtime::Builder as RuntimeBuilder;
 
-pub use network_libp2p::PeerId;
-use crate::vnetwork_provider::VNetworkProvider;
 use std::marker::PhantomData;
+
+use substrate_network::ExHashT;
 
 /// Type that represents fetch completion future.
 pub type FetchFuture = oneshot::Receiver<Vec<u8>>;
 
+use substrate_network::service::{NetworkMsg, NetworkChan, NetworkPort, network_channel, NetworkLink, PeerId};
 
+/*
 /// Sync status
 pub trait SyncProvider<B: BlockT>: Send + Sync {
 	/// Get a stream of sync statuses.
@@ -58,7 +57,9 @@ pub trait SyncProvider<B: BlockT>: Send + Sync {
 	/// Are we in the process of downloading the chain?
 	fn is_major_syncing(&self) -> bool;
 }
+*/
 
+/*
 /// Minimum Requirements for a Hash within Networking
 pub trait ExHashT:
 	::std::hash::Hash + Eq + ::std::fmt::Debug + Clone + Send + Sync + 'static
@@ -68,7 +69,9 @@ impl<T> ExHashT for T where
 	T: ::std::hash::Hash + Eq + ::std::fmt::Debug + Clone + Send + Sync + 'static
 {
 }
+*/
 
+/*
 /// Transaction pool interface
 pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Get transactions from the pool that are ready to be propagated.
@@ -78,7 +81,9 @@ pub trait TransactionPool<H: ExHashT, B: BlockT>: Send + Sync {
 	/// Notify the pool about transactions broadcast.
 	fn on_broadcasted(&self, propagations: HashMap<H, Vec<String>>);
 }
+*/
 
+/*
 /// A link implementation that connects to the network.
 #[derive(Clone)]
 pub struct NetworkLink<B: BlockT, S: NetworkSpecialization<B>> {
@@ -129,6 +134,7 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 		let _ = self.protocol_sender.send(ProtocolMsg::RestartSync);
 	}
 }
+*/
 
 /// Substrate network service. Handles network IO and manages connectivity.
 pub struct Service<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> {
@@ -159,11 +165,8 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	/// Creates and register protocol with the network service
 	pub fn new<H: ExHashT>(
 		params: Params<B, S, H, I>,
-		protocol_id: ProtocolId,
 		import_queue: Box<ImportQueue<B>>,
-		shard_num: u16,
-		vnetwork_provider: Arc<VNetworkProvider<B, I>>,
-	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>), Error> {
+	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>), Error> {
 		let (network_chan, network_port) = network_channel();
 		let status_sinks = Arc::new(Mutex::new(Vec::new()));
 		// Start in off-line mode, since we're not connected to any nodes yet.
@@ -183,9 +186,6 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 			params.transaction_pool,
 			params.specialization,
 		)?;
-		let versions = [(protocol::CURRENT_VERSION as u8)];
-
-		vnetwork_provider.start_thread(shard_num, network_to_protocol_sender, network_port)?;
 
 		let service = Arc::new(Service {
 			status_sinks,
@@ -207,7 +207,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 
 		import_queue.start(Box::new(link))?;
 
-		Ok((service, network_chan))
+		Ok((service, network_chan, network_port, network_to_protocol_sender))
 	}
 
 	/*
@@ -296,6 +296,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	}
 }
 
+/*
 impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> ::consensus::SyncOracle for Service<B, S, I> {
 	fn is_major_syncing(&self) -> bool {
 		self.is_major_syncing()
@@ -305,6 +306,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 		self.is_offline.load(Ordering::Relaxed)
 	}
 }
+*/
 
 /*
 impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> Drop for Service<B, S, I> {
@@ -319,6 +321,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 }
 */
 
+/*
 impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> SyncProvider<B> for Service<B, S, I> {
 	fn is_major_syncing(&self) -> bool {
 		self.is_major_syncing()
@@ -341,7 +344,9 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 		peers.into_iter().map(|(idx, connected)| (idx, connected.peer_info)).collect()
 	}
 }
+*/
 
+/*
 /// Trait for managing network
 pub trait ManageNetwork {
 	/// Set to allow unreserved peers to connect
@@ -353,6 +358,7 @@ pub trait ManageNetwork {
 	/// Add reserved peer
 	fn add_reserved_peer(&self, peer: String) -> Result<(), String>;
 }
+*/
 
 /*
 impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> ManageNetwork for Service<B, S, I> {
@@ -377,6 +383,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 }
 */
 
+/*
 /// Create a NetworkPort/Chan pair.
 pub fn network_channel<B: BlockT + 'static>() -> (NetworkChan<B>, NetworkPort<B>) {
 	let (network_sender, network_receiver) = channel::unbounded();
@@ -462,3 +469,4 @@ pub enum NetworkMsg<B: BlockT + 'static> {
 	#[cfg(any(test, feature = "test-helpers"))]
 	Synchronized,
 }
+*/

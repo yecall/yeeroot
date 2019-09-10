@@ -24,25 +24,24 @@
 //!
 
 mod service;
-mod sync;
+//mod sync;
 #[macro_use]
-mod protocol;
-mod chain;
-mod blocks;
-mod on_demand;
-mod util;
-mod vnetwork_provider;
-pub mod config;
-pub mod consensus_gossip;
-pub mod error;
-pub mod message;
-pub mod specialization;
+//mod protocol;
+//mod chain;
+//mod blocks;
+//mod on_demand;
+//mod util;
+//pub mod config;
+//pub mod consensus_gossip;
+//pub mod error;
+//pub mod message;
+//pub mod specialization;
 
 pub use chain::Client as ClientHandle;
-pub use service::{Service, FetchFuture, TransactionPool, ManageNetwork, NetworkMsg, SyncProvider, ExHashT, NetworkPort};
+pub use service::{Service, FetchFuture};
 pub use protocol::{ProtocolStatus, PeerInfo, Context, FromNetworkMsg};
 pub use sync::{Status as SyncStatus, SyncState};
-pub use network_libp2p::{
+pub use substrate_network::{
 	identity, multiaddr,
 	ProtocolId, Severity, Multiaddr,
 	NetworkState, NetworkStatePeer, NetworkStateNotConnectedPeer, NetworkStatePeerEndpoint,
@@ -53,4 +52,15 @@ pub use error::Error;
 pub use on_demand::{OnDemand, OnDemandService, RemoteResponse};
 #[doc(hidden)]
 pub use runtime_primitives::traits::Block as BlockT;
-pub use vnetwork_provider::VNetworkProvider;
+
+pub use substrate_network::sync;
+pub use substrate_network::protocol;
+pub use substrate_network::chain;
+pub use substrate_network::blocks;
+pub use substrate_network::on_demand;
+pub use substrate_network::util;
+pub use substrate_network::config;
+pub use substrate_network::consensus_gossip;
+pub use substrate_network::error;
+pub use substrate_network::message;
+pub use substrate_network::specialization;
