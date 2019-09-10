@@ -52,7 +52,6 @@ native_executor_instance!(
 	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
-#[derive(Clone)]
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
@@ -63,13 +62,28 @@ pub struct NodeConfig {
 }
 
 impl Default for NodeConfig {
-    fn default() -> Self{
-        Self{
+    fn default() -> Self {
+        Self {
             inherent_data_providers: Default::default(),
             coin_base: Default::default(),
             shard_num: Default::default(),
             foreign_port: Default::default(),
             bootnodes_router_conf: Default::default(),
+            job_manager: Arc::new(RwLock::new(None)),
+        }
+    }
+}
+
+impl Clone for NodeConfig {
+    fn clone(&self) -> Self {
+        Self {
+            coin_base: self.coin_base.clone(),
+            shard_num: self.shard_num,
+            foreign_port: self.foreign_port,
+
+            // cloned config SHALL NOT SHARE some items with original config
+            inherent_data_providers: Default::default(),
+            bootnodes_router_conf: None,
             job_manager: Arc::new(RwLock::new(None)),
         }
     }

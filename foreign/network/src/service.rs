@@ -697,23 +697,21 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 	}
 }
 
-use substrate_network::{IdentifySpecialization as SSIdentifySpecialization};
 use substrate_service::{Components, FactoryBlock, ComponentExHash};
 
 impl<C: substrate_service::Components, I: IdentifySpecialization> substrate_service::NetworkProvider<C> for Service<FactoryBlock<<C as Components>::Factory>, I, ComponentExHash<C>> where
 	C: substrate_service::Components,
 	I: IdentifySpecialization,
-	<C::Factory as substrate_service::ServiceFactory>::IdentifySpecialization: SSIdentifySpecialization,
 {
 	fn get_shard_network(
 		&self,
+		shard_num: u32,
 		params: substrate_service::ComponentParams<C>,
 		protocol_id: substrate_network::ProtocolId,
 		import_queue: Box<dyn consensus::import_queue::ImportQueue<substrate_service::FactoryBlock<C::Factory>>>,
 	) -> Result<substrate_network::NetworkChan<substrate_service::FactoryBlock<C::Factory>>, substrate_network::Error>{
 
-		let user_agent = params.identify_specialization.customize_user_agent("");
-		let shard_num = resolve_shard_num(&user_agent).expect("should use ShardingIdentifySpecialization");
+		let shard_num = shard_num as u16;
 
 		let (service, network_chan,
 			network_port, network_to_protocol_sender) =
@@ -726,12 +724,3 @@ impl<C: substrate_service::Components, I: IdentifySpecialization> substrate_serv
 	}
 
 }
-
-const USERAGENT_SHARD: &str = "shard";
-
-fn resolve_shard_num(user_agent: &str) -> Option<u16> {
-	let shard_re = Regex::new(&format!(r"{}/(\d+)", USERAGENT_SHARD)).unwrap();
-	let m: Vec<&str> = shard_re.captures_iter(&user_agent).map(|c| c.get(1).map(|x|x.as_str()).unwrap_or("")).collect();
-	m.get(0).and_then(|x| x.parse().ok())
-}
-
