@@ -699,17 +699,18 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 
 use substrate_service::{Components, FactoryBlock, ComponentExHash};
 
-impl<C: substrate_service::Components, I: IdentifySpecialization> substrate_service::NetworkProvider<C> for Service<FactoryBlock<<C as Components>::Factory>, I, ComponentExHash<C>> where
-	C: substrate_service::Components,
+impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, I, EH> where
+	F: substrate_service::ServiceFactory,
 	I: IdentifySpecialization,
+	EH: substrate_network::ExHashT,
 {
 	fn get_shard_network(
 		&self,
 		shard_num: u32,
-		params: substrate_service::ComponentParams<C>,
+		params: substrate_service::ForeignNetParams<F, EH>,
 		protocol_id: substrate_network::ProtocolId,
-		import_queue: Box<dyn consensus::import_queue::ImportQueue<substrate_service::FactoryBlock<C::Factory>>>,
-	) -> Result<substrate_network::NetworkChan<substrate_service::FactoryBlock<C::Factory>>, substrate_network::Error>{
+		import_queue: Box<dyn consensus::import_queue::ImportQueue<substrate_service::FactoryBlock<F>>>,
+	) -> Result<substrate_network::NetworkChan<substrate_service::FactoryBlock<F>>, substrate_network::Error>{
 
 		let shard_num = shard_num as u16;
 
