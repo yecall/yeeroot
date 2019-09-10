@@ -52,7 +52,7 @@ pub struct Params {
 }
 
 pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
-    -> error::Result<Arc<network::SyncProvider<FactoryBlock<C::Factory>, ComponentExHash<C>>>> where
+    -> error::Result<Arc<network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
     <FactoryBlock<C::Factory> as Block>::Header: Header,
     C: Components,
     ComponentClient<C>: ProvideRuntimeApi + ChainHead<FactoryBlock<C::Factory>>,
