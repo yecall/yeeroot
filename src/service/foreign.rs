@@ -20,7 +20,7 @@ use log::{info, warn};
 use yee_foreign_network as network;
 use yee_foreign_network::identity::Keypair;
 use yee_foreign_network::identify_specialization::ForeignIdentifySpecialization;
-use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration};
+use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration, ProtocolConfig};
 use yee_foreign_network::multiaddr::Protocol;
 use yee_foreign_network::{SyncProvider, NetworkState};
 use yee_bootnodes_router::BootnodesRouterConf;
@@ -37,6 +37,7 @@ use runtime_primitives::traits::{ProvideRuntimeApi, Header, Block};
 use runtime_primitives::generic::BlockId;
 use sharding_primitives::ShardingAPI;
 use ansi_term::Colour;
+use substrate_service::{Components, ComponentClient, ComponentExHash};
 
 const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -50,15 +51,114 @@ pub struct Params {
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
-pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &TaskExecutor) -> error::Result<()>
-    where F: ServiceFactory,
-          <FactoryBlock<F> as Block>::Header: Header,
-          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-          <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+/// Start foreign network
+///
+/// Demo:
+///
+/// in service factory:
+/// ```
+/// let demo_param = foreign_demo::DemoParams{
+///     shard_num: config.custom.shard_num,
+/// };
+/// foreign_demo::start_foreign_demo(demo_param, foreign_network, &executor).map_err(|e| format!("{:?}", e))?;
+/// ```
+///
+/// in user mod:
+/// ```
+/// use yee_foreign_network as network;
+/// use substrate_service::{TaskExecutor, Arc};
+/// use substrate_cli::error;
+/// use log::{info, warn};
+/// use tokio::timer::Interval;
+/// use std::time::{Instant, Duration, SystemTime, UNIX_EPOCH};
+/// use futures::stream::Stream;
+/// use futures::future::Future;
+/// use yee_runtime::opaque::{Block, UncheckedExtrinsic};
+/// use primitives::H256;
+///
+/// pub struct DemoParams {
+///     pub shard_num: u16,
+/// }
+///
+/// pub fn start_foreign_demo(
+///     param: DemoParams,
+///     foreign_network: Arc<network::SyncProvider<Block, H256>>,
+///     executor: &TaskExecutor,
+/// )
+///     -> error::Result<()>
+/// {
+///     let status = foreign_network.network_state();
+///
+///     info!("foreign demo: status: {:?}", status);
+///
+///     let foreign_network_clone = foreign_network.clone();
+///
+///     let task = Interval::new(Instant::now(), Duration::from_secs(3)).for_each(move |_instant| {
+///
+///         let extrinsics = gen_extrinsics();
+///
+///         let target_shard_num = (param.shard_num + 1) % 4;
+///
+///         info!("foreign demo: sent relay extrinsics: shard_num: {} extrinsics: {:?}", target_shard_num, extrinsics);
+///
+///         foreign_network_clone.on_relay_extrinsics(target_shard_num, extrinsics);
+///
+///         Ok(())
+///     }).map_err(|e| warn!("Foreign demo error: {:?}", e));
+///
+///     let message_task = foreign_network.out_messages().for_each(move |messages| {
+///
+///         info!("foreign demo: received messages: {:?}", messages);
+///
+///         Ok(())
+///     });
+///
+///     executor.spawn(task);
+///     executor.spawn(message_task);
+///
+///     Ok(())
+/// }
+///
+/// fn gen_extrinsics() -> Vec<(H256, UncheckedExtrinsic)> {
+///
+///     let mut result = Vec::new();
+///     for i in simple_rand_array(3) {
+///
+///         let hash = H256::from(i);
+///         let extrinsic = UncheckedExtrinsic(i.to_vec());
+///
+///         result.push((hash, extrinsic))
+///     }
+///
+///     result
+/// }
+///
+/// fn simple_rand_array(count: usize) -> Vec<[u8; 32]>{
+///     let now = SystemTime::now().duration_since(UNIX_EPOCH).expect("qed").as_millis();
+///
+///     let mut result  = Vec::new();
+///     for i in 0..count{
+///         let tmp = now + i as u128;
+///         let mut array = [0u8; 32];
+///         array[0] = (tmp%256) as u8;
+///         array[1] = (tmp/256%256) as u8;
+///         array[3] = (tmp/256/256%256) as u8;
+///
+///         result.push(array);
+///     }
+///     result
+/// }
+/// ```
+pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
+    -> error::Result<Arc<network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
+    <FactoryBlock<C::Factory> as Block>::Header: Header,
+    C: Components,
+    ComponentClient<C>: ProvideRuntimeApi + ChainHead<FactoryBlock<C::Factory>>,
+    <ComponentClient<C> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<C::Factory>>,
 {
     let peer_id = get_peer_id(&param.node_key_pair);
 
-    let shard_count = get_shard_count::<F, _>(&client)?;
+    let shard_count = get_shard_count::<C::Factory, _>(&client)?;
 
     info!("Start foreign network: ");
     info!("  shard count: {}", shard_count);
@@ -85,26 +185,34 @@ pub fn start_foreign_network<F, C>(param: Params, client: Arc<C>, executor: &Tas
     ];
     network_config.foreign_boot_nodes = get_foreign_boot_nodes(&param.bootnodes_router_conf);
 
+    let config = ProtocolConfig{
+        shard_num: param.shard_num,
+    };
+
     let network_params = NetworkParams {
+        config,
         network_config,
+        chain: client.clone(),
         identify_specialization: ForeignIdentifySpecialization::new(param.protocol_version.to_string(), param.shard_num),
     };
 
     let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    let (service, _network_chan) = network::Service::<F::Block, _>::new(
+    let (service, _network_chan) = network::Service::<<C::Factory as ServiceFactory>::Block, _, ComponentExHash<C>>::new(
         network_params,
         protocol_id,
     ).map_err(|e| format!("{:?}", e))?;
 
-    let task = Interval::new(Instant::now(), Duration::from_secs(3)).for_each(move |_instant| {
+    let service_clone = service.clone();
+
+    let task = Interval::new(Instant::now(), Duration::from_secs(5)).for_each(move |_instant| {
         info!(target: "foreign", "{}", get_status(&service.network_state(), shard_count));
         Ok(())
     }).map_err(|e| warn!("Foreign network error: {:?}", e));
 
     executor.spawn(task);
 
-    Ok(())
+    Ok(service_clone)
 }
 
 fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>> {
