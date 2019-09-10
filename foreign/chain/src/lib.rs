@@ -34,6 +34,7 @@ use {
     },
     substrate_client::ChainHead,
     substrate_service::{
+        ComponentExHash,
         FactoryFullConfiguration, NetworkProvider,
         FactoryBlock, LightComponents, ServiceFactory,
     },
@@ -62,7 +63,7 @@ impl<F, C> ForeignChain<F, C> where
 {
     pub fn new(
         config: &FactoryFullConfiguration<F>,
-        network_provider: impl NetworkProvider<LightComponents<F>> + Clone,
+        network_provider: impl NetworkProvider<F, ComponentExHash<LightComponents<F>>> + Clone,
         client: Arc<C>,
         task_executor: TaskExecutor,
     ) -> Result<Self, substrate_service::Error> {

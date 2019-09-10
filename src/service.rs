@@ -23,7 +23,7 @@ use {
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
-        Components, ComponentParams, FactoryBlock, NetworkProvider,
+        Components, ForeignNetParams, FactoryBlock, NetworkProvider,
     },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
@@ -113,13 +113,13 @@ impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfi
 #[derive(Clone)]
 struct DummyNetworkProvider {}
 
-impl<C: Components> NetworkProvider<C> for DummyNetworkProvider {
+impl<F, EH> NetworkProvider<F, EH> for DummyNetworkProvider {
     fn get_shard_network(&self,
                          shard_num: u32,
-                         params: ComponentParams<C>,
+                         params: ForeignNetParams<F, EH>,
                          protocol_id: network::ProtocolId,
-                         import_queue: Box<dyn ImportQueue<FactoryBlock<C::Factory>>>
-    ) -> Result<network::NetworkChan<FactoryBlock<C::Factory>>, network::Error> {
+                         import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>
+    ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
         unimplemented!()
     }
 }
