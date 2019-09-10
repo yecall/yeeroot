@@ -110,20 +110,6 @@ impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfi
     }
 }
 
-#[derive(Clone)]
-struct DummyNetworkProvider {}
-
-impl<F, EH> NetworkProvider<F, EH> for DummyNetworkProvider {
-    fn get_shard_network(&self,
-                         shard_num: u32,
-                         params: ForeignNetParams<F, EH>,
-                         protocol_id: network::ProtocolId,
-                         import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>
-    ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
-        unimplemented!()
-    }
-}
-
 construct_simple_protocol! {
 	/// Demo protocol attachment for substrate.
 	pub struct NodeProtocol where Block = Block { }
@@ -191,7 +177,7 @@ construct_service_factory! {
                 // TODO: link with foreign_network
                 let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
                     config,
-                    DummyNetworkProvider {},
+                    foreign_network,
                     service.client(),
                     executor,
                 )?;
