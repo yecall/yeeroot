@@ -35,6 +35,7 @@ finality-tracker = { package = "srml-finality-tracker", git = "https://github.co
 [features]
 default = ["std"]
 std = [
+    "grandpa/std",
     "sharding/std",
 	"pow/std",
 	"consensus-pow/std",

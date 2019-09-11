@@ -2189,6 +2189,7 @@ version = "1.0.0"
 dependencies = [
  "grandpa-primitives 0.4.0",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -2238,6 +2239,7 @@ dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec-derive 3.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "safe-mix 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
