@@ -158,7 +158,7 @@ fn testnet_template_genesis(
             genesis_sharding_count: 4,
         }),
 		grandpa: Some(GrandpaConfig {
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+			authorities: vec![],
 		}),
 	}
 }
