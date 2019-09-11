@@ -31,7 +31,7 @@ use crate::protocol::{self, Protocol, FromNetworkMsg, ProtocolMsg};
 use crate::config::Params;
 use crossbeam_channel::{self as channel, Receiver, Sender, TryRecvError};
 use crate::error::Error;
-use runtime_primitives::{traits::{Block as BlockT, NumberFor}, ConsensusEngineId};
+use runtime_primitives::{traits::{Block as BlockT, NumberFor, Header}, ConsensusEngineId};
 use crate::{IdentifySpecialization, identify_specialization::ForeignIdentifySpecialization};
 
 use tokio::prelude::task::AtomicTask;
@@ -126,6 +126,8 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			registered,
 			params.identify_specialization,
 			from_network_chan,
+			params.chain.clone(),
+			protocol_sender.clone(),
 		)?;
 
 		let vnetwork_holder = VNetworkHolder{
@@ -320,13 +322,15 @@ pub enum NetworkMsg<B: BlockT + 'static> {
 }
 
 /// Starts the background thread that handles the networking.
-fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
+fn start_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	protocol_sender: Sender<FromNetworkMsg<B>>,
 	network_port: NetworkPort<B>,
 	config: NetworkConfiguration,
 	registered: RegisteredProtocol<Message<B>>,
 	identify_specialization: I,
 	from_network_chan: FromNetworkChan<B>,
+	chain: Arc<Client<B>>,
+	protocol_msg_sender: Sender<ProtocolMsg<B, H>>,
 ) -> Result<((oneshot::Sender<()>, thread::JoinHandle<()>), Arc<Mutex<NetworkService<Message<B>, I>>>, ForeignPeersetHandle), Error> {
 	// Start the main service.
 	let (service, peerset) = match start_service(config, registered, identify_specialization) {
@@ -342,7 +346,8 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 	let mut runtime = RuntimeBuilder::new().name_prefix("libp2p-").build()?;
 	let peerset_clone = peerset.clone();
 	let thread = thread::Builder::new().name("network".to_string()).spawn(move || {
-		let fut = run_thread(protocol_sender, service_clone, network_port, peerset_clone, from_network_chan)
+		let fut = run_thread(protocol_sender, service_clone, network_port,
+							 peerset_clone, from_network_chan, chain, protocol_msg_sender)
 			.select(close_rx.then(|_| Ok(())))
 			.map(|(val, _)| val)
 			.map_err(|(err,_ )| err);
@@ -359,12 +364,14 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 }
 
 /// Runs the background thread that handles the networking.
-fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
+fn run_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	protocol_sender: Sender<FromNetworkMsg<B>>,
 	network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
 	network_port: NetworkPort<B>,
 	peerset: ForeignPeersetHandle,
 	from_network_chan: FromNetworkChan<B>,
+	chain: Arc<Client<B>>,
+	protocol_msg_sender: Sender<ProtocolMsg<B, H>>,
 ) -> impl Future<Item = (), Error = io::Error> {
 
 	let network_service_2 = network_service.clone();
@@ -444,10 +451,29 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 		Ok(())
 	});
 
+	let client = chain.client_import_notification_stream().for_each(move |event|{
+
+		let hash = event.hash;
+		let header = event.header;
+
+		protocol_msg_sender.send(ProtocolMsg::BlockImported(hash, header)).map_err(|e|{
+			error!("Client error: {:?}", e)
+		})?;
+
+		Ok(())
+	}).then(|res| {
+		match res {
+			Ok(()) => (),
+			Err(_) => error!("Client error"),
+		};
+		Ok(())
+	});
+
 	// Merge all futures into one.
 	let futures: Vec<Box<Future<Item = (), Error = io::Error> + Send>> = vec![
 		Box::new(protocol) as Box<_>,
-		Box::new(network) as Box<_>
+		Box::new(network) as Box<_>,
+		Box::new(client) as Box<_>
 	];
 
 	futures::select_all(futures)
@@ -621,17 +647,17 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 				substrate_network::NetworkMsg::ReportPeer(who, severity) => {
 					match severity {
 						substrate_network::Severity::Bad(message) => {
-							debug!(target: "sync", "Banning {:?} because {:?}", who, message);
+							debug!(target: "sync-foreign", "Banning {:?} because {:?}", who, message);
 							network_service.lock().drop_node(&who);
 							// temporary: make sure the peer gets dropped from the peerset
 							peerset.report_peer(who, i32::min_value());
 						},
 						substrate_network::Severity::Useless(message) => {
-							debug!(target: "sync", "Dropping {:?} because {:?}", who, message);
+							debug!(target: "sync-foreign", "Dropping {:?} because {:?}", who, message);
 							network_service.lock().drop_node(&who)
 						},
 						substrate_network::Severity::Timeout => {
-							debug!(target: "sync", "Dropping {:?} because it timed out", who);
+							debug!(target: "sync-foreign", "Dropping {:?} because it timed out", who);
 							network_service.lock().drop_node(&who)
 						},
 					}

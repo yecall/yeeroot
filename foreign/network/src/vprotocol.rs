@@ -26,6 +26,7 @@ use crate::util::LruHashSet;
 use crate::chain::Client;
 use crate::error;
 use network_libp2p::{PeerId, Severity};
+use runtime_primitives::{generic::BlockId, ConsensusEngineId};
 use log::{trace, debug};
 use std::{cmp, num::NonZeroUsize, thread, time};
 use std::collections::{BTreeMap, HashMap};
@@ -220,45 +221,64 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         self.send_status(who);
     }
 
+    /// Called by peer when it is disconnecting
+    pub fn on_peer_disconnected(&mut self, peer: PeerId, debug_info: String) {
+        trace!(target: "sync-foreign", "VProtocol: Disconnecting {}: {}", peer, debug_info);
+        // lock all the the peer lists so that add/remove peer events are in order
+        let removed = {
+            self.handshaking_peers.remove(&peer);
+            self.connected_peers.write().remove(&peer);
+            self.context_data.peers.remove(&peer).is_some()
+        };
+        /*
+        if removed {
+            let mut context = ProtocolContext::new(&mut self.context_data, &self.network_chan);
+            self.consensus_gossip.peer_disconnected(&mut context, peer.clone());
+            self.sync.peer_disconnected(&mut context, peer.clone());
+            self.specialization.on_disconnect(&mut context, peer.clone());
+            self.on_demand.as_ref().map(|s| s.on_disconnect(peer));
+        }
+        */
+    }
+
     pub fn on_vmessage(&mut self, who: PeerId, vmessage: Message<B>) {
 
         match vmessage {
             GenericMessage::Status(s) => self.on_status_message(who, s),
-//            GenericMessage::BlockRequest(r) => self.on_block_request(who, r),
-//            GenericMessage::BlockResponse(r) => {
-//                if let Some(request) = self.handle_response(who.clone(), &r) {
-//                    self.on_block_response(who.clone(), request, r);
-//                    self.update_peer_info(&who);
-//                }
-//            },
-//            GenericMessage::BlockAnnounce(announce) => {
-//                self.on_block_announce(who.clone(), announce);
-//                self.update_peer_info(&who);
-//            },
-//            GenericMessage::Transactions(m) => self.on_extrinsics(who, m),
-//            GenericMessage::RemoteCallRequest(request) => self.on_remote_call_request(who, request),
-//            GenericMessage::RemoteCallResponse(response) => self.on_remote_call_response(who, response),
-//            GenericMessage::RemoteReadRequest(request) => self.on_remote_read_request(who, request),
-//            GenericMessage::RemoteReadResponse(response) => self.on_remote_read_response(who, response),
-//            GenericMessage::RemoteHeaderRequest(request) => self.on_remote_header_request(who, request),
-//            GenericMessage::RemoteHeaderResponse(response) => self.on_remote_header_response(who, response),
-//            GenericMessage::RemoteChangesRequest(request) => self.on_remote_changes_request(who, request),
-//            GenericMessage::RemoteChangesResponse(response) => self.on_remote_changes_response(who, response),
-//            GenericMessage::Consensus(msg) => {
-//                self.consensus_gossip.on_incoming(
-//                    &mut ProtocolContext::new(&mut self.context_data, &self.network_chan),
-//                    who,
-//                    msg,
-//                );
-//            }
-//            other => self.specialization.on_message(
-//                &mut ProtocolContext::new(&mut self.context_data, &self.network_chan),
-//                who,
-//                &mut Some(other),
-//            ),
-            _ => (),
+            GenericMessage::BlockRequest(r) => self.on_block_request(who, r),
+            other => {
+                debug!(target: "sync-foreign", "VProtocol: other: {:?}", other);
+            },
         }
 
+    }
+
+    pub fn on_block_imported(&mut self, hash: B::Hash, header: &B::Header) {
+        /*
+        self.sync.update_chain_info(header);
+        self.specialization.on_block_imported(
+            &mut ProtocolContext::new(&mut self.context_data, &self.network_chan),
+            hash.clone(),
+            header,
+        );
+
+        // blocks are not announced by light clients
+        if self.config.roles & Roles::LIGHT == Roles::LIGHT {
+            return;
+        }
+        */
+
+        // send out block announcements
+
+        let message = GenericMessage::BlockAnnounce(message::BlockAnnounce { header: header.clone() });
+
+        for (who, ref mut peer) in self.context_data.peers.iter_mut() {
+            if peer.known_blocks.insert(hash.clone()) {
+                trace!(target: "sync-foreign", "VProtocol: Announcing block {:?} to {}", hash, who);
+                let message = crate::generic_message::Message::VMessage(self.context_data.shard_num, message.clone());
+                self.network_chan.send(NetworkMsg::Outgoing(who.clone(), message));
+            }
+        }
     }
 
     /// Called by peer to report status
@@ -357,6 +377,70 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             .new_peer(&mut context, who.clone(), status.roles);
         self.specialization.on_connect(&mut context, who, status);
         */
+    }
+
+    fn on_block_request(&mut self, peer: PeerId, request: message::BlockRequest<B>) {
+        trace!(target: "sync-foreign", "VProtocol: BlockRequest {} from {}: from {:?} to {:?} max {:?}",
+               request.id,
+               peer,
+               request.from,
+               request.to,
+               request.max);
+        let mut blocks = Vec::new();
+        let mut id = match request.from {
+            message::FromBlock::Hash(h) => BlockId::Hash(h),
+            message::FromBlock::Number(n) => BlockId::Number(n),
+        };
+        let max = cmp::min(request.max.unwrap_or(u32::max_value()), MAX_BLOCK_DATA_RESPONSE) as usize;
+        let get_header = request.fields.contains(message::BlockAttributes::HEADER);
+        let get_body = request.fields.contains(message::BlockAttributes::BODY);
+        let get_justification = request
+            .fields
+            .contains(message::BlockAttributes::JUSTIFICATION);
+        while let Some(header) = self.context_data.chain.header(&id).unwrap_or(None) {
+            if blocks.len() >= max {
+                break;
+            }
+            let number = header.number().clone();
+            let hash = header.hash();
+            let parent_hash = header.parent_hash().clone();
+            let justification = if get_justification {
+                self.context_data.chain.justification(&BlockId::Hash(hash)).unwrap_or(None)
+            } else {
+                None
+            };
+            let block_data = message::generic::BlockData {
+                hash: hash,
+                header: if get_header { Some(header) } else { None },
+                body: if get_body {
+                    self.context_data
+                        .chain
+                        .body(&BlockId::Hash(hash))
+                        .unwrap_or(None)
+                } else {
+                    None
+                },
+                receipt: None,
+                message_queue: None,
+                justification,
+            };
+            blocks.push(block_data);
+            match request.direction {
+                message::Direction::Ascending => id = BlockId::Number(number + As::sa(1)),
+                message::Direction::Descending => {
+                    if number == As::sa(0) {
+                        break;
+                    }
+                    id = BlockId::Hash(parent_hash)
+                }
+            }
+        }
+        let response = message::generic::BlockResponse {
+            id: request.id,
+            blocks: blocks,
+        };
+        trace!(target: "sync-foreign", "VProtocol: Sending BlockResponse with {} blocks", response.blocks.len());
+        self.send_message(peer, GenericMessage::BlockResponse(response))
     }
 
     /// Send Status message
