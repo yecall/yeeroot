@@ -31,6 +31,7 @@ use crate::config::get_config;
 use crate::params::DEFAULT_RPC_PORT;
 use crate::params::DEFAULT_WS_PORT;
 
+use yee_mining;
 pub const TARGET : &str = "switch";
 
 pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
@@ -47,6 +48,8 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
     let rpc_address_http = parse_address(&format!("{}:{}", rpc_interface, DEFAULT_RPC_PORT), cmd.rpc_port)?;
 
     let rpc_address_ws = parse_address(&format!("{}:{}", ws_interface, DEFAULT_WS_PORT), cmd.ws_port)?;
+
+    if cmd.start_miner{yee_mining::run(rpc_config.clone(),cmd.poll_interval)};
 
     let handler = || {
 

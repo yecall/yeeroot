@@ -56,6 +56,14 @@ pub struct SwitchCommandCmd {
     #[structopt(short = "m", long = "max connections", value_name = "MAX-CONNECTIONS" ,default_value = "100")]
     pub max_connections: u16,
 
+    ///Specify miner poll interval
+    #[structopt(long = "poll-interval ", value_name = "POLL-INTERVAL" ,default_value = "6000")]
+    pub poll_interval: u64,
+
+    /// start miner
+    #[structopt( long = "start-miner")]
+    pub start_miner: bool,
+
 }
 
 impl substrate_cli::GetLogFilter for SwitchCommandCmd {
