@@ -48,7 +48,7 @@ pub mod generic {
 		/// Relay extrinsics
 		RelayExtrinsics(Vec<Extrinsic>),
 		/// VMessage
-		VMessage(vnetwork::generic_message::Message<Header, Hash, Number, Extrinsic>)
+		VMessage(u16, vnetwork::generic_message::Message<Header, Hash, Number, Extrinsic>)
 	}
 
 	impl<Header, Hash, Number, Extrinsic> CustomMessage for Message<Header, Hash, Number, Extrinsic>

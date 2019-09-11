@@ -162,19 +162,19 @@ impl<'a, B: BlockT + 'a, H: ExHashT + 'a> Context<B> for ProtocolContext<'a, B, 
 
     fn send_block_request(&mut self, who: PeerId, request: BlockRequestMessage<B>) {
         send_message(&mut self.context_data.peers, &self.network_chan, who,
-                     GenericMessage::BlockRequest(request)
+                     GenericMessage::BlockRequest(request), self.context_data.shard_num
         )
     }
 
     fn send_consensus(&mut self, who: PeerId, consensus: ConsensusMessage) {
         send_message(&mut self.context_data.peers, &self.network_chan, who,
-                     GenericMessage::Consensus(consensus)
+                     GenericMessage::Consensus(consensus), self.context_data.shard_num
         )
     }
 
     fn send_chain_specific(&mut self, who: PeerId, message: Vec<u8>) {
         send_message(&mut self.context_data.peers, &self.network_chan, who,
-                     GenericMessage::ChainSpecific(message)
+                     GenericMessage::ChainSpecific(message), self.context_data.shard_num
         )
     }
 }
@@ -184,6 +184,7 @@ struct ContextData<B: BlockT, H: ExHashT> {
     // All connected peers
     peers: HashMap<PeerId, Peer<B, H>>,
     pub chain: Arc<Client<B>>,
+    shard_num: u16,
 }
 
 impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
@@ -191,6 +192,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     pub fn new(
         network_chan: NetworkChan<B>,
         chain: Arc<Client<B>>,
+        shard_num: u16,
     ) -> error::Result<Self>{
         let config = ProtocolConfig{
             roles : Roles::LIGHT,
@@ -204,6 +206,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             context_data: ContextData {
                 peers: HashMap::new(),
                 chain,
+                shard_num,
             },
             handshaking_peers: HashMap::new(),
             connected_peers: peers,
@@ -378,6 +381,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             &self.network_chan,
             who,
             message,
+            self.context_data.shard_num
         );
     }
 }
@@ -387,6 +391,7 @@ fn send_message<B: BlockT, H: ExHashT>(
     network_chan: &NetworkChan<B>,
     who: PeerId,
     mut message: Message<B>,
+    shard_num: u16,
 ) {
     if let GenericMessage::BlockRequest(ref mut r) = message {
         if let Some(ref mut peer) = peers.get_mut(&who) {
@@ -399,6 +404,6 @@ fn send_message<B: BlockT, H: ExHashT>(
             peer.block_request = Some((time::Instant::now(), r.clone()));
         }
     }
-    let message = crate::generic_message::Message::VMessage(message);
+    let message = crate::generic_message::Message::VMessage(shard_num, message);
     network_chan.send(NetworkMsg::Outgoing(who, message));
 }
