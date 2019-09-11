@@ -48,8 +48,10 @@ pub const AUTHORITIES_CALL: &str = "grandpa_authorities";
 /// Well-known storage keys for GRANDPA.
 pub mod well_known_keys {
 	/// The key for the authorities and weights vector in storage.
+	//pub const AUTHORITY_PREFIX: &[u8] = b":grandpa:auth:";
 	pub const AUTHORITY_PREFIX: &[u8] = b":grandpa:auth:";
 	/// The key for the authorities count.
+	//pub const AUTHORITY_COUNT: &[u8] = b":grandpa:auth:len";
 	pub const AUTHORITY_COUNT: &[u8] = b":grandpa:auth:len";
 }
 

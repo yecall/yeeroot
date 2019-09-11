@@ -6,7 +6,7 @@ use {
 };
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
-	IndicesConfig,
+	IndicesConfig,GrandpaConfig,
     PowConfig, ShardingConfig,
 };
 use substrate_service;
@@ -157,5 +157,8 @@ fn testnet_template_genesis(
         sharding: Some(ShardingConfig {
             genesis_sharding_count: 4,
         }),
+		grandpa: Some(GrandpaConfig {
+			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+		}),
 	}
 }

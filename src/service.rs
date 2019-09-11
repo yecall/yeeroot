@@ -39,7 +39,7 @@ pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_rpc::ProvideJobManager;
 
-use crfg;
+use grandpa;
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -55,9 +55,9 @@ native_executor_instance!(
 
 /// Node specific configuration
 pub struct NodeConfig<F: substrate_service::ServiceFactory> {
-    /// crfg connection to import block
+    /// grandpa connection to import block
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
-    pub grandpa_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
+    pub grandpa_import_setup: Option<(Arc<grandpa::BlockImportForService<F>>, grandpa::LinkHalfForService<F>)>,
 	inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
     pub shard_num: u16,
@@ -168,8 +168,8 @@ construct_service_factory! {
 					key.clone()
 				};
 
-				executor.spawn(crfg::run_grandpa(
-					crfg::Config {
+				executor.spawn(grandpa::run_grandpa(
+					grandpa::Config {
 						local_key,
 						// FIXME #1578 make this available through chainspec
 						gossip_duration: Duration::from_millis(333),
@@ -177,7 +177,7 @@ construct_service_factory! {
 						name: Some(service.config.name.clone())
 					},
 					link_half,
-					crfg::NetworkBridge::new(service.network()),
+					grandpa::NetworkBridge::new(service.network()),
 					service.config.custom.inherent_data_providers.clone(),
 					service.on_exit(),
 				)?);
@@ -190,9 +190,17 @@ construct_service_factory! {
 		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
 			        prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
+				    let (block_import, link_half) = grandpa::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
+                        client.clone(), client.clone()
+                    )?;
+
+				    let block_import = Arc::new(block_import);
+				    let justification_import = block_import.clone();
+				    config.custom.grandpa_import_setup = Some((block_import.clone(), link_half));
+
 					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
-						client.clone(),
-						None,
+				    	block_import,
+				    	Some(justification_import),
 						client,
 						config.custom.inherent_data_providers.clone(),
 					).map_err(Into::into)

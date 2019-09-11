@@ -13,12 +13,18 @@ use primitives::bytes;
 use primitives::{ed25519, sr25519, OpaqueMetadata};
 use runtime_primitives::{
 	ApplyResult, transaction_validity::TransactionValidity, generic, create_runtime_str,
-	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, StaticLookup, Verify}
+	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, DigestFor, StaticLookup, Verify}
 };
+//use runtime_primitives::traits::{
+//	BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, AuthorityIdFor, Convert
+//};
+use grandpa::fg_primitives::{self, ScheduledChange};
+//pub use staking::StakerStatus;
 use client::{
 	block_builder::api::{CheckInherentsResult, InherentData, self as block_builder_api},
 	runtime_api, impl_runtime_apis
 };
+//pub use grandpa::Call as GrandpaCall;
 use version::RuntimeVersion;
 #[cfg(feature = "std")]
 use version::NativeVersion;
@@ -191,6 +197,31 @@ impl balances::Trait for Runtime {
 	type TransferPayment = ();
 }
 
+impl grandpa::Trait for Runtime {
+	type SessionKey = AuthorityId;
+	type Log = Log;
+	type Event = Event;
+}
+
+impl finality_tracker::Trait for Runtime {
+	type OnFinalizationStalled = grandpa::SyncedAuthorities<Runtime>;
+}
+
+//impl session::Trait for Runtime {
+//	type ConvertAccountIdToSessionKey = ();
+//	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+//	type Event = Event;
+//}
+
+//impl staking::Trait for Runtime {
+//	type Currency = balances::Module<Self>;
+//	type CurrencyToVote = CurrencyToVoteHandler;
+//	type OnRewardMinted = Treasury;
+//	type Event = Event;
+//	type Slash = ();
+//	type Reward = ();
+//}
+
 impl sharding::Trait for Runtime {
     type ShardNum = u32;
     type Log = Log;
@@ -206,9 +237,13 @@ construct_runtime!(
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
 		Pow: pow::{Module, Storage, Config<T>},
+		//Session: session,
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
+		Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+		FinalityTracker: finality_tracker::{Module, Call, Inherent},
+		//Staking: staking::{default, OfflineWorker},
 	}
 );
 
@@ -306,6 +341,40 @@ impl_runtime_apis! {
 	impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityId> {
 			Consensus::authorities()
+		}
+	}
+
+	impl fg_primitives::GrandpaApi<Block> for Runtime {
+		fn grandpa_pending_change(digest: &DigestFor<Block>)
+			-> Option<ScheduledChange<NumberFor<Block>>>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				_ => None
+			}) {
+				if let Some(change) = Grandpa::scrape_digest_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn grandpa_forced_change(digest: &DigestFor<Block>)
+			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				_ => None
+			}) {
+				if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
+			Grandpa::grandpa_authorities()
 		}
 	}
 

@@ -27,6 +27,10 @@ runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeec
 client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+grandpa = { package = "srml-grandpa", path = "../srml/crfg", default-features = false }
+finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+#ession = { package = "srml-session", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+#staking = { package = "srml-staking", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 
 [features]
 default = ["std"]
