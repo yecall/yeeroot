@@ -1,6 +1,6 @@
 use rstd::vec::Vec;
-use primitives::{traits::Zero, generic::Era};
-use parity_codec::{Decode, Compact, Input};
+use primitives::{ traits::Zero, generic::Era };
+use parity_codec::{ Encode, Decode, Compact, Input };
 
 
 pub struct OriginTransfer<Address, Balance> {
@@ -27,6 +27,9 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
 {
     pub fn decode(data: Vec<u8>) -> Option<Self> {
         let mut input = data.as_slice();
+        if input.len() < 64 + 1 + 1 {
+            return None;
+        }
         if let Some(len) = Decode::decode(&mut input) {
             let _len: Vec<()> = len;
         } else {
@@ -48,12 +51,21 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
         let mut sender = Address::default();
         let mut signature = Vec::new();
         let mut index = Compact(0u64);
-        let mut era = Era::Immortal;
+        let mut era = Era::Mortal(0u64, 0u64);
+        let mut no_era = true;
         if is_signed {
             // sender
+            if let Some(a) = input.read_byte() {
+                let _addr_type = a;
+            } else {
+                return None;
+            }
             if let Some(s) = Decode::decode(&mut input) {
                 sender = s
             } else {
+                return None;
+            }
+            if input.len() < 64 {
                 return None;
             }
             // signature
@@ -65,36 +77,66 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
             } else {
                 return None;
             }
-            // era
-            if let Some(e) = Decode::decode(&mut input) {
-                era = e;
-            } else {
+            if input.len() < 1 {
                 return None;
             }
+            // era
+            if input[0] != 0u8 {
+                no_era = false;
+                if let Some(e) = Decode::decode(&mut input) {
+                    era = e;
+                }
+            } else {
+                input = &input[1..];
+            }
+        }
+        if no_era {
+            era = Era::Immortal;
+        }
+        if input.len() < 1 {
+            return None;
         }
         // module
-        if let Some(m) = Decode::decode(&mut input) {
-            let _module: Compact<u64> = m;
+        if let Some(m) = input.read_byte() {
+            let _module: u8 = m;
         } else {
+            return None;
+        }
+        if input.len() < 1 {
             return None;
         }
         // function
-        if let Some(f) = Decode::decode(&mut input) {
-            let _func: Compact<u64> = f;
+        if let Some(f) = input.read_byte() {
+            let _func: u8 = f;
         } else {
             return None;
         }
+        if input.len() < 1 {
+            return None;
+        }
         // dest address
+        if let Some(at) = input.read_byte() {
+            let _addr_type = at;
+        } else {
+            return None;
+        }
         let mut dest = Address::default();
         if let Some(d) = Decode::decode(&mut input) {
             dest = d;
         } else {
             return None;
         }
+        if input.len() < 1 {
+            return None;
+        }
         // amount
         let mut amount = Zero::zero();
         if let Some(a) = Decode::decode(&mut input) {
-            amount = a;
+            let a_c : Compact<u128> = a;
+            let buf = a_c.0.encode();
+            if let Some(am) = Decode::decode(&mut buf.as_slice()){
+                amount = am;
+            }
         } else {
             return None;
         }
@@ -144,15 +186,21 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
             return None;
         }
         // module
-        if let Some(m) = Decode::decode(&mut input) {
-            let _module: Compact<u64> = m;
+        if let Some(m) = input.read_byte() {
+            let _module: u8 = m;
         } else {
             return None;
         }
+        if input.len() < 1 {
+            return None;
+        }
         // function
-        if let Some(f) = Decode::decode(&mut input) {
-            let _func: Compact<u64> = f;
+        if let Some(f) = input.read_byte() {
+            let _func: u8 = f;
         } else {
+            return None;
+        }
+        if input.len() < 64 {   // origin transfer signature's length
             return None;
         }
         // origin transfer
@@ -162,11 +210,17 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         } else {
             return None;
         }
+        if input.len() < 1 {
+            return None;
+        }
         // which block's height the origin transfer in
         let mut height = Compact(0u64);
         if let Some(h) = Decode::decode(&mut input) {
             height = h;
         } else {
+            return None;
+        }
+        if input.len() < 32 {
             return None;
         }
         // block hash
@@ -176,11 +230,17 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         } else {
             return None;
         }
+        if input.len() < 32 {
+            return None;
+        }
         // which block's parent hash the origin transfer in
         let mut parent = Hash::default();
         if let Some(h) = Decode::decode(&mut input) {
             parent = h;
         } else {
+            return None;
+        }
+        if input.len() < 1 {
             return None;
         }
         // proof
