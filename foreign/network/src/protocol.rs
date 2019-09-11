@@ -137,7 +137,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 
 		let vprotocol = VProtocol::new(
 			network_chan.clone(),
-			chain.clone()
+			chain.clone(),
+				 config.shard_num
 		)?;
 
 		let _ = thread::Builder::new()
@@ -230,7 +231,11 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		match message {
 			GenericMessage::Status(s) => self.on_status_message(who, s),
 			GenericMessage::RelayExtrinsics(m) => self.on_relay_extrinsics_message(who, m),
-			GenericMessage::VMessage(vmessage) => self.vprotocol.on_vmessage(who, vmessage),
+			GenericMessage::VMessage(shard_num, vmessage) => {
+				if shard_num == self.config.shard_num {
+					self.vprotocol.on_vmessage(who, vmessage)
+				}
+			},
 		}
 	}
 

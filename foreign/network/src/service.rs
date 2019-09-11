@@ -40,6 +40,7 @@ use tokio::runtime::Builder as RuntimeBuilder;
 pub use network_libp2p::PeerId;
 use serde::export::PhantomData;
 use crate::message::generic::{Message as GenericMessage, OutMessage};
+use crate::chain::Client;
 use regex::Regex;
 
 /// Sync status
@@ -89,6 +90,10 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 	vnetwork_holder: VNetworkHolder<B, I>,
 
 	vnetwork_bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
+
+	shard_num: u16,
+
+	chain: Arc<Client<B>>,
 }
 
 impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H> {
@@ -97,6 +102,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 		params: Params<B, I>,
 		protocol_id: ProtocolId,
 	) -> Result<(Arc<Service<B, I, H>>, NetworkChan<B>), Error> {
+		let shard_num = params.network_config.shard_num;
 		let (network_chan, network_port) = network_channel();
 		let (from_network_chan, from_network_port) = from_network_channel();
 		let out_message_sinks = Arc::new(Mutex::new(Vec::new()));
@@ -109,7 +115,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			is_major_syncing.clone(),
 			network_chan.clone(),
 			params.config,
-			params.chain
+			params.chain.clone(),
 		)?;
 		let versions = [(protocol::CURRENT_VERSION as u8)];
 		let registered = RegisteredProtocol::new(protocol_id, &versions[..]);
@@ -142,6 +148,8 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			bg_thread: Some(thread),
 			vnetwork_holder,
 			vnetwork_bg_thread: Some(vnetwork_thread),
+			shard_num,
+			chain: params.chain,
 		});
 
 		Ok((service, network_chan))
@@ -215,9 +223,12 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>{
 
-		self.vnetwork_holder.chain_list.read().iter()
+		let mut info : HashMap<u16, Option<client::ClientInfo<B>>> =  self.vnetwork_holder.chain_list.read().iter()
 			.map(|(shard_num, client)|(*shard_num, client.info().ok()))
-			.collect()
+			.collect();
+		info.insert(self.shard_num, self.chain.info().ok());
+
+		info
 	}
 
 }
@@ -583,11 +594,12 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 
 			let mut error_shard_num = None;
 			for (shard_num, network_port) in &*network_port_list.read(){
+				let shard_num = *shard_num;
 				match network_port.take_one_message() {
-					Ok(Some(message)) => return Ok(Async::Ready(Some(message))),
+					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
 					Ok(None) => {},
 					Err(_) => {
-						error_shard_num = Some(*shard_num);
+						error_shard_num = Some(shard_num);
 						break;
 					}
 				}
@@ -598,13 +610,13 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 
 			Ok(Async::NotReady)
 
-		}).for_each(move |msg| {
+		}).for_each(move |(shard_num, msg)| {
 			// Handle message from Protocol.
 			match msg {
 				substrate_network::NetworkMsg::Outgoing(who, outgoing_message) => {
 					network_service
 						.lock()
-						.send_custom_message(&who,  GenericMessage::VMessage(outgoing_message));
+						.send_custom_message(&who,  GenericMessage::VMessage(shard_num, outgoing_message));
 				},
 				substrate_network::NetworkMsg::ReportPeer(who, severity) => {
 					match severity {
@@ -661,19 +673,23 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 					}
 				},
 				FromNetworkMsg::CustomMessage(peer_id, message) => {
-					if let GenericMessage::VMessage(vmessage) = message{
+					if let GenericMessage::VMessage(vmessage_shard_num, vmessage) = message{
 						if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
-							if let Some(sender) = protocol_sender_list.read().get(&shard_num){
-								sender.send(vnetwork::FromNetworkMsg::CustomMessage(peer_id, vmessage)).map_err(|_|())?;
+							if vmessage_shard_num == shard_num {
+								if let Some(sender) = protocol_sender_list.read().get(&shard_num) {
+									sender.send(vnetwork::FromNetworkMsg::CustomMessage(peer_id, vmessage)).map_err(|_| ())?;
+								}
 							}
 						}
 					}
 				},
 				FromNetworkMsg::PeerClogged(peer_id, message) => {
-					if let Some(GenericMessage::VMessage(vmessage)) = message{
+					if let Some(GenericMessage::VMessage(vmessage_shard_num, vmessage)) = message{
 						if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
-							if let Some(sender) = protocol_sender_list.read().get(&shard_num){
-								sender.send(vnetwork::FromNetworkMsg::PeerClogged(peer_id, Some(vmessage))).map_err(|_|())?;
+							if vmessage_shard_num == shard_num {
+								if let Some(sender) = protocol_sender_list.read().get(&shard_num) {
+									sender.send(vnetwork::FromNetworkMsg::PeerClogged(peer_id, Some(vmessage))).map_err(|_| ())?;
+								}
 							}
 						}
 					}
@@ -706,7 +722,6 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 }
 
 use substrate_service::{Components, FactoryBlock, ComponentExHash};
-use substrate_network::chain::Client;
 
 impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, I, EH> where
 	F: substrate_service::ServiceFactory,
