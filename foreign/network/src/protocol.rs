@@ -95,6 +95,8 @@ struct ContextData<B: BlockT, H: ExHashT> {
 pub enum ProtocolMsg<B: BlockT, H: ExHashT> {
 	/// Relay Extrinsics
 	RelayExtrinsics(u16, Vec<(H, B::Extrinsic)>),
+	/// A block has been imported (sent by the client).
+	BlockImported(B::Hash, B::Header),
 	Stop,
 	/// Synchronization request.
 	#[cfg(any(test, feature = "test-helpers"))]
@@ -203,6 +205,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		match msg {
 			ProtocolMsg::RelayExtrinsics(shard_num, extrinsics) =>
 				self.on_relay_extrinsics(shard_num, extrinsics),
+			ProtocolMsg::BlockImported(hash, header) =>
+				self.on_block_imported(hash, &header),
 			ProtocolMsg::Stop => {
 				self.stop();
 				return false;
@@ -256,6 +260,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 			self.handshaking_peers.remove(&peer);
 			self.context_data.peers.remove(&peer).is_some()
 		};
+
+		self.vprotocol.on_peer_disconnected(peer, debug_info);
 	}
 
 	/// Called as a back-pressure mechanism if the networking detects that the peer cannot process
@@ -354,6 +360,11 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::RelayExtrinsics(to_send)));
 			}
 		}
+	}
+
+	fn on_block_imported(&mut self, hash: B::Hash, header: &B::Header) {
+
+		self.vprotocol.on_block_imported(hash, header);
 	}
 
 	/// Send Status message
