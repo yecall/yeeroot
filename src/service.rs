@@ -23,7 +23,7 @@ use {
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
-        Components, ForeignNetParams, FactoryBlock, NetworkProvider,
+        Components, ForeignNetParams, FactoryBlock, NetworkProvider, ComponentExHash, ServiceFactory,
     },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
@@ -110,6 +110,33 @@ impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfi
     }
 }
 
+struct NetworkWrapper<F, EH> {
+    inner: Arc<dyn NetworkProvider<F, EH>>,
+}
+
+impl<F, EH> Clone for NetworkWrapper<F, EH> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<F, EH> NetworkProvider<F, EH> for NetworkWrapper<F, EH> where
+    F: ServiceFactory,
+    EH: network::service::ExHashT,
+{
+    fn get_shard_network(
+        &self,
+        shard_num: u32,
+        params: ForeignNetParams<F, EH>,
+        protocol_id: network::ProtocolId,
+        import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
+    ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
+        self.inner.get_shard_network(shard_num, params, protocol_id, import_queue)
+    }
+}
+
 construct_simple_protocol! {
 	/// Demo protocol attachment for substrate.
 	pub struct NodeProtocol where Block = Block { }
@@ -172,12 +199,12 @@ construct_service_factory! {
                 let demo_param = foreign_demo::DemoParams{
                     shard_num: config.custom.shard_num,
                 };
-                foreign_demo::start_foreign_demo(demo_param, foreign_network, &executor).map_err(|e| format!("{:?}", e))?;
+                foreign_demo::start_foreign_demo(demo_param, foreign_network.clone(), &executor).map_err(|e| format!("{:?}", e))?;
 
-                // TODO: link with foreign_network
+                let foreign_network_wrapper = NetworkWrapper { inner: foreign_network};
                 let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
                     config,
-                    foreign_network,
+                    foreign_network_wrapper,
                     service.client(),
                     executor,
                 )?;
