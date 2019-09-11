@@ -51,6 +51,9 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
+
+	// Get client info.
+	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>;
 }
 
 /// Minimum Requirements for a Hash within Networking
@@ -125,6 +128,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			network_port_list: Arc::new(RwLock::new(HashMap::new())),
 			from_network_port: Arc::new(from_network_port),
 			protocol_sender_list: Arc::new(RwLock::new(HashMap::new())),
+			chain_list: Arc::new(RwLock::new(HashMap::new())),
 		};
 		let vnetwork_thread = vnetwork_holder.start_thread()?;
 
@@ -207,6 +211,13 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 	fn network_state(&self) -> NetworkState {
 
 		self.network.lock().state()
+	}
+
+	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>{
+
+		self.vnetwork_holder.chain_list.read().iter()
+			.map(|(shard_num, client)|(*shard_num, client.info().ok()))
+			.collect()
 	}
 
 }
@@ -398,17 +409,14 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 		match event {
 			NetworkServiceEvent::OpenedCustomProtocol { peer_id, version, debug_info, .. } => {
 				debug_assert_eq!(version, protocol::CURRENT_VERSION as u8);
-				//TODO performance improve
 				from_network_chan.send(FromNetworkMsg::PeerConnected(peer_id.clone(), debug_info.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::PeerConnected(peer_id, debug_info));
 			}
 			NetworkServiceEvent::ClosedCustomProtocol { peer_id, debug_info, .. } => {
-				//TODO performance improve
 				from_network_chan.send(FromNetworkMsg::PeerDisconnected(peer_id.clone(), debug_info.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::PeerDisconnected(peer_id, debug_info));
 			}
 			NetworkServiceEvent::CustomMessage { peer_id, message, .. } => {
-				//TODO performance improve
 				from_network_chan.send(FromNetworkMsg::CustomMessage(peer_id.clone(), message.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::CustomMessage(peer_id, message));
 				return Ok(())
@@ -417,7 +425,6 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 				debug!(target: "sync-foreign", "{} clogging messages:", messages.len());
 				for msg in messages.into_iter().take(5) {
 					debug!(target: "sync-foreign", "{:?}", msg);
-					//TODO performance improve
 					from_network_chan.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg.clone())));
 					let _ = protocol_sender.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg)));
 				}
@@ -520,6 +527,7 @@ struct VNetworkHolder<B: BlockT + 'static, I: IdentifySpecialization>{
 	network_port_list: Arc<RwLock<HashMap<u16, substrate_network::service::NetworkPort<B>>>>,
 	from_network_port: Arc<FromNetworkPort<B>>,
 	protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
+	chain_list: Arc<RwLock<HashMap<u16, Arc<substrate_network::chain::Client<B>>>>>,
 }
 
 impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
@@ -698,6 +706,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 }
 
 use substrate_service::{Components, FactoryBlock, ComponentExHash};
+use substrate_network::chain::Client;
 
 impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, I, EH> where
 	F: substrate_service::ServiceFactory,
@@ -714,12 +723,15 @@ impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBloc
 
 		let shard_num = shard_num as u16;
 
+		let chain = params.chain.clone();
+
 		let (service, network_chan,
 			network_port, network_to_protocol_sender) =
 			vnetwork::Service::new(params, import_queue)?;
 
 		self.vnetwork_holder.network_port_list.write().entry(shard_num).or_insert(network_port);
 		self.vnetwork_holder.protocol_sender_list.write().entry(shard_num).or_insert(network_to_protocol_sender);
+		self.vnetwork_holder.chain_list.write().entry(shard_num).or_insert(chain);
 
 		Ok(network_chan)
 	}

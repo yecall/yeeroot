@@ -28,6 +28,7 @@ pub mod config;
 pub mod error;
 pub mod message;
 pub mod identify_specialization;
+mod vprotocol;
 
 pub use service::{Service, NetworkMsg, SyncProvider, ExHashT};
 pub use network_libp2p::{

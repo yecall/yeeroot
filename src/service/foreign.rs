@@ -32,12 +32,13 @@ use std::time::{Instant, Duration};
 use futures::stream::Stream;
 use futures::future::Future;
 use substrate_cli::error;
-use substrate_client::ChainHead;
+use substrate_client::{ChainHead, ClientInfo};
 use runtime_primitives::traits::{ProvideRuntimeApi, Header, Block};
 use runtime_primitives::generic::BlockId;
 use sharding_primitives::ShardingAPI;
 use ansi_term::Colour;
 use substrate_service::{Components, ComponentClient, ComponentExHash};
+use substrate_client::runtime_api::BlockT;
 
 const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -206,7 +207,11 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
     let service_clone = service.clone();
 
     let task = Interval::new(Instant::now(), Duration::from_secs(5)).for_each(move |_instant| {
-        info!(target: "foreign", "{}", get_status(&service.network_state(), shard_count));
+
+        let network_state = service.network_state();
+        let client_info = service.client_info();
+
+        info!(target: "foreign", "{}", get_status(&network_state, &client_info, shard_count));
         Ok(())
     }).map_err(|e| warn!("Foreign network error: {:?}", e));
 
@@ -244,7 +249,7 @@ fn get_shard_count<F, C>(client: &Arc<C>) -> error::Result<u16>
     Ok(shard_count)
 }
 
-fn get_status(network_state: &NetworkState, shard_count: u16) -> String {
+fn get_status<B: BlockT>(network_state: &NetworkState, client_info: &HashMap<u16, Option<ClientInfo<B>>>, shard_count: u16) -> String {
     let mut result: HashMap<u16, u32> = HashMap::new();
     for (_peer_id, peer) in &network_state.connected_peers {
         match peer.shard_num {
@@ -261,7 +266,18 @@ fn get_status(network_state: &NetworkState, shard_count: u16) -> String {
             Some(count) => *count,
             None => 0u32,
         };
-        status.push_str(&format!("{} ({} peers) ", Colour::White.bold().paint(&format!("Shard#{}", i)), peer_count));
+        let best_number = match client_info.get(&i){
+            Some(info) => match info{
+                Some(info) => format!("{}", info.chain.best_number),
+                None => "-".to_string(),
+            },
+            None => "-".to_string(),
+        };
+        status.push_str(&format!("{} (peers: {}, best: {}) ",
+                                 Colour::White.bold().paint(&format!("Shard#{}", i)),
+                                 peer_count,
+                                 best_number,
+        ));
     }
 
     //remove last blank char

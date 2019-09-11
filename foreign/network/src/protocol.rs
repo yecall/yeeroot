@@ -36,9 +36,7 @@ use crate::{error, util::LruHashSet};
 use crate::chain::Client;
 use serde::export::PhantomData;
 use crate::config::{NetworkConfiguration, ProtocolConfig};
-
-/// Interval at which we propagate exstrinsics;
-const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(2900);
+use crate::vprotocol::VProtocol;
 
 /// Current protocol version.
 pub(crate) const CURRENT_VERSION: u32 = 2;
@@ -56,6 +54,7 @@ pub struct Protocol<B: BlockT, H: ExHashT> {
 	context_data: ContextData<B, H>,
 	// Connected peers pending Status message.
 	handshaking_peers: HashMap<PeerId, HandshakingPeer>,
+	vprotocol: VProtocol<B, H>,
 }
 
 /// A peer that we are connected to
@@ -135,6 +134,12 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		let (protocol_sender, port) = channel::unbounded();
 		let (from_network_sender, from_network_port) = channel::bounded(4);
 		let info = chain.info()?;
+
+		let vprotocol = VProtocol::new(
+			network_chan.clone(),
+			chain.clone()
+		)?;
+
 		let _ = thread::Builder::new()
 			.name("Protocol".into())
 			.spawn(move || {
@@ -150,6 +155,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 						chain,
 					},
 					handshaking_peers: HashMap::new(),
+					vprotocol,
 				};
 				while protocol.run() {
 					// Running until all senders have been dropped...
@@ -223,8 +229,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_custom_message(&mut self, who: PeerId, message: Message<B>) {
 		match message {
 			GenericMessage::Status(s) => self.on_status_message(who, s),
-			GenericMessage::RelayExtrinsics(m) => self.on_replay_extrinsics(who, m),
-			_ => (),
+			GenericMessage::RelayExtrinsics(m) => self.on_relay_extrinsics_message(who, m),
+			GenericMessage::VMessage(vmessage) => self.vprotocol.on_vmessage(who, vmessage),
 		}
 	}
 
@@ -232,7 +238,9 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_peer_connected(&mut self, who: PeerId, debug_info: String) {
 		trace!(target: "sync-foreign", "Connecting {}: {}", who, debug_info);
 		self.handshaking_peers.insert(who.clone(), HandshakingPeer { timestamp: time::Instant::now() });
-		self.send_status(who);
+		self.send_status(who.clone());
+
+		self.vprotocol.on_peer_connected(who, debug_info);
 	}
 
 	/// Called by peer when it is disconnecting
@@ -316,7 +324,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	}
 
 	/// Called when peer sends us new extrinsics
-	fn on_replay_extrinsics(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
+	fn on_relay_extrinsics_message(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
 		trace!(target: "sync-foreign", "Received {} extrinsics from {}", extrinsics.len(), who);
 
 		let message = OutMessage::RelayExtrinsics(extrinsics);
@@ -355,6 +363,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				chain_status: Vec::new(),
 				shard_num: self.config.shard_num,
 			};
+			trace!(target: "sync-foreign", "Sending status to {}: gh: {} shard_num: {}", who, info.chain.genesis_hash, self.config.shard_num);
 			self.send_message(who, GenericMessage::Status(status))
 		}
 	}
