@@ -398,17 +398,14 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 		match event {
 			NetworkServiceEvent::OpenedCustomProtocol { peer_id, version, debug_info, .. } => {
 				debug_assert_eq!(version, protocol::CURRENT_VERSION as u8);
-				//TODO performance improve
 				from_network_chan.send(FromNetworkMsg::PeerConnected(peer_id.clone(), debug_info.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::PeerConnected(peer_id, debug_info));
 			}
 			NetworkServiceEvent::ClosedCustomProtocol { peer_id, debug_info, .. } => {
-				//TODO performance improve
 				from_network_chan.send(FromNetworkMsg::PeerDisconnected(peer_id.clone(), debug_info.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::PeerDisconnected(peer_id, debug_info));
 			}
 			NetworkServiceEvent::CustomMessage { peer_id, message, .. } => {
-				//TODO performance improve
 				from_network_chan.send(FromNetworkMsg::CustomMessage(peer_id.clone(), message.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::CustomMessage(peer_id, message));
 				return Ok(())
@@ -417,7 +414,6 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 				debug!(target: "sync-foreign", "{} clogging messages:", messages.len());
 				for msg in messages.into_iter().take(5) {
 					debug!(target: "sync-foreign", "{:?}", msg);
-					//TODO performance improve
 					from_network_chan.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg.clone())));
 					let _ = protocol_sender.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg)));
 				}
