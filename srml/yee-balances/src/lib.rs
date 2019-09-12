@@ -416,6 +416,7 @@ decl_module! {
 		///
 		///
 		fn relay_transfer(
+		    origin,
 		    transfer: Vec<u8>,
 		    height: Compact<u64>,
 		    hash: T::Hash,
@@ -542,11 +543,16 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         if !<FreeBalance<T, I>>::exists(tx.dest()) {
             Self::new_account(&tx.dest(), tx.amount());
         }
-        Self::set_free_balance(&tx.dest(), tx.amount());
+        let to_balance = Self::free_balance(&tx.dest());
+        let to_balance = match to_balance.checked_add(&tx.amount()) {
+            Some(b) => b,
+            None => return Err("destination balance too high to receive value"),
+        };
+        Self::set_free_balance(&tx.dest(), to_balance);
         Self::deposit_event(RawEvent::Transfer(
             T::AccountId::default(),
             tx.dest().clone(),
-            tx.amount(),
+            to_balance,
             Zero::zero(),
         ));
         Ok(())
