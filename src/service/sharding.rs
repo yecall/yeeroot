@@ -29,7 +29,7 @@ use {
     primitives::Blake2Hasher,
     runtime_primitives::{
         generic::{
-            BlockId, Digest, DigestItem,
+            BlockId, DigestItem,
         },
         traits::{
             Block, Header, Digest as DigestT, DigestFor, DigestItem as DigestItemT, DigestItemFor,
@@ -38,7 +38,6 @@ use {
             One,
         },
     },
-    sr_io::twox_128,
     state_machine::backend::Backend as StateBackend,
     substrate_client::{
         ChainHead,

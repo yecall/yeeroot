@@ -30,6 +30,7 @@ error_chain! {
 	}
 
 	links {
+		Client(client::error::Error, client::error::ErrorKind) #[doc="Client error"];
 	}
 
 	errors {

@@ -20,6 +20,11 @@ use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
     consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
+    consensus_common::import_queue::ImportQueue,
+    foreign_chain::{ForeignChain, ForeignChainConfig},
+    substrate_service::{
+        Components, ForeignNetParams, FactoryBlock, NetworkProvider, ComponentExHash, ServiceFactory,
+    },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
         AccountId, AuthorityId, AuthoritySignature,
@@ -50,7 +55,6 @@ native_executor_instance!(
 	include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
-#[derive(Clone)]
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
@@ -61,8 +65,8 @@ pub struct NodeConfig {
 }
 
 impl Default for NodeConfig {
-    fn default() -> Self{
-        Self{
+    fn default() -> Self {
+        Self {
             inherent_data_providers: Default::default(),
             coin_base: Default::default(),
             shard_num: Default::default(),
@@ -73,9 +77,61 @@ impl Default for NodeConfig {
     }
 }
 
+impl Clone for NodeConfig {
+    fn clone(&self) -> Self {
+        Self {
+            coin_base: self.coin_base.clone(),
+            shard_num: self.shard_num,
+            foreign_port: self.foreign_port,
+
+            // cloned config SHALL NOT SHARE some items with original config
+            inherent_data_providers: Default::default(),
+            bootnodes_router_conf: None,
+            job_manager: Arc::new(RwLock::new(None)),
+        }
+    }
+}
+
+impl ForeignChainConfig for NodeConfig {
+    fn get_shard_num(&self) -> u32 {
+        self.shard_num as u32
+    }
+
+    fn set_shard_num(&mut self, shard: u32) {
+        self.shard_num = shard as u16;
+    }
+}
+
 impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig{
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
+    }
+}
+
+struct NetworkWrapper<F, EH> {
+    inner: Arc<dyn NetworkProvider<F, EH>>,
+}
+
+impl<F, EH> Clone for NetworkWrapper<F, EH> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+        }
+    }
+}
+
+impl<F, EH> NetworkProvider<F, EH> for NetworkWrapper<F, EH> where
+    F: ServiceFactory,
+    EH: network::service::ExHashT,
+{
+    fn get_shard_network(
+        &self,
+        shard_num: u32,
+        params: ForeignNetParams<F, EH>,
+        protocol_id: network::ProtocolId,
+        import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
+    ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
+        self.inner.get_shard_network(shard_num, params, protocol_id, import_queue)
     }
 }
 
@@ -134,7 +190,16 @@ construct_service_factory! {
 			        foreign_port: config.custom.foreign_port,
 			        bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
 			    };
-                start_foreign_network::<Self, _>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
+                let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
+
+                let foreign_network_wrapper = NetworkWrapper { inner: foreign_network};
+                let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
+                    config,
+                    foreign_network_wrapper,
+                    service.client(),
+                    executor,
+                )?;
+                // TODO: register to transaction pool
 
 				Ok(service)
 			}

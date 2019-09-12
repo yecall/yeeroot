@@ -59,6 +59,7 @@ yee-foreign-network = { package = "yee-foreign-network", path = "foreign/network
 yee-dev = { package = "yee-dev", path = "dev" }
 srml-sharding = { package = "yee-srml-sharding", path = "srml/yee-sharding" }
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+foreign_chain = { package = "yee-foreign-chain", path = "foreign/chain" }
 
 [build-dependencies]
 vergen = "3"
