@@ -1,7 +1,7 @@
 [package]
 name = "yee-srml-executive"
-version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+version = "0.4.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
 
 [dependencies]
@@ -13,7 +13,6 @@ primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substr
 srml-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 balances = { package = "yee-srml-balances", path = "../yee-balances", default-features = false }
-#yee-relay = { package = "yee-srml-relay", path = "../yee-relay", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives", default-features = false }
 

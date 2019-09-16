@@ -1,6 +1,6 @@
 use rstd::vec::Vec;
-use primitives::{ traits::Zero, generic::Era };
-use parity_codec::{ Encode, Decode, Compact, Input };
+use primitives::{traits::Zero, generic::Era};
+use parity_codec::{Encode, Decode, Compact, Input};
 
 
 pub struct OriginTransfer<Address, Balance> {
@@ -10,14 +10,6 @@ pub struct OriginTransfer<Address, Balance> {
     era: Era,
     dest: Address,
     amount: Balance,
-}
-
-pub struct RelayTransfer<Address, Balance, Hash> {
-    pub transfer: OriginTransfer<Address, Balance>,
-    height: Compact<u64>,
-    hash: Hash,
-    parent: Hash,
-    proof: Vec<u8>,
 }
 
 impl<Address, Balance> OriginTransfer<Address, Balance>
@@ -30,116 +22,99 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
         if input.len() < 64 + 1 + 1 {
             return None;
         }
-        if let Some(len) = Decode::decode(&mut input) {
-            let _len: Vec<()> = len;
-        } else {
-            return None;
-        }
-
-        let mut version = 0;
-        if let Some(v) = input.read_byte() {
-            version = v;
-        } else {
-            return None;
-        }
+        // length
+        let _len: Vec<()> = match Decode::decode(&mut input) {
+            Some(len) => len,
+            None => return None
+        };
+        // version
+        let version = match input.read_byte() {
+            Some(v) =>v,
+            None => return None
+        };
+        // is signed
         let is_signed = version & 0b1000_0000 != 0;
         let version = version & 0b0111_1111;
         if version != 1u8 {
             return None;
         }
 
-        let mut sender = Address::default();
-        let mut signature = Vec::new();
-        let mut index = Compact(0u64);
-        let mut era = Era::Mortal(0u64, 0u64);
-        let mut no_era = true;
-        if is_signed {
+        let (sender, signature, index, era) = if is_signed {
+            // sender type
+            let _type = match input.read_byte(){
+                Some(a_t) => a_t,
+                None => return None
+            };
             // sender
-            if let Some(a) = input.read_byte() {
-                let _addr_type = a;
-            } else {
-                return None;
-            }
-            if let Some(s) = Decode::decode(&mut input) {
-                sender = s
-            } else {
-                return None;
-            }
+            let sender = match Decode::decode(&mut input) {
+                Some(s) => s,
+                None => return None
+            };
             if input.len() < 64 {
                 return None;
             }
             // signature
-            signature = input[..64].to_vec();
+            let signature = input[..64].to_vec();
             input = &input[64..];
             // index
-            if let Some(i) = Decode::decode(&mut input) {
-                index = i;
-            } else {
-                return None;
-            }
+            let index = match Decode::decode(&mut input) {
+                Some(i) => i,
+                None => return None
+            };
             if input.len() < 1 {
                 return None;
             }
             // era
-            if input[0] != 0u8 {
-                no_era = false;
-                if let Some(e) = Decode::decode(&mut input) {
-                    era = e;
+            let era = if input[0] != 0u8 {
+                match Decode::decode(&mut input) {
+                    Some(e) => e,
+                    None => return None
                 }
             } else {
                 input = &input[1..];
-            }
-        }
-        if no_era {
-            era = Era::Immortal;
-        }
-        if input.len() < 1 {
+                Era::Immortal
+            };
+            (sender, signature, index, era)
+        }else{
+            (Address::default(), Vec::new(), Compact(0u64), Era::Immortal)
+        };
+
+        if input.len() < 2 + 32 + 1 {
             return None;
         }
         // module
-        if let Some(m) = input.read_byte() {
-            let _module: u8 = m;
-        } else {
-            return None;
-        }
-        if input.len() < 1 {
-            return None;
-        }
+        let _module: u8 = match input.read_byte() {
+            Some(m) => m,
+            None => return None
+        };
         // function
-        if let Some(f) = input.read_byte() {
-            let _func: u8 = f;
-        } else {
-            return None;
-        }
-        if input.len() < 1 {
-            return None;
-        }
+        let _func: u8 = match input.read_byte() {
+            Some(f) => f,
+            None => return None
+        };
+        // dest address type
+        let _type: u8 = match input.read_byte() {
+            Some(t) => t,
+            None => return None
+        };
         // dest address
-        if let Some(at) = input.read_byte() {
-            let _addr_type = at;
-        } else {
-            return None;
-        }
-        let mut dest = Address::default();
-        if let Some(d) = Decode::decode(&mut input) {
-            dest = d;
-        } else {
-            return None;
-        }
-        if input.len() < 1 {
-            return None;
-        }
+        let dest:Address  = match Decode::decode(&mut input) {
+            Some(addr) => addr,
+            None => return None
+        };
         // amount
-        let mut amount = Zero::zero();
-        if let Some(a) = Decode::decode(&mut input) {
-            let a_c : Compact<u128> = a;
-            let buf = a_c.0.encode();
-            if let Some(am) = Decode::decode(&mut buf.as_slice()){
-                amount = am;
-            }
-        } else {
-            return None;
-        }
+        let mut amount: Balance = match Decode::decode(&mut input) {
+            Some(a) => {
+                let a_c: Compact<u128> = a;
+                let buf = a_c.0.encode();
+                match Decode::decode(&mut buf.as_slice()) {
+                    Some(am) => am,
+                    None => return None
+                }
+            },
+            None => return None
+
+        };
         Some(OriginTransfer {
             sender,
             signature,
@@ -157,138 +132,4 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
     pub fn amount(&self) -> Balance {
         self.amount.clone()
     }
-}
-
-impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
-    where
-        Address: Decode + Default + Clone,
-        Balance: Decode + Zero + Clone,
-        Hash: Decode + Clone + Default
-{
-    pub fn decode(data: Vec<u8>) -> Option<Self> {
-        let mut input = data.as_slice();
-        if let Some(len) = Decode::decode(&mut input) {
-            let _len: Vec<()> = len;
-        } else {
-            return None;
-        }
-
-        let mut version = 0;
-        if let Some(v) = input.read_byte() {
-            version = v;
-        } else {
-            return None;
-        }
-        let is_signed = version & 0b1000_0000 != 0;
-        let version = version & 0b0111_1111;
-        // has signed or version not satisfy
-        if is_signed || version != 1u8 {
-            return None;
-        }
-        // module
-        if let Some(m) = input.read_byte() {
-            let _module: u8 = m;
-        } else {
-            return None;
-        }
-        if input.len() < 1 {
-            return None;
-        }
-        // function
-        if let Some(f) = input.read_byte() {
-            let _func: u8 = f;
-        } else {
-            return None;
-        }
-        if input.len() < 64 {   // origin transfer signature's length
-            return None;
-        }
-        // origin transfer
-        let mut origin_transfer = Vec::new();
-        if let Some(ot) = Decode::decode(&mut input) {
-            origin_transfer = ot;
-        } else {
-            return None;
-        }
-        if input.len() < 1 {
-            return None;
-        }
-        // which block's height the origin transfer in
-        let mut height = Compact(0u64);
-        if let Some(h) = Decode::decode(&mut input) {
-            height = h;
-        } else {
-            return None;
-        }
-        if input.len() < 32 {
-            return None;
-        }
-        // block hash
-        let mut block_hash = Hash::default();
-        if let Some(h) = Decode::decode(&mut input) {
-            block_hash = h;
-        } else {
-            return None;
-        }
-        if input.len() < 32 {
-            return None;
-        }
-        // which block's parent hash the origin transfer in
-        let mut parent = Hash::default();
-        if let Some(h) = Decode::decode(&mut input) {
-            parent = h;
-        } else {
-            return None;
-        }
-        if input.len() < 1 {
-            return None;
-        }
-        // proof
-        let mut proof = Vec::new();
-        if let Some(p) = Decode::decode(&mut input) {
-            proof = p;
-        } else {
-            return None;
-        }
-        // decode origin transfer and build relay transfer
-        if let Some(ot) = OriginTransfer::decode(origin_transfer) {
-            return Some(RelayTransfer {
-                transfer: ot,
-                height,
-                hash: block_hash,
-                parent,
-                proof,
-            });
-        }
-
-        None
-    }
-
-    pub fn height(&self) -> u64 {
-        self.height.into()
-    }
-
-    pub fn hash(&self) -> Hash {
-        self.hash.clone()
-    }
-
-    pub fn parent(&self) -> Hash {
-        self.parent.clone()
-    }
-
-    pub fn sender(&self) -> Address {
-        self.transfer.sender.clone()
-    }
-}
-
-#[test]
-fn test_decode() {
-    let tx = "250281ff784cb29a605b557c11a3e22520387c4377ded1734f56900d7f04946a0b70f338bc9b0ff2ffa4b95d4479cbaccefc7bbe908430f5c5ec571a25c71ee005d5755b65b7768dff90479a09f0d545384e57f057707664e2fa250818877a1a5a971f0f30000300ff8eaf04151687736326c9fea17e25fc5287613693c912909cb226aa4794f26a48a10f";
-    let data = hex::decode(tx).unwrap();
-    let ot = OriginTransfer::decode(data).unwrap();
-    let mut ot_a = ot.amount;
-    let amount: u128 = Decode::decode(&mut ot_a).unwrap().into();
-
-    assert_eq!(amount, 1000u128);
-    //assert_eq!(ot.index, 1);
 }

@@ -192,14 +192,21 @@ construct_service_factory! {
 			    };
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
-                let foreign_network_wrapper = NetworkWrapper { inner: foreign_network};
+                let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
                 let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
                     config,
                     foreign_network_wrapper,
                     service.client(),
-                    executor,
+                    executor.clone(),
                 )?;
-                // TODO: register to transaction pool
+
+                // relay-transfer
+				yee_relay::start_relay_transfer::<Self, _, _>(
+					service.client(),
+					&executor,
+					foreign_network.clone(),
+					service.transaction_pool()
+				).map_err(|e| format!("{:?}", e))?;
 
 				Ok(service)
 			}

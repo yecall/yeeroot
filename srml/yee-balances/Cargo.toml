@@ -1,7 +1,7 @@
 [package]
 name = "yee-srml-balances"
-version = "1.0.0"
-authors = ["Parity Technologies <admin@parity.io>"]
+version = "0.4.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
 
 [dependencies]
@@ -14,11 +14,9 @@ substrate-keyring = { git = "https://github.com/yeeco/substrate.git", optional =
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-#node-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
-#yee-relay = { package = "yee-srml-relay", path = "../yee-relay", default-features = false }
 
 [dev-dependencies]
 runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

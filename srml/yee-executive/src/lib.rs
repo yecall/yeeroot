@@ -211,8 +211,8 @@ impl<
 			<system::Module<System>>::inc_account_nonce(sender);
 		} else {
 			if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data){
-				// check origin signature
-				// todo
+				// check origin signature and proof
+				// TODO
 
 			}
 		}
@@ -329,7 +329,7 @@ impl<
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
-            // requires: vec![(shard_num, rtx.hash(), rtx.parent()).encode()],
+            // requires: vec![(shard_num, rtx.number(), rtx.hash(), rtx.parent()).encode()],
 			requires: vec![],	// todo
             provides: vec![],
             longevity: TransactionLongevity::max_value(),

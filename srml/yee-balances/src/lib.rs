@@ -550,7 +550,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         };
         Self::set_free_balance(&tx.dest(), to_balance);
         Self::deposit_event(RawEvent::Transfer(
-            T::AccountId::default(),
+            T::AccountId::default(),    // todo
             tx.dest().clone(),
             to_balance,
             Zero::zero(),
@@ -831,6 +831,13 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
         let dn = yee_sharding_primitives::utils::shard_num_for(dest, c).expect("can't get target shard num");
         if cn != dn {
             Self::set_free_balance(transactor, new_from_balance);
+            T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
+            Self::deposit_event(RawEvent::Transfer(
+                transactor.clone(),
+                dest.clone(),
+                value,
+                fee,
+            ));
             return Ok(());
         }
 

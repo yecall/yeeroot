@@ -50,7 +50,7 @@ use yee_sharding_primitives::ShardingAPI;
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
-    foreign_network: Box<Arc<network::SyncProvider<FactoryBlock<F>, H256>>>,
+    foreign_network: Arc<network::SyncProvider<FactoryBlock<F>, H256>>,
     pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
     where F: ServiceFactory,
@@ -69,6 +69,9 @@ pub fn start_relay_transfer<F, C, A>(
             let blockId = BlockId::Hash(hash);
             let header = client.header(blockId).unwrap().unwrap();
             let body = client.block_body(&blockId).unwrap().unwrap();
+            let api = client.runtime_api();
+            let tc = api.get_shard_count(&blockId).unwrap();    // total count
+            let cs = api.get_curr_shard(&blockId).unwrap().unwrap();    // current shard
             for mut tx in &body {
                 let ec = tx.encode();
                 debug!(target: "relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
@@ -78,9 +81,6 @@ pub fn start_relay_transfer<F, C, A>(
                     continue;
                 }
                 if let Call::Balances(BalancesCall::transfer(dest, value)) = &ex.function {
-                    let api = client.runtime_api();
-                    let tc = api.get_shard_count(&blockId).unwrap();    // total count
-                    let cs = api.get_curr_shard(&blockId).unwrap().unwrap();    // current shard
                     let ds = yee_sharding_primitives::utils::shard_num_for(dest, tc as u16);    // dest shard
                     if ds.is_none() {
                         continue;
@@ -112,7 +112,7 @@ pub fn start_relay_transfer<F, C, A>(
 
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
         match messages {
-            network::message::generic::OutMessage::Extrinsics(txs) =>{
+            network::message::generic::OutMessage::RelayExtrinsics(txs) =>{
                 let h = 0u64;
                 let h = h.encode();
                 let h = Decode::decode(&mut h.as_slice()).unwrap();
