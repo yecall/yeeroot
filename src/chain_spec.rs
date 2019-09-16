@@ -1,13 +1,13 @@
 use {
-	primitives::{
-		sr25519, Pair,
-		crypto::Ss58Codec,
-	},
+    primitives::{
+        sr25519, Pair,
+        crypto::Ss58Codec,
+    },
 };
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig,
-	PowConfig, ShardingConfig,
+    PowConfig, ShardingConfig,
 };
 use substrate_service;
 
@@ -26,8 +26,8 @@ pub enum Alternative {
 	Development,
 	/// Whatever the current runtime is, with simple Alice/Bob auths.
 	LocalTestnet,
-	/// Proof-of-Concept chain with prebuilt runtime.
-	POCTestnet,
+    /// Proof-of-Concept chain with prebuilt runtime.
+    POCTestnet,
 }
 
 fn account_key(s: &str) -> AccountId {
@@ -37,8 +37,8 @@ fn account_key(s: &str) -> AccountId {
 }
 
 fn account_addr(s: &str) -> AccountId {
-	<AccountId as Ss58Codec>::from_string(s)
-		.expect("static values are valid; qed")
+    <AccountId as Ss58Codec>::from_string(s)
+        .expect("static values are valid; qed")
 }
 
 impl Alternative {
@@ -76,57 +76,57 @@ impl Alternative {
 				None,
 				None
 			),
-			Alternative::POCTestnet => ChainSpec::from_genesis(
-				"POC Testnet",
-				"poc_testnet",
-				|| poc_testnet_genesis(vec![
-					account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
-					account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
-					account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
-					account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
-				]),
-				vec![],
-				None,
-				None,
-				None,
-				None,
-			),
+            Alternative::POCTestnet => ChainSpec::from_genesis(
+                "POC Testnet",
+                "poc_testnet",
+                || poc_testnet_genesis(vec![
+                    account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
+                    account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
+                    account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
+                    account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
+                ]),
+                vec![],
+                None,
+                None,
+                None,
+                None,
+            ),
 		})
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(Alternative::Development),
-			"local" => Some(Alternative::LocalTestnet),
-			"" | "poc" => Some(Alternative::POCTestnet),
+            "local" => Some(Alternative::LocalTestnet),
+            "" | "poc" => Some(Alternative::POCTestnet),
 			_ => None,
 		}
 	}
 }
 
 fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-	let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
-	testnet_template_genesis(
-		endowed_accounts, code,
-		primitives::U256::from(0x0000ffff) << 224,
-		15,
-	)
+    let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
+    testnet_template_genesis(
+        endowed_accounts, code,
+        primitives::U256::from(0x0000ffff) << 224,
+        15,
+    )
 }
 
 fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-	let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
-	testnet_template_genesis(
-		endowed_accounts, code,
-		primitives::U256::from(0x00003fff) << 224,
-		60,
-	)
+    let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
+    testnet_template_genesis(
+        endowed_accounts, code,
+        primitives::U256::from(0x00003fff) << 224,
+        60,
+    )
 }
 
 fn testnet_template_genesis(
-	endowed_accounts: Vec<AccountId>,
-	code: Vec<u8>,
-	genesis_difficulty: primitives::U256,
-	target_block_time: u64,
+    endowed_accounts: Vec<AccountId>,
+    code: Vec<u8>,
+    genesis_difficulty: primitives::U256,
+    target_block_time: u64,
 ) -> GenesisConfig {
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
@@ -137,11 +137,11 @@ fn testnet_template_genesis(
 		timestamp: Some(TimestampConfig {
 			minimum_period: 0, // 10 second block time.
 		}),
-		pow: Some(PowConfig {
-			genesis_difficulty,
-			difficulty_adj: 60_u64.into(),
-			target_block_time: target_block_time.into(),
-		}),
+        pow: Some(PowConfig {
+            genesis_difficulty,
+            difficulty_adj: 60_u64.into(),
+            target_block_time: target_block_time.into(),
+        }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
 		}),
@@ -154,8 +154,8 @@ fn testnet_template_genesis(
 			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
 			vesting: vec![],
 		}),
-		sharding: Some(ShardingConfig {
-			genesis_sharding_count: 4,
-		}),
+        sharding: Some(ShardingConfig {
+            genesis_sharding_count: 4,
+        }),
 	}
 }

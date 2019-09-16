@@ -18,19 +18,19 @@ use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use {
-    parking_lot::RwLock,
-    consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
-    consensus_common::import_queue::ImportQueue,
-    foreign_chain::{ForeignChain, ForeignChainConfig},
-    substrate_service::{
-        Components, ForeignNetParams, FactoryBlock, NetworkProvider, ComponentExHash, ServiceFactory,
-    },
-    yee_runtime::{
-        self, GenesisConfig, opaque::Block, RuntimeApi,
-        AccountId, AuthorityId, AuthoritySignature,
-    },
-    yee_rpc::{FullRpcHandlerConstructor, LightRpcHandlerConstructor},
-    yee_sharding::identify_specialization::ShardingIdentifySpecialization,
+	parking_lot::RwLock,
+	consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
+	consensus_common::import_queue::ImportQueue,
+	foreign_chain::{ForeignChain, ForeignChainConfig},
+	substrate_service::{
+		Components, ForeignNetParams, FactoryBlock, NetworkProvider, ComponentExHash, ServiceFactory,
+	},
+	yee_runtime::{
+		self, GenesisConfig, opaque::Block, RuntimeApi,
+		AccountId, AuthorityId, AuthoritySignature,
+	},
+	yee_rpc::{FullRpcHandlerConstructor, LightRpcHandlerConstructor},
+	yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
 
 mod sharding;
@@ -57,82 +57,82 @@ native_executor_instance!(
 
 pub struct NodeConfig {
 	inherent_data_providers: InherentDataProviders,
-    pub coin_base: AccountId,
-    pub shard_num: u16,
+	pub coin_base: AccountId,
+	pub shard_num: u16,
 	pub foreign_port: Option<u16>,
 	pub bootnodes_router_conf: Option<BootnodesRouterConf>,
-    pub job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
+	pub job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
 }
 
 impl Default for NodeConfig {
-    fn default() -> Self {
-        Self {
-            inherent_data_providers: Default::default(),
-            coin_base: Default::default(),
-            shard_num: Default::default(),
-            foreign_port: Default::default(),
-            bootnodes_router_conf: Default::default(),
-            job_manager: Arc::new(RwLock::new(None)),
-        }
-    }
+	fn default() -> Self {
+		Self {
+			inherent_data_providers: Default::default(),
+			coin_base: Default::default(),
+			shard_num: Default::default(),
+			foreign_port: Default::default(),
+			bootnodes_router_conf: Default::default(),
+			job_manager: Arc::new(RwLock::new(None)),
+		}
+	}
 }
 
 impl Clone for NodeConfig {
-    fn clone(&self) -> Self {
-        Self {
-            coin_base: self.coin_base.clone(),
-            shard_num: self.shard_num,
-            foreign_port: self.foreign_port,
+	fn clone(&self) -> Self {
+		Self {
+			coin_base: self.coin_base.clone(),
+			shard_num: self.shard_num,
+			foreign_port: self.foreign_port,
 
-            // cloned config SHALL NOT SHARE some items with original config
-            inherent_data_providers: Default::default(),
-            bootnodes_router_conf: None,
-            job_manager: Arc::new(RwLock::new(None)),
-        }
-    }
+			// cloned config SHALL NOT SHARE some items with original config
+			inherent_data_providers: Default::default(),
+			bootnodes_router_conf: None,
+			job_manager: Arc::new(RwLock::new(None)),
+		}
+	}
 }
 
 impl ForeignChainConfig for NodeConfig {
-    fn get_shard_num(&self) -> u32 {
-        self.shard_num as u32
-    }
+	fn get_shard_num(&self) -> u32 {
+		self.shard_num as u32
+	}
 
-    fn set_shard_num(&mut self, shard: u32) {
-        self.shard_num = shard as u16;
-    }
+	fn set_shard_num(&mut self, shard: u32) {
+		self.shard_num = shard as u16;
+	}
 }
 
 impl ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig{
-    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
-        self.job_manager.clone()
-    }
+	fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
+		self.job_manager.clone()
+	}
 }
 
 struct NetworkWrapper<F, EH> {
-    inner: Arc<dyn NetworkProvider<F, EH>>,
+	inner: Arc<dyn NetworkProvider<F, EH>>,
 }
 
 impl<F, EH> Clone for NetworkWrapper<F, EH> {
-    fn clone(&self) -> Self {
-        Self {
-            inner: self.inner.clone(),
-        }
-    }
+	fn clone(&self) -> Self {
+		Self {
+			inner: self.inner.clone(),
+		}
+	}
 }
 
 impl<F, EH> NetworkProvider<F, EH> for NetworkWrapper<F, EH> where
-    F: ServiceFactory,
-    EH: network::service::ExHashT,
+	F: ServiceFactory,
+	EH: network::service::ExHashT,
 {
-    fn get_shard_network(
-        &self,
-        shard_num: u32,
-        params: ForeignNetParams<F, EH>,
-        protocol_id: network::ProtocolId,
-        import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
-    ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
-        self.inner.get_shard_network(shard_num, params, protocol_id, import_queue)
-    }
+	fn get_shard_network(
+		&self,
+		shard_num: u32,
+		params: ForeignNetParams<F, EH>,
+		protocol_id: network::ProtocolId,
+		import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
+	) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
+		self.inner.get_shard_network(shard_num, params, protocol_id, import_queue)
+	}
 }
 
 construct_simple_protocol! {
@@ -166,8 +166,8 @@ construct_service_factory! {
 						inherents_pool: service.inherents_pool(),
 					});
 					let client = service.client();
-                    executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
-                        key.clone(),
+					executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
+					key.clone(),
 						client.clone(),
 						client,
 						proposer,
@@ -215,7 +215,7 @@ construct_service_factory! {
 			{ |config, executor| <LightComponents<Factory>>::new(config, executor) },
 		FullImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
-			        prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
+					prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
 					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 						client.clone(),
 						None,
@@ -226,7 +226,7 @@ construct_service_factory! {
 			},
 		LightImportQueue = PowImportQueue<Self::Block>
 			{ |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-			        prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
+					prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
 					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 						client.clone(),
 						None,
@@ -238,9 +238,9 @@ construct_service_factory! {
 		FullRpcHandlerConstructor = FullRpcHandlerConstructor,
 		LightRpcHandlerConstructor = LightRpcHandlerConstructor,
 		IdentifySpecialization = ShardingIdentifySpecialization
-		    { |config: &FactoryFullConfiguration<Self>| {
-		        Ok(ShardingIdentifySpecialization::new(NATIVE_PROTOCOL_VERSION.to_string(), config.custom.shard_num))
-		        }
-		    },
+			{ |config: &FactoryFullConfiguration<Self>| {
+				Ok(ShardingIdentifySpecialization::new(NATIVE_PROTOCOL_VERSION.to_string(), config.custom.shard_num))
+				}
+			},
 	}
 }
