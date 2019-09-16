@@ -1,17 +1,15 @@
 use {
-    primitives::{
-        ed25519, sr25519, Pair,
-        crypto::Ss58Codec,
-    },
+	primitives::{
+		sr25519, Pair,
+		crypto::Ss58Codec,
+	},
 };
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig,
-    PowConfig, ShardingConfig,
+	PowConfig, ShardingConfig,
 };
 use substrate_service;
-
-use ed25519::Public as AuthorityId;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -28,14 +26,8 @@ pub enum Alternative {
 	Development,
 	/// Whatever the current runtime is, with simple Alice/Bob auths.
 	LocalTestnet,
-    /// Proof-of-Concept chain with prebuilt runtime.
-    POCTestnet,
-}
-
-fn authority_key(s: &str) -> AuthorityId {
-	ed25519::Pair::from_string(&format!("//{}", s), None)
-		.expect("static values are valid; qed")
-		.public()
+	/// Proof-of-Concept chain with prebuilt runtime.
+	POCTestnet,
 }
 
 fn account_key(s: &str) -> AccountId {
@@ -45,8 +37,8 @@ fn account_key(s: &str) -> AccountId {
 }
 
 fn account_addr(s: &str) -> AccountId {
-    <AccountId as Ss58Codec>::from_string(s)
-        .expect("static values are valid; qed")
+	<AccountId as Ss58Codec>::from_string(s)
+		.expect("static values are valid; qed")
 }
 
 impl Alternative {
@@ -57,14 +49,7 @@ impl Alternative {
 				"Development",
 				"dev",
 				|| testnet_genesis(vec![
-					authority_key("Alice")
-				], vec![
-					account_key("Alice"),
-					account_key("Bob"),
-					account_key("Charlie"),
-					account_key("Dave"),
-					account_key("Eve"),
-					account_key("Ferdie")
+					account_key("Alice")
 				],
 				),
 				vec![],
@@ -77,9 +62,6 @@ impl Alternative {
 				"Local Testnet",
 				"local_testnet",
 				|| testnet_genesis(vec![
-					authority_key("Alice"),
-					authority_key("Bob"),
-				], vec![
 					account_key("Alice"),
 					account_key("Bob"),
 					account_key("Charlie"),
@@ -94,59 +76,72 @@ impl Alternative {
 				None,
 				None
 			),
-            Alternative::POCTestnet => ChainSpec::from_genesis(
-                "POC Testnet",
-                "poc_testnet",
-                || poc_testnet_genesis(vec![
-                    account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
-                    account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
-                    account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
-                    account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
-                ]),
-                vec![],
-                None,
-                None,
-                None,
-                None,
-            ),
+			Alternative::POCTestnet => ChainSpec::from_genesis(
+				"POC Testnet",
+				"poc_testnet",
+				|| poc_testnet_genesis(vec![
+					account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
+					account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
+					account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
+					account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
+				]),
+				vec![],
+				None,
+				None,
+				None,
+				None,
+			),
 		})
 	}
 
 	pub(crate) fn from(s: &str) -> Option<Self> {
 		match s {
 			"dev" => Some(Alternative::Development),
-            "local" => Some(Alternative::LocalTestnet),
-            "" | "poc" => Some(Alternative::POCTestnet),
+			"local" => Some(Alternative::LocalTestnet),
+			"" | "poc" => Some(Alternative::POCTestnet),
 			_ => None,
 		}
 	}
 }
 
-fn testnet_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-    let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
-    testnet_template_genesis(initial_authorities, endowed_accounts, code)
+fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
+	let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
+	testnet_template_genesis(
+		endowed_accounts, code,
+		primitives::U256::from(0x0000ffff) << 224,
+		15,
+	)
 }
 
 fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-    let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
-    testnet_template_genesis(vec![], endowed_accounts, code)
+	let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
+	testnet_template_genesis(
+		endowed_accounts, code,
+		primitives::U256::from(0x00003fff) << 224,
+		60,
+	)
 }
 
-fn testnet_template_genesis(initial_authorities: Vec<AuthorityId>, endowed_accounts: Vec<AccountId>, code: Vec<u8>) -> GenesisConfig {
+fn testnet_template_genesis(
+	endowed_accounts: Vec<AccountId>,
+	code: Vec<u8>,
+	genesis_difficulty: primitives::U256,
+	target_block_time: u64,
+) -> GenesisConfig {
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,
-			authorities: initial_authorities.clone(),
+			authorities: vec![],
 		}),
 		system: None,
 		timestamp: Some(TimestampConfig {
 			minimum_period: 0, // 10 second block time.
 		}),
-        pow: Some(PowConfig {
-            genesis_difficulty: primitives::U256::from(0x00008fff) << 224,
-            difficulty_adj: 60_u64.into(),
-            target_block_time: 60_u64.into(),
-        }),
+		pow: Some(PowConfig {
+			genesis_difficulty,
+			difficulty_adj: 60_u64.into(),
+			target_block_time: target_block_time.into(),
+		}),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
 		}),
@@ -156,11 +151,11 @@ fn testnet_template_genesis(initial_authorities: Vec<AuthorityId>, endowed_accou
 			existential_deposit: 500,
 			transfer_fee: 0,
 			creation_fee: 0,
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 1_000_000)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
 			vesting: vec![],
 		}),
-        sharding: Some(ShardingConfig {
-            genesis_sharding_count: 4,
-        }),
+		sharding: Some(ShardingConfig {
+			genesis_sharding_count: 4,
+		}),
 	}
 }
