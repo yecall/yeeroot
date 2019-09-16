@@ -1,18 +1,19 @@
-// Copyright 2017-2019 Parity Technologies (UK) Ltd.
-// This file is part of Substrate.
-
-// Substrate is free software: you can redistribute it and/or modify
+// Copyright (C) 2019 Yee Foundation.
+//
+// This file is part of YeeChain.
+//
+// YeeChain is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-
-// Substrate is distributed in the hope that it will be useful,
+//
+// YeeChain is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 //! # Balances Module
 //!
@@ -183,9 +184,9 @@ use srml_support::traits::{
 use srml_support::dispatch::Result;
 use primitives::{
     traits::{
-    Zero, SimpleArithmetic, As, StaticLookup, Member, CheckedAdd, CheckedSub,
-    MaybeSerializeDebug, Saturating,
-}};
+        Zero, SimpleArithmetic, As, StaticLookup, Member, CheckedAdd, CheckedSub,
+        MaybeSerializeDebug, Saturating,
+    }};
 use system::{IsDeadAccount, OnNewAccount, ensure_signed};
 use {
     yee_sharding_primitives::ShardingInfo,
@@ -201,7 +202,7 @@ use decode::OriginTransfer;
 
 pub use self::imbalances::{PositiveImbalance, NegativeImbalance};
 
-pub trait Subtrait<I: Instance = DefaultInstance> : sharding::Trait{
+pub trait Subtrait<I: Instance = DefaultInstance>: sharding::Trait {
     /// The balance of an account.
     type Balance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64> + MaybeSerializeDebug;
 
@@ -217,7 +218,7 @@ pub trait Subtrait<I: Instance = DefaultInstance> : sharding::Trait{
     type Sharding: ShardingInfo<Self::ShardNum>;
 }
 
-pub trait Trait<I: Instance = DefaultInstance> : sharding::Trait{
+pub trait Trait<I: Instance = DefaultInstance>: sharding::Trait {
     /// The balance of an account.
     type Balance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + As<usize> + As<u64> + MaybeSerializeDebug;
 
@@ -550,8 +551,8 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
         };
         Self::set_free_balance(&tx.dest(), to_balance);
         Self::deposit_event(RawEvent::Transfer(
-            T::AccountId::default(),    // todo
-            tx.dest().clone(),
+            tx.sender(),
+            tx.dest(),
             to_balance,
             Zero::zero(),
         ));

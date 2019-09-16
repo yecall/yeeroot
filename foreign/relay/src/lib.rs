@@ -1,3 +1,20 @@
+// Copyright (C) 2019 Yee Foundation.
+//
+// This file is part of YeeChain.
+//
+// YeeChain is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// YeeChain is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
+
 use std::{
     sync::Arc,
     marker::{Send, Sync},
@@ -20,8 +37,8 @@ use yee_runtime::{
     UncheckedExtrinsic,
 };
 use runtime_primitives::{
-    generic::{ BlockId, UncheckedMortalCompactExtrinsic },
-    traits::{ ProvideRuntimeApi, Block as BlockT, Header },
+    generic::{BlockId, UncheckedMortalCompactExtrinsic},
+    traits::{ProvideRuntimeApi, Block as BlockT, Header},
 };
 use substrate_client::{
     self,
@@ -51,7 +68,7 @@ pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
     foreign_network: Arc<network::SyncProvider<FactoryBlock<F>, H256>>,
-    pool: Arc<TransactionPool<A>>
+    pool: Arc<TransactionPool<A>>,
 ) -> error::Result<()>
     where F: ServiceFactory,
           C: 'static + Send + Sync,
@@ -112,19 +129,19 @@ pub fn start_relay_transfer<F, C, A>(
 
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
         match messages {
-            network::message::generic::OutMessage::RelayExtrinsics(txs) =>{
+            network::message::generic::OutMessage::RelayExtrinsics(txs) => {
                 let h = 0u64;
                 let h = h.encode();
                 let h = Decode::decode(&mut h.as_slice()).unwrap();
                 let blockId = BlockId::number(h);
-                for tx in &txs{
+                for tx in &txs {
                     let tx = tx.encode();
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
                     pool.submit_one(&blockId, tx);
                 }
-                info!(target: "relay","received relay transaction: {:?}", txs);
+                info!(target: "relay", "received relay transaction: {:?}", txs);
             }
-            _ =>{ /* do nothing */ }
+            _ => { /* do nothing */ }
         }
         Ok(())
     });

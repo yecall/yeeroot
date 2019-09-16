@@ -37,7 +37,7 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
         };
         // version
         let version = match input.read_byte() {
-            Some(v) =>v,
+            Some(v) => v,
             None => return None
         };
         // is signed
@@ -49,7 +49,7 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
 
         let (sender, signature, index, era) = if is_signed {
             // sender type
-            let _type = match input.read_byte(){
+            let _type = match input.read_byte() {
                 Some(a_t) => a_t,
                 None => return None
             };
@@ -83,7 +83,7 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
                 Era::Immortal
             };
             (sender, signature, index, era)
-        }else{
+        } else {
             (Address::default(), Vec::new(), Compact(0u64), Era::Immortal)
         };
 
@@ -106,7 +106,7 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
             None => return None
         };
         // dest address
-        let dest:Address  = match Decode::decode(&mut input) {
+        let dest: Address = match Decode::decode(&mut input) {
             Some(addr) => addr,
             None => return None
         };
@@ -119,9 +119,8 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
                     Some(am) => am,
                     None => return None
                 }
-            },
+            }
             None => return None
-
         };
         Some(OriginTransfer {
             sender,
@@ -131,6 +130,10 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
             dest,
             amount,
         })
+    }
+
+    pub fn sender(&self) -> Address {
+        self.sender.clone()
     }
 
     pub fn dest(&self) -> Address {
@@ -157,7 +160,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         };
         // version
         let version = match input.read_byte() {
-            Some(v) =>v,
+            Some(v) => v,
             None => return None
         };
         // is signed
@@ -232,7 +235,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
     }
 
     pub fn sender(&self) -> Address {
-        self.transfer.sender.clone()
+        self.transfer.sender()
     }
 }
 
