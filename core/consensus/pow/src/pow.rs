@@ -97,7 +97,7 @@ impl<B, AccountId> PowSeal<B, AccountId> where
     B: Block,
     AccountId: Decode + Encode,
 {
-    pub fn check_seal(&self, hash: B::Hash, _pre_hash: B::Hash) -> Result<(), String> {
+    pub fn check_seal(&self, hash: B::Hash) -> Result<(), String> {
         match self.work_proof {
             WorkProof::Unknown => Err(format!("invalid work proof")),
             WorkProof::Nonce(ref proof_nonce) => {
@@ -121,6 +121,7 @@ impl<B, AccountId> PowSeal<B, AccountId> where
 mod tests {
     use super::*;
     use hex_literal::hex;
+    use yee_runtime::Block;
 
     #[test]
     fn proof_nonce_encode() {
@@ -131,7 +132,7 @@ mod tests {
         ];
 
         for (extra, nonce, expected) in tests {
-            let proof = WorkProof::Nonce(ProofNonce { extra_data: extra.as_bytes().to_vec(), nonce });
+            let proof = WorkProof::<Block>::Nonce(ProofNonce { extra_data: extra.as_bytes().to_vec(), nonce });
             assert_eq!(proof.encode(), expected);
         }
     }

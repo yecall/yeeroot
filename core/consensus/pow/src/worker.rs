@@ -175,7 +175,7 @@ impl<B, P, C, I, AccountId, SO, JM> PowWorker<JM> for DefaultWorker<B, P, C, I, 
                 work_header.digest_mut().push(item);
 
                 let post_hash = work_header.hash();
-                if let Ok(_) = seal.check_seal(post_hash, header_pre_hash) {
+                if let Ok(_) = seal.check_seal(post_hash) {
                     let valid_seal = work_header.digest_mut().pop().expect("must exists");
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,

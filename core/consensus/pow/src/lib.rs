@@ -92,7 +92,8 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         client.clone(),
         env.clone(),
         inherent_data_providers.clone(),
-        local_key.public()
+        local_key.public(),
+        block_import.clone(),
     ));
 
     let mut reg_lock = job_manager.write();

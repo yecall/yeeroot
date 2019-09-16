@@ -69,7 +69,6 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
         )?;
 
         // TODO: verify body
-        // TODO: log
 
         let import_block = ImportBlock {
             origin,
@@ -100,7 +99,6 @@ fn check_header<B, AccountId>(
         None => return Err(format!("")),
     };
     let seal = digest_item.as_pow_seal().ok_or_else(|| {
-        // TODO: log
         format!("Header {:?} not sealed", hash)
     })?;
 
@@ -108,7 +106,7 @@ fn check_header<B, AccountId>(
 
     // TODO: check seal.difficulty
 
-    seal.check_seal(hash, pre_hash)?;
+    seal.check_seal(hash)?;
 
     Ok((header, digest_item))
 }

@@ -76,8 +76,35 @@ impl<B, AuthorityId> Mining<B, AuthorityId> where
     }
 
     fn put_cache(cache: Arc<RwLock<HashMap<B::Hash, (DefaultJob<B, AuthorityId>, Instant)>>>, job: DefaultJob<B, AuthorityId>) {
-        let expire_at = Instant::now().add(JOB_LIFE);
-        cache.write().insert(job.hash.clone(), (job.clone(), expire_at));
+
+        let now = Instant::now();
+
+        let expire_at = now.add(JOB_LIFE);
+
+        let mut cache = cache.write();
+
+        cache.insert(job.hash.clone(), (job.clone(), expire_at));
+
+        let expired : Vec<B::Hash> = cache.iter()
+            .filter(|(k, v)|(**v).1.lt(&now))
+            .map(|(k,v)|k).cloned().collect();
+
+        for i in expired{
+            cache.remove(&i);
+        }
+    }
+
+    fn get_cache(cache: Arc<RwLock<HashMap<B::Hash, (DefaultJob<B, AuthorityId>, Instant)>>>, hash: &B::Hash) -> Option<DefaultJob<B, AuthorityId>> {
+
+        let now = Instant::now();
+        cache.read().get(&hash).and_then(|x|{
+            if x.1.lt(&now) {
+                None
+            } else{
+                Some(x.0.to_owned())
+            }
+        })
+
     }
 }
 
@@ -94,7 +121,7 @@ impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, Au
         let cache = self.cache.clone();
 
         Box::new(job_manager.get_job().into_future().map(move |job| {
-            Mining::put_cache(cache, job.clone());
+            Self::put_cache(cache, job.clone());
             job.into()
         }).map_err(parse_error).map_err(|e| e.into()))
     }
@@ -103,7 +130,26 @@ impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, Au
 
         log::info!("job_result: {:?}", job_result);
 
-        Box::new(future::err(errors::Error::from(errors::ErrorKind::Unimplemented).into()))
+        let job_manager = match self.job_manager.read().as_ref() {
+            Some(j) => j.to_owned(),
+            None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::NotReady).into())),
+        };
+
+        let cache = self.cache.clone();
+
+        let mut job = match Self::get_cache(cache, &job_result.hash) {
+            Some(job) => job,
+            None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::JobNotFound).into())),
+        };
+
+        job.digest_item.work_proof = job_result.digest_item.work_proof.into();
+
+        Box::new(job_manager.submit_job(job).map_err(parse_error).map_err(
+            |e| {
+                warn!("submit job error: {:?}", e);
+                e
+            }
+        ).map_err(|e| e.into()))
 
     }
 }
