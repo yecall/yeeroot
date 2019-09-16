@@ -48,8 +48,8 @@ pub struct Work {
     /// shard info
     pub shard_num: u32,
     pub shard_cnt: u32,
-    //if commit ,set has_commit =true;
-    // pub has_commit: bool,
+    pub url:String,
+
 }
 #[derive(Clone, Debug)]
 pub struct WorkMap {

@@ -8,8 +8,8 @@ use std::thread;
 use log::{info,error,warn,debug};
 use crate::worker::Seal;
 use crate::job_template::{ProofMulti,JobTemplate,Hash,Task,DifficultyType};
-use lru_cache::LruCache;
-use util::Mutex;
+use yee_lru_cache::LruCache;
+use yee_util::Mutex;
 use crate::WorkMap;
 use std::collections::HashMap;
 use std::convert::TryInto;
@@ -20,6 +20,8 @@ use yee_merkle::proof::Proof;
 use crate::merkle::{CryptoYeeAlgorithm};
 use yee_merkle::hash::{Algorithm, Hashable};
 use primitives::hexdisplay::HexDisplay;
+use crate::job::{JobResult,ResultDigestItem,WorkProof};
+use std::io::Read;
 
 const WORK_CACHE_SIZE: usize = 32;
 /// Max length in bytes for pow extra data
@@ -57,7 +59,7 @@ impl Miner {
     }
 
     pub fn run(&mut self) {
-        println!("thsi is miner run thread id {:?}",thread::current().id());
+        //debug!("thsi is miner run thread id {:?}",thread::current().id());
 
         loop {
             self.notify_workers(WorkerMessage::Run);
@@ -98,11 +100,11 @@ impl Miner {
     }
 
     fn check_seal(&mut self, work_id: String, seal: Seal) {
-       // println!("now  check_seal  work_id:");
+       // debug!("now  check_seal  work_id:");
 
         if let Some(work) = self.works.lock().get_refresh(&work_id) {
 
-          //  println!("{}--now  check_seal  work_id: {}",  Local::now().timestamp_millis(),work_id);
+          //  debug!("{}--now  check_seal  work_id: {}",  Local::now().timestamp_millis(),work_id);
 
             let mut work_set = &work.work_map;
 
@@ -128,21 +130,36 @@ impl Miner {
                         shard_cnt: value.shard_cnt.clone(),
                         merkle_proof: value.merkle_proof.clone()
                     };
-                  //  println!("find seal-{}:{} ,now  submit_job  work_id: {:?}", Local::now().time(),value.rawHash.clone(), submitjob);
-                    println!("find seal-{}:{} ", Local::now().time(),value.rawHash.clone());
-                    println!("                                 ");
-                    println!("                                 ");
+                  //  debug!("find seal-{}:{} ,now  submit_job  work_id: {:?}", Local::now().time(),value.rawHash.clone(), submitjob);
+                  //  debug!("find seal-{}:{} ", Local::now().time(),value.rawHash.clone());
+                   // debug!("                                 ");
+                   // debug!("--{}",value.url.clone());
+
+                  //  debug!("-format-{:?}", value.extra_data.clone());
 
 
                     self.state.lock().insert(value.rawHash.clone(), submitjob.clone());
 
-                    self.client.submit_job(value.rawHash, &submitjob,Rpc::new("127.0.0.1:3131".parse().expect("valid rpc url")));
+
+                    let p = crate::job::ProofMulti{
+                        extra_data: "".to_string(),
+                        merkle_root: submitjob.merkle_root,
+                        nonce: seal.nonce.to_string(),
+                        merkle_proof: "0x150bb6eaccbbe063541a313834a1a9e8ead4c3247a9c164197fed7b15a535386".to_string()
+                    };
+
+                    let wp = WorkProof::Multi(p);
+                    let dig =ResultDigestItem{ work_proof: wp};
+
+
+                    let sjob = JobResult{ hash: value.rawHash, digest_item: dig };
+                    self.client.submit_job(&sjob,Rpc::new(value.url.parse().expect("valid rpc url")));
                 }
 
             }
 
             if i >= len{//所有分片都出块了
-                //println!("WorkerMessage::Stop-i-{}",i.clone());
+                //debug!("WorkerMessage::Stop-i-{}",i.clone());
                   self.notify_workers(WorkerMessage::Stop);
 
             }
@@ -173,15 +190,15 @@ impl Miner {
         let together = format!("{}{}", borrowed_string, HexDisplay::from(Hash::as_fixed_bytes(&rawhash.clone())).to_string());
         together.clone().hash(&mut a);
         let h2 = a.hash();
-        //  println!("rawhash--{}-Sha256(rawhash{:?}",rawhash.clone(), h2);
+        //  debug!("rawhash--{}-Sha256(rawhash{:?}",rawhash.clone(), h2);
         a.reset();
 
         let item =  merkle_proof.item();
 
-        // println!("verify_merkel_proof---item-{:?}",item);
+        // debug!("verify_merkel_proof---item-{:?}",item);
 
         let f =merkle_proof.validate::<CryptoYeeAlgorithm>()&&(h2==item);
-        //println!("verify-fff-{}",f);
+        //debug!("verify-fff-{}",f);
         f
     }
 

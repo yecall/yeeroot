@@ -5,8 +5,8 @@ use crossbeam_channel::{select, unbounded, Receiver};
 use std::thread;
 use log::{info,error,warn,debug};
 use crate::job_template::{ProofMulti, JobTemplate, DifficultyType};
-use lru_cache::LruCache;
-use util::Mutex;
+use yee_lru_cache::LruCache;
+use yee_util::Mutex;
 use std::time;
 use hyper::rt::{self, Future, Stream};
 use yee_jsonrpc_types::{
@@ -48,7 +48,8 @@ impl Gateway {
         //init
 
         let job = JobTemplate{ difficulty:  DifficultyType::from(0x00000000) << 224,
-                               rawHash: blake2_256( "".as_bytes()).into()
+                               rawHash: blake2_256( "".as_bytes()).into(),
+            url: "".to_string()
         };
 
 
@@ -68,9 +69,9 @@ impl Gateway {
     }
 
     pub fn poll_job_template(&mut self) {
-       // println!("thsi is poll_job_template thread id {:?}",thread::current().id());
+        debug!("thsi is poll_job_template thread id {:?}",thread::current().id());
         loop {
-           // println!("poll job template...");
+            debug!("poll job template...");
             self.try_update_job_template();
             thread::sleep(time::Duration::from_millis(self.client.config.poll_interval));
         }
@@ -80,7 +81,7 @@ impl Gateway {
         let mut  set:HashMap<String,JobTemplate> =  HashMap::new();
 
         for (key, value) in &self.map.shards {
-           // println!("node url---[{}] = {}", key, value);
+           // debug!("node url---[{}] = {}", key, value);
 
             let rpc = &value.rpc;
             let mut rng =rand::thread_rng();
@@ -89,7 +90,7 @@ impl Gateway {
 
             match self.client.get_job_template(Rpc::new(url.parse().expect("valid rpc url"))).wait() {
                 Ok(job_template) => {
-                    set.insert(key.to_string(), JobTemplate::from_job(job_template.clone()));
+                    set.insert(key.clone().to_string(), JobTemplate::from_job(url.clone(),job_template.clone()));
                     //self.shard_job_cache.lock().insert(key.to_string(),job_template);
                 }
                 Err(ref err) => {
@@ -99,14 +100,14 @@ impl Gateway {
                         false
                     };
                     if is_method_not_found {
-                        println!(
+                        error!(
                             "RPC Method Not Found: \
                          please do checks as follow: \
                          1. if the  server has enabled the Miner API module; \
                          2. If the RPC URL for yee miner is right.",
                         );
                     } else {
-                       // println!("rpc call get_job_template error: {:?}--shard num={}", err,key);
+                        error!("rpc call get_job_template error: {:?}--shard num={}", err,key);
                     }
                 }
             }
@@ -120,7 +121,7 @@ impl Gateway {
 
         if !set.is_empty(){
             for (key, value) in set {
-               // println!("set data---[{}] = {:?}", key, value);
+               // debug!("set data---[{}] = {:?}", key, value);
 
                 if self.current_job_set.get(&key).unwrap().clone().rawHash != value.rawHash{
                     f = true;
@@ -133,7 +134,7 @@ impl Gateway {
 
 
         }else {
-            println!("warning:No data of shard  updates");
+            warn!("warning:No data of shard  updates");
 
         }
 
@@ -173,8 +174,8 @@ impl Gateway {
 
             let root = mt.root();
             let leas = mt.clone().leafs;
-            //println!("leas-{:?}", leas);
-            //println!("data-{:?}", data);
+            //debug!("leas-{:?}", leas);
+            //debug!("data-{:?}", data);
 
 
             let  merkle_root = root.into();
@@ -191,9 +192,10 @@ impl Gateway {
                     merkle_proof: proof.clone(),
                     shard_num: key.parse().unwrap(),
                     shard_cnt: self.map.shards.len() as u32,
+                    url:value.url
                 };
-               // println!("work---check-{:?}",w);
-                  println!("shard-{}-update! check-{:?}",w.shard_num.clone(),w.clone());
+                // debug!("work---check-{:?}",w);
+                // debug!("shard-{}-update! check-{:?}",w.shard_num.clone(),w.clone());
 
 
                 work_map.insert(key,w);
@@ -210,8 +212,7 @@ impl Gateway {
     }
 
     fn notify_new_work(&self, work_map: WorkMap) -> Result<(), Error> {
-
-      //  println!("notify_new_work-{:?}",work_map.work_id);
+        //debug!("notify_new_work-{:?}",work_map.work_id);
         self.new_work_tx.send(work_map)?;
         Ok(())
     }

@@ -19,7 +19,7 @@ use std::convert::Into;
 use std::thread;
 use std::time;
 use log::{info,error,warn,debug};
-use crate::job::Job;
+use crate::job::{Job,JobResult};
 type RpcRequest = (oneshot::Sender<Result<Chunk, RpcError>>, MethodCall);
 
 #[derive(Debug)]
@@ -42,7 +42,7 @@ impl Rpc {
         let (stop, stop_rx) = oneshot::channel::<()>();
 
         let thread = thread::spawn(move || {
-            //println!("thsi is rpc new  thread id {:?}",thread::current().id());
+            debug!("thsi is rpc new  thread id {:?}",thread::current().id());
             let client = HttpClient::builder().keep_alive(true).build_http();
 
             let stream = receiver.for_each(move |(sender, call): RpcRequest| {
@@ -118,23 +118,23 @@ impl Client {
 
     fn send_submit_job_request(
         &self,
-        rawHash: Hash,
-        job: &ProofMulti,
+        job: &JobResult,
         rpc:Rpc
     ) -> impl Future<Item = Output, Error = RpcError> {
         //let block: JsonBlock = block.into();
-        let method = "submit_job".to_owned();
-        let params = vec![json!(rawHash), json!(job)];
+        let method = "mining_submitJob".to_owned();
+        let params = vec![json!(job)];
+       // debug!("submit_job params ---:{:?}", params);
 
         rpc.request(method, params)
     }
-    pub fn submit_job(&self, rawHash: Hash, job: &ProofMulti,rpc:Rpc) {
-        let future = self.send_submit_job_request(rawHash, job,rpc);
+    pub fn submit_job(&self, job: &JobResult,rpc:Rpc) {
+        let future = self.send_submit_job_request(job,rpc);
         if self.config.job_on_submit {
             let ret: Result<Option<Hash>, RpcError> = future.and_then(parse_response).wait();
             match ret {
                 Ok(hash) => {
-                    println!("submit_job return ---:{:?}", hash);
+                    debug!("submit_job return ---:{:?}", hash);
 
                     if hash.is_none() {
                         warn!(
@@ -161,7 +161,7 @@ impl Client {
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(output: Output) -> Result<T, RpcError> {
-    //println!("output---:{:?}", output);
+    //debug!("output---:{:?}", output);
     match output {
         Output::Success(success) => {
             serde_json::from_value::<T>(success.result).map_err(RpcError::Json)

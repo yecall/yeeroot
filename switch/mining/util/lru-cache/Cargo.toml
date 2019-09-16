@@ -1,5 +1,5 @@
 [package]
-name = "lru-cache"
+name = "yee-lru-cache"
 version = "0.4.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"

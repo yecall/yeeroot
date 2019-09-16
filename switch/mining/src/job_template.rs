@@ -14,10 +14,11 @@ pub type Hash = primitives::H256;
 pub struct JobTemplate {
     pub difficulty: DifficultyType,
     pub rawHash:Hash,
+    pub url:String,
 
 }
 impl JobTemplate {
-    pub fn from_job(job:Job) -> Self {
+    pub fn from_job(str:String,job:Job) -> Self {
         let Job {
              digest_item,
              hash,
@@ -25,7 +26,8 @@ impl JobTemplate {
         } = job;
         Self {
             difficulty:digest_item.difficulty,
-            rawHash: hash
+            rawHash: hash,
+            url: str
         }
     }
 }

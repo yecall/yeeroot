@@ -86,7 +86,7 @@ impl Dummy {
 
 impl Worker for Dummy {
     fn run<G: FnMut() -> u64>(&mut self, mut rng: G) {
-        println!("thsi is worker thread id {:?}",thread::current().id());
+        //println!("thsi is worker thread id {:?}",thread::current().id());
 
         loop {
             self.poll_worker_message();

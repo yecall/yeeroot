@@ -36,3 +36,38 @@ pub struct Header {
 pub struct Digest {
     pub logs:Vec<String>,
 }
+
+
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+
+pub struct JobResult
+{
+    pub hash: H256,
+    pub digest_item: ResultDigestItem,
+}
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct ResultDigestItem {
+    pub work_proof: WorkProof,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub enum WorkProof{
+    Unknown,
+    Nonce(ProofNonce),
+    Multi(ProofMulti),
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct ProofNonce {
+    pub extra_data: Vec<u8>,
+    pub nonce: u64,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct ProofMulti {
+    pub extra_data: String,
+    pub merkle_root: H256,
+    pub nonce: String,
+    pub merkle_proof: String,
+}
