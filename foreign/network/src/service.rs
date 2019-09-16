@@ -31,7 +31,7 @@ use crate::protocol::{self, Protocol, FromNetworkMsg, ProtocolMsg};
 use crate::config::Params;
 use crossbeam_channel::{self as channel, Receiver, Sender, TryRecvError};
 use crate::error::Error;
-use runtime_primitives::{traits::{Block as BlockT, NumberFor}, ConsensusEngineId};
+use runtime_primitives::{traits::{Block as BlockT, NumberFor, Header}, ConsensusEngineId};
 use crate::{IdentifySpecialization, identify_specialization::ForeignIdentifySpecialization};
 
 use tokio::prelude::task::AtomicTask;
@@ -39,7 +39,9 @@ use tokio::runtime::Builder as RuntimeBuilder;
 
 pub use network_libp2p::PeerId;
 use serde::export::PhantomData;
-use crate::message::generic::OutMessage;
+use crate::message::generic::{Message as GenericMessage, OutMessage};
+use crate::chain::Client;
+use regex::Regex;
 
 /// Sync status
 pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
@@ -50,6 +52,9 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
+
+	// Get client info.
+	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>;
 }
 
 /// Minimum Requirements for a Hash within Networking
@@ -82,7 +87,13 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 	/// This is an `Option` because we need to extract it in the destructor.
 	bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
 
-	phantom: PhantomData<H>,
+	vnetwork_holder: VNetworkHolder<B, I>,
+
+	vnetwork_bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
+
+	shard_num: u16,
+
+	chain: Arc<Client<B>>,
 }
 
 impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H> {
@@ -91,7 +102,9 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 		params: Params<B, I>,
 		protocol_id: ProtocolId,
 	) -> Result<(Arc<Service<B, I, H>>, NetworkChan<B>), Error> {
+		let shard_num = params.network_config.shard_num;
 		let (network_chan, network_port) = network_channel();
+		let (from_network_chan, from_network_port) = from_network_channel();
 		let out_message_sinks = Arc::new(Mutex::new(Vec::new()));
 		// Start in off-line mode, since we're not connected to any nodes yet.
 		let is_offline = Arc::new(AtomicBool::new(true));
@@ -102,7 +115,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			is_major_syncing.clone(),
 			network_chan.clone(),
 			params.config,
-			params.chain
+			params.chain.clone(),
 		)?;
 		let versions = [(protocol::CURRENT_VERSION as u8)];
 		let registered = RegisteredProtocol::new(protocol_id, &versions[..]);
@@ -112,7 +125,21 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			params.network_config,
 			registered,
 			params.identify_specialization,
+			from_network_chan.clone(),
+			params.chain.clone(),
+			protocol_sender.clone(),
 		)?;
+
+		let vnetwork_holder = VNetworkHolder{
+			peerset: peerset.clone(),
+			network_service: network.clone(),
+			network_port_list: Arc::new(RwLock::new(HashMap::new())),
+			from_network_port: Arc::new(from_network_port),
+			protocol_sender_list: Arc::new(RwLock::new(HashMap::new())),
+			chain_list: Arc::new(RwLock::new(HashMap::new())),
+			from_network_chan,
+		};
+		let vnetwork_thread = vnetwork_holder.start_thread()?;
 
 		let service = Arc::new(Service {
 			out_message_sinks,
@@ -122,7 +149,10 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			network,
 			protocol_sender: protocol_sender.clone(),
 			bg_thread: Some(thread),
-			phantom: PhantomData,
+			vnetwork_holder,
+			vnetwork_bg_thread: Some(vnetwork_thread),
+			shard_num,
+			chain: params.chain,
 		});
 
 		Ok((service, network_chan))
@@ -168,6 +198,12 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Servic
 				error!("Error while waiting on background thread: {:?}", e);
 			}
 		}
+		if let Some((sender, join)) = self.vnetwork_bg_thread.take() {
+			let _ = sender.send(());
+			if let Err(e) = join.join() {
+				error!("Error while waiting on vnetwork background thread: {:?}", e);
+			}
+		}
 	}
 }
 
@@ -186,6 +222,16 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 	fn network_state(&self) -> NetworkState {
 
 		self.network.lock().state()
+	}
+
+	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>{
+
+		let mut info : HashMap<u16, Option<client::ClientInfo<B>>> =  self.vnetwork_holder.chain_list.read().iter()
+			.map(|(shard_num, client)|(*shard_num, client.info().ok()))
+			.collect();
+		info.insert(self.shard_num, self.chain.info().ok());
+
+		info
 	}
 
 }
@@ -277,12 +323,15 @@ pub enum NetworkMsg<B: BlockT + 'static> {
 }
 
 /// Starts the background thread that handles the networking.
-fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
+fn start_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	protocol_sender: Sender<FromNetworkMsg<B>>,
 	network_port: NetworkPort<B>,
 	config: NetworkConfiguration,
 	registered: RegisteredProtocol<Message<B>>,
 	identify_specialization: I,
+	from_network_chan: FromNetworkChan<B>,
+	chain: Arc<Client<B>>,
+	protocol_msg_sender: Sender<ProtocolMsg<B, H>>,
 ) -> Result<((oneshot::Sender<()>, thread::JoinHandle<()>), Arc<Mutex<NetworkService<Message<B>, I>>>, ForeignPeersetHandle), Error> {
 	// Start the main service.
 	let (service, peerset) = match start_service(config, registered, identify_specialization) {
@@ -298,7 +347,8 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 	let mut runtime = RuntimeBuilder::new().name_prefix("libp2p-").build()?;
 	let peerset_clone = peerset.clone();
 	let thread = thread::Builder::new().name("network".to_string()).spawn(move || {
-		let fut = run_thread(protocol_sender, service_clone, network_port, peerset_clone)
+		let fut = run_thread(protocol_sender, service_clone, network_port,
+							 peerset_clone, from_network_chan, chain, protocol_msg_sender)
 			.select(close_rx.then(|_| Ok(())))
 			.map(|(val, _)| val)
 			.map_err(|(err,_ )| err);
@@ -315,11 +365,14 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 }
 
 /// Runs the background thread that handles the networking.
-fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
+fn run_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	protocol_sender: Sender<FromNetworkMsg<B>>,
 	network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
 	network_port: NetworkPort<B>,
 	peerset: ForeignPeersetHandle,
+	from_network_chan: FromNetworkChan<B>,
+	chain: Arc<Client<B>>,
+	protocol_msg_sender: Sender<ProtocolMsg<B, H>>,
 ) -> impl Future<Item = (), Error = io::Error> {
 
 	let network_service_2 = network_service.clone();
@@ -375,12 +428,15 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 		match event {
 			NetworkServiceEvent::OpenedCustomProtocol { peer_id, version, debug_info, .. } => {
 				debug_assert_eq!(version, protocol::CURRENT_VERSION as u8);
+				from_network_chan.send(FromNetworkMsg::PeerConnected(peer_id.clone(), debug_info.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::PeerConnected(peer_id, debug_info));
 			}
 			NetworkServiceEvent::ClosedCustomProtocol { peer_id, debug_info, .. } => {
+				from_network_chan.send(FromNetworkMsg::PeerDisconnected(peer_id.clone(), debug_info.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::PeerDisconnected(peer_id, debug_info));
 			}
 			NetworkServiceEvent::CustomMessage { peer_id, message, .. } => {
+				from_network_chan.send(FromNetworkMsg::CustomMessage(peer_id.clone(), message.clone()));
 				let _ = protocol_sender.send(FromNetworkMsg::CustomMessage(peer_id, message));
 				return Ok(())
 			}
@@ -388,6 +444,7 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 				debug!(target: "sync-foreign", "{} clogging messages:", messages.len());
 				for msg in messages.into_iter().take(5) {
 					debug!(target: "sync-foreign", "{:?}", msg);
+					from_network_chan.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg.clone())));
 					let _ = protocol_sender.send(FromNetworkMsg::PeerClogged(peer_id.clone(), Some(msg)));
 				}
 			}
@@ -395,10 +452,29 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 		Ok(())
 	});
 
+	let client = chain.client_import_notification_stream().for_each(move |event|{
+
+		let hash = event.hash;
+		let header = event.header;
+
+		protocol_msg_sender.send(ProtocolMsg::BlockImported(hash, header)).map_err(|e|{
+			error!("Client error: {:?}", e)
+		})?;
+
+		Ok(())
+	}).then(|res| {
+		match res {
+			Ok(()) => (),
+			Err(_) => error!("Client error"),
+		};
+		Ok(())
+	});
+
 	// Merge all futures into one.
 	let futures: Vec<Box<Future<Item = (), Error = io::Error> + Send>> = vec![
 		Box::new(protocol) as Box<_>,
-		Box::new(network) as Box<_>
+		Box::new(network) as Box<_>,
+		Box::new(client) as Box<_>
 	];
 
 	futures::select_all(futures)
@@ -407,4 +483,316 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization>(
 			Ok(())
 		})
 		.map_err(|(r, _, _)| r)
+}
+
+/// Create a NetworkPort/Chan pair.
+pub fn from_network_channel<B: BlockT + 'static>() -> (FromNetworkChan<B>, FromNetworkPort<B>) {
+	let (from_network_sender, from_network_receiver) = channel::unbounded();
+	let task_notify = Arc::new(AtomicTask::new());
+	let from_network_port = FromNetworkPort::new(from_network_receiver, task_notify.clone());
+	let from_network_chan = FromNetworkChan::new(from_network_sender, task_notify);
+	(from_network_chan, from_network_port)
+}
+
+/// A sender of NetworkMsg that notifies a task when a message has been sent.
+#[derive(Clone)]
+pub struct FromNetworkChan<B: BlockT + 'static> {
+	sender: Sender<FromNetworkMsg<B>>,
+	task_notify: Arc<AtomicTask>,
+}
+
+impl<B: BlockT + 'static> FromNetworkChan<B> {
+	/// Create a new network chan.
+	pub fn new(sender: Sender<FromNetworkMsg<B>>, task_notify: Arc<AtomicTask>) -> Self {
+		FromNetworkChan {
+			sender,
+			task_notify,
+		}
+	}
+
+	/// Send a messaging, to be handled on a stream. Notify the task handling the stream.
+	pub fn send(&self, msg: FromNetworkMsg<B>) {
+		let _ = self.sender.send(msg);
+		self.task_notify.notify();
+	}
+}
+
+impl<B: BlockT + 'static> Drop for FromNetworkChan<B> {
+	/// Notifying the task when a sender is dropped(when all are dropped, the stream is finished).
+	fn drop(&mut self) {
+		self.task_notify.notify();
+	}
+}
+
+
+/// A receiver of NetworkMsg that makes the protocol-id available with each message.
+pub struct FromNetworkPort<B: BlockT + 'static> {
+	receiver: Receiver<FromNetworkMsg<B>>,
+	task_notify: Arc<AtomicTask>,
+}
+
+impl<B: BlockT + 'static> FromNetworkPort<B> {
+	/// Create a new network port for a given protocol-id.
+	pub fn new(receiver: Receiver<FromNetworkMsg<B>>, task_notify: Arc<AtomicTask>) -> Self {
+		Self {
+			receiver,
+			task_notify,
+		}
+	}
+
+	/// Receive a message, if any is currently-enqueued.
+	/// Register the current tokio task for notification when a new message is available.
+	pub fn take_one_message(&self) -> Result<Option<FromNetworkMsg<B>>, ()> {
+		self.task_notify.register();
+		match self.receiver.try_recv() {
+			Ok(msg) => Ok(Some(msg)),
+			Err(TryRecvError::Empty) => Ok(None),
+			Err(TryRecvError::Disconnected) => Err(()),
+		}
+	}
+
+	/// Get a reference to the underlying crossbeam receiver.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn receiver(&self) -> &Receiver<FromNetworkMsg<B>> {
+		&self.receiver
+	}
+}
+
+struct VNetworkHolder<B: BlockT + 'static, I: IdentifySpecialization>{
+
+	peerset: ForeignPeersetHandle,
+	network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
+	network_port_list: Arc<RwLock<HashMap<u16, substrate_network::service::NetworkPort<B>>>>,
+	from_network_port: Arc<FromNetworkPort<B>>,
+	protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
+	chain_list: Arc<RwLock<HashMap<u16, Arc<substrate_network::chain::Client<B>>>>>,
+	from_network_chan: FromNetworkChan<B>,
+}
+
+impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
+
+	fn start_thread(&self) -> Result<(oneshot::Sender<()>, thread::JoinHandle<()>), Error> {
+
+		let (close_tx, close_rx) = oneshot::channel();
+		let mut runtime = RuntimeBuilder::new().name_prefix("vnetwork-").build()?;
+
+		let peerset = self.peerset.clone();
+		let network_service = self.network_service.clone();
+		let network_port_list = self.network_port_list.clone();
+		let from_network_port = self.from_network_port.clone();
+		let protocol_sender_list = self.protocol_sender_list.clone();
+		let from_network_chan = self.from_network_chan.clone();
+
+		let thread = thread::Builder::new().name("vnetwork".to_string()).spawn(move || {
+			let fut = Self::run_thread(
+				peerset,
+				network_service,
+				network_port_list,
+				from_network_port,
+				protocol_sender_list,
+				from_network_chan
+			)
+				.select(close_rx.then(|_| Ok(())))
+				.map(|(val, _)| val)
+				.map_err(|(err,_ )| err);
+
+			// Note that we use `block_on` and not `block_on_all` because we want to kill the thread
+			// instantly if `close_rx` receives something.
+			match runtime.block_on(fut) {
+				Ok(()) => debug!(target: "sub-libp2p-foreign", "VNetworking thread finished"),
+				Err(err) => error!(target: "sub-libp2p-foreign", "Error while running libp2p: {:?}", err),
+			};
+		})?;
+
+		Ok((close_tx, thread))
+	}
+
+	/// Runs the background thread that handles the networking.
+	fn run_thread(
+		peerset: ForeignPeersetHandle,
+		network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
+		network_port_list: Arc<RwLock<HashMap<u16, substrate_network::service::NetworkPort<B>>>>,
+		from_network_port: Arc<FromNetworkPort<B>>,
+		protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
+		from_network_chan: FromNetworkChan<B>,
+
+	) -> impl Future<Item = (), Error = io::Error> {
+
+		let peerset_router = peerset.router();
+
+		// Protocol produces a stream of messages about what happens in sync.
+		let protocol = stream::poll_fn(move || {
+
+			let mut error_shard_num = None;
+			for (shard_num, network_port) in &*network_port_list.read(){
+				let shard_num = *shard_num;
+				match network_port.take_one_message() {
+					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
+					Ok(None) => {},
+					Err(_) => {
+						error_shard_num = Some(shard_num);
+						break;
+					}
+				}
+			}
+			if let Some(error_shard_num) = error_shard_num{
+				network_port_list.write().remove(&error_shard_num);
+			}
+
+			Ok(Async::NotReady)
+
+		}).for_each(move |(shard_num, msg)| {
+			// Handle message from Protocol.
+			match msg {
+				substrate_network::NetworkMsg::Outgoing(who, outgoing_message) => {
+					network_service
+						.lock()
+						.send_custom_message(&who,  GenericMessage::VMessage(shard_num, outgoing_message));
+				},
+				substrate_network::NetworkMsg::ReportPeer(who, severity) => {
+					match severity {
+						substrate_network::Severity::Bad(message) => {
+							debug!(target: "sync-foreign", "Banning {:?} because {:?}", who, message);
+							network_service.lock().drop_node(&who);
+							// temporary: make sure the peer gets dropped from the peerset
+							peerset.report_peer(who, i32::min_value());
+						},
+						substrate_network::Severity::Useless(message) => {
+							debug!(target: "sync-foreign", "Dropping {:?} because {:?}", who, message);
+							network_service.lock().drop_node(&who)
+						},
+						substrate_network::Severity::Timeout => {
+							debug!(target: "sync-foreign", "Dropping {:?} because it timed out", who);
+							network_service.lock().drop_node(&who)
+						},
+					}
+				},
+				#[cfg(any(test, feature = "test-helpers"))]
+				substrate_network::NetworkMsg::Synchronized => (),
+			}
+			Ok(())
+		}).then(|res : Result<(), io::Error> | {
+				match res {
+					Ok(()) => (),
+					Err(_) => error!("Protocol disconnected"),
+				};
+				Ok(())
+			});
+
+		// Protocol produces a stream of messages about what happens in sync.
+		let network = stream::poll_fn(move || {
+			match from_network_port.take_one_message() {
+				Ok(Some(message)) => Ok(Async::Ready(Some(message))),
+				Ok(None) => Ok(Async::NotReady),
+				Err(_) => Err(())
+			}
+		}).for_each(move |msg| {
+			// Handle message from network.
+			match msg {
+				FromNetworkMsg::PeerConnected(peer_id, debug_info) => {
+					if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
+						let keys : Vec<u16> = protocol_sender_list.read().keys().cloned().collect();
+						if let Some(sender) = protocol_sender_list.read().get(&shard_num){
+							sender.send(vnetwork::FromNetworkMsg::PeerConnected(peer_id, debug_info)).map_err(|_|())?;
+						}else{
+							debug!(target: "sync-foreign", "Place FromNetworkMsg back since sender not ready: shard_num: {}", shard_num);
+							from_network_chan.send(FromNetworkMsg::PeerConnected(peer_id, debug_info));
+						}
+					}
+				},
+				FromNetworkMsg::PeerDisconnected(peer_id, debug_info) => {
+					if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
+						if let Some(sender) = protocol_sender_list.read().get(&shard_num){
+							sender.send(vnetwork::FromNetworkMsg::PeerDisconnected(peer_id, debug_info)).map_err(|_|())?;
+						}else{
+							debug!(target: "sync-foreign", "Place FromNetworkMsg back since sender not ready: shard_num: {}", shard_num);
+							from_network_chan.send(FromNetworkMsg::PeerDisconnected(peer_id, debug_info));
+						}
+					}
+				},
+				FromNetworkMsg::CustomMessage(peer_id, message) => {
+					if let GenericMessage::VMessage(vmessage_shard_num, vmessage) = message{
+						if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
+							if vmessage_shard_num == shard_num {
+								if let Some(sender) = protocol_sender_list.read().get(&shard_num) {
+									sender.send(vnetwork::FromNetworkMsg::CustomMessage(peer_id, vmessage)).map_err(|_| ())?;
+								}else{
+									debug!(target: "sync-foreign", "Place FromNetworkMsg back since sender not ready: shard_num: {}", shard_num);
+									from_network_chan.send(FromNetworkMsg::CustomMessage(peer_id, GenericMessage::VMessage(vmessage_shard_num, vmessage)));
+								}
+							}
+						}
+					}
+				},
+				FromNetworkMsg::PeerClogged(peer_id, message) => {
+					if let Some(GenericMessage::VMessage(vmessage_shard_num, vmessage)) = message{
+						if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
+							if vmessage_shard_num == shard_num {
+								if let Some(sender) = protocol_sender_list.read().get(&shard_num) {
+									sender.send(vnetwork::FromNetworkMsg::PeerClogged(peer_id, Some(vmessage))).map_err(|_| ())?;
+								}else{
+									debug!(target: "sync-foreign", "Place FromNetworkMsg back since sender not ready: shard_num: {}", shard_num);
+									from_network_chan.send(FromNetworkMsg::PeerClogged(peer_id, Some(GenericMessage::VMessage(vmessage_shard_num, vmessage))));
+								}
+							}
+						}
+					}
+				},
+				#[cfg(any(test, feature = "test-helpers"))]
+				Synchronize => (),
+			}
+			Ok(())
+		}).then(|res | {
+			match res {
+				Ok(()) => (),
+				Err(_) => error!("Network disconnected"),
+			};
+			Ok(())
+		});
+
+		// Merge all futures into one.
+		let futures: Vec<Box<Future<Item = (), Error = io::Error> + Send>> = vec![
+			Box::new(protocol) as Box<_>,
+			Box::new(network) as Box<_>
+		];
+
+		futures::select_all(futures)
+			.and_then(move |_| {
+				debug!("Networking ended");
+				Ok(())
+			})
+			.map_err(|(r, _, _)| r)
+	}
+}
+
+use substrate_service::{Components, FactoryBlock, ComponentExHash};
+
+impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, I, EH> where
+	F: substrate_service::ServiceFactory,
+	I: IdentifySpecialization,
+	EH: substrate_network::ExHashT,
+{
+	fn get_shard_network(
+		&self,
+		shard_num: u32,
+		params: substrate_service::ForeignNetParams<F, EH>,
+		protocol_id: substrate_network::ProtocolId,
+		import_queue: Box<dyn consensus::import_queue::ImportQueue<substrate_service::FactoryBlock<F>>>,
+	) -> Result<substrate_network::NetworkChan<substrate_service::FactoryBlock<F>>, substrate_network::Error>{
+
+		let shard_num = shard_num as u16;
+
+		let chain = params.chain.clone();
+
+		let (service, network_chan,
+			network_port, network_to_protocol_sender) =
+			vnetwork::Service::new(params, import_queue)?;
+
+		self.vnetwork_holder.network_port_list.write().entry(shard_num).or_insert(network_port);
+		self.vnetwork_holder.protocol_sender_list.write().entry(shard_num).or_insert(network_to_protocol_sender);
+		self.vnetwork_holder.chain_list.write().entry(shard_num).or_insert(chain);
+
+		Ok(network_chan)
+	}
+
 }

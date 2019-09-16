@@ -199,6 +199,10 @@ impl ForeignPeersetHandle {
             }
         }
     }
+
+    pub fn router(&self) -> ForeignPeerRouter {
+        self.router.clone()
+    }
 }
 
 impl ForeignPeerRouter {

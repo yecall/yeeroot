@@ -36,9 +36,7 @@ use crate::{error, util::LruHashSet};
 use crate::chain::Client;
 use serde::export::PhantomData;
 use crate::config::{NetworkConfiguration, ProtocolConfig};
-
-/// Interval at which we propagate exstrinsics;
-const PROPAGATE_TIMEOUT: time::Duration = time::Duration::from_millis(2900);
+use crate::vprotocol::VProtocol;
 
 /// Current protocol version.
 pub(crate) const CURRENT_VERSION: u32 = 2;
@@ -56,6 +54,7 @@ pub struct Protocol<B: BlockT, H: ExHashT> {
 	context_data: ContextData<B, H>,
 	// Connected peers pending Status message.
 	handshaking_peers: HashMap<PeerId, HandshakingPeer>,
+	vprotocol: VProtocol<B, H>,
 }
 
 /// A peer that we are connected to
@@ -96,6 +95,8 @@ struct ContextData<B: BlockT, H: ExHashT> {
 pub enum ProtocolMsg<B: BlockT, H: ExHashT> {
 	/// Relay Extrinsics
 	RelayExtrinsics(u16, Vec<(H, B::Extrinsic)>),
+	/// A block has been imported (sent by the client).
+	BlockImported(B::Hash, B::Header),
 	Stop,
 	/// Synchronization request.
 	#[cfg(any(test, feature = "test-helpers"))]
@@ -135,6 +136,13 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		let (protocol_sender, port) = channel::unbounded();
 		let (from_network_sender, from_network_port) = channel::bounded(4);
 		let info = chain.info()?;
+
+		let vprotocol = VProtocol::new(
+			network_chan.clone(),
+			chain.clone(),
+				 config.shard_num
+		)?;
+
 		let _ = thread::Builder::new()
 			.name("Protocol".into())
 			.spawn(move || {
@@ -150,6 +158,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 						chain,
 					},
 					handshaking_peers: HashMap::new(),
+					vprotocol,
 				};
 				while protocol.run() {
 					// Running until all senders have been dropped...
@@ -196,6 +205,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		match msg {
 			ProtocolMsg::RelayExtrinsics(shard_num, extrinsics) =>
 				self.on_relay_extrinsics(shard_num, extrinsics),
+			ProtocolMsg::BlockImported(hash, header) =>
+				self.on_block_imported(hash, &header),
 			ProtocolMsg::Stop => {
 				self.stop();
 				return false;
@@ -223,7 +234,12 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_custom_message(&mut self, who: PeerId, message: Message<B>) {
 		match message {
 			GenericMessage::Status(s) => self.on_status_message(who, s),
-			GenericMessage::Extrinsics(m) => self.on_extrinsics(who, m),
+			GenericMessage::RelayExtrinsics(m) => self.on_relay_extrinsics_message(who, m),
+			GenericMessage::VMessage(shard_num, vmessage) => {
+				if shard_num == self.config.shard_num {
+					self.vprotocol.on_vmessage(who, vmessage)
+				}
+			},
 		}
 	}
 
@@ -231,7 +247,9 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_peer_connected(&mut self, who: PeerId, debug_info: String) {
 		trace!(target: "sync-foreign", "Connecting {}: {}", who, debug_info);
 		self.handshaking_peers.insert(who.clone(), HandshakingPeer { timestamp: time::Instant::now() });
-		self.send_status(who);
+		self.send_status(who.clone());
+
+		self.vprotocol.on_peer_connected(who, debug_info);
 	}
 
 	/// Called by peer when it is disconnecting
@@ -242,6 +260,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 			self.handshaking_peers.remove(&peer);
 			self.context_data.peers.remove(&peer).is_some()
 		};
+
+		self.vprotocol.on_peer_disconnected(peer, debug_info);
 	}
 
 	/// Called as a back-pressure mechanism if the networking detects that the peer cannot process
@@ -315,10 +335,10 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	}
 
 	/// Called when peer sends us new extrinsics
-	fn on_extrinsics(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
+	fn on_relay_extrinsics_message(&mut self, who: PeerId, extrinsics: Vec<B::Extrinsic>) {
 		trace!(target: "sync-foreign", "Received {} extrinsics from {}", extrinsics.len(), who);
 
-		let message = OutMessage::Extrinsics(extrinsics);
+		let message = OutMessage::RelayExtrinsics(extrinsics);
 		self.out_message_sinks.lock().retain(|sink| sink.unbounded_send(message.clone()).is_ok());
 	}
 
@@ -337,9 +357,14 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 
 			if !to_send.is_empty() {
 				trace!(target: "sync-foreign", "Sending {} transactions to {}", to_send.len(), who);
-				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::Extrinsics(to_send)));
+				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::RelayExtrinsics(to_send)));
 			}
 		}
+	}
+
+	fn on_block_imported(&mut self, hash: B::Hash, header: &B::Header) {
+
+		self.vprotocol.on_block_imported(hash, header);
 	}
 
 	/// Send Status message
@@ -351,8 +376,10 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				genesis_hash: info.chain.genesis_hash,
 				best_number: info.chain.best_number,
 				best_hash: info.chain.best_hash,
+				chain_status: Vec::new(),
 				shard_num: self.config.shard_num,
 			};
+			trace!(target: "sync-foreign", "Sending status to {}: gh: {} shard_num: {}", who, info.chain.genesis_hash, self.config.shard_num);
 			self.send_message(who, GenericMessage::Status(status))
 		}
 	}

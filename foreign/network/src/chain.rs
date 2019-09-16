@@ -19,11 +19,13 @@
 use client::{self, Client as SubstrateClient, ClientInfo, BlockStatus, CallExecutor};
 use client::error::Error;
 use client::light::fetcher::ChangesProof;
+use client::ImportNotifications;
 use consensus::{BlockImport, Error as ConsensusError};
 use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
 use runtime_primitives::generic::{BlockId};
 use runtime_primitives::Justification;
 use primitives::{H256, Blake2Hasher, storage::StorageKey};
+use client::BlockchainEvents;
 
 /// Local client abstraction for the network.
 pub trait Client<Block: BlockT>: Send + Sync {
@@ -66,6 +68,8 @@ pub trait Client<Block: BlockT>: Send + Sync {
 
 	/// Returns `true` if the given `block` is a descendent of `base`.
 	fn is_descendent_of(&self, base: &Block::Hash, block: &Block::Hash) -> Result<bool, Error>;
+
+	fn client_import_notification_stream(&self) -> ImportNotifications<Block>;
 }
 
 impl<B, E, Block, RA> Client<Block> for SubstrateClient<B, E, Block, RA> where
@@ -134,5 +138,10 @@ impl<B, E, Block, RA> Client<Block> for SubstrateClient<B, E, Block, RA> where
 		)?;
 
 		Ok(tree_route.common_block().hash == *base)
+	}
+
+	fn client_import_notification_stream(&self) -> ImportNotifications<Block>{
+
+		(self as &SubstrateClient<B, E, Block, RA>).import_notification_stream()
 	}
 }
