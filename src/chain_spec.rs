@@ -119,7 +119,6 @@ fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
         endowed_accounts, code,
         primitives::U256::from(0x00003fff) << 224,
         60,
-
     )
 }
 
