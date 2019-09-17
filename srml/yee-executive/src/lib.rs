@@ -328,8 +328,8 @@ impl<
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
-            // requires: vec![(shard_num, rtx.number(), rtx.hash(), rtx.parent()).encode()],
-            requires: vec![],    // todo
+            requires: vec![(shard_num, rtx.number(), rtx.hash(), rtx.parent()).encode()],
+            //requires: vec![],    // todo
             provides: vec![],
             longevity: TransactionLongevity::max_value(),
         }
