@@ -60,9 +60,9 @@ pub struct WorkMap {
 
 }
 
-pub fn run(config: Config,interval:u64) {
+pub fn run(c: Config,interval:u64) {
 
-    let cc = ClientConfig {
+    let config = ClientConfig {
         poll_interval: interval,
         job_on_submit: true
     };
@@ -71,13 +71,13 @@ pub fn run(config: Config,interval:u64) {
 
     let workerc = WorkerConfig{ threads: 1 };
 
-    let  client = Client::new( cc.clone());
+    let  client = Client::new( config.clone());
 
-    let mut gateway = Gateway::new(client.clone(),new_work_tx,config);
+    let mut gateway = Gateway::new(client.clone(),new_work_tx,c);
 
     let mut miner =  Miner::new(client.clone(),new_work_rx,workerc.clone());
 
-    let t= thread::Builder::new()
+    thread::Builder::new()
         .name("gateway".to_string())
         .spawn(move || gateway.poll_job_template())
         .expect("Start gateway failed!");

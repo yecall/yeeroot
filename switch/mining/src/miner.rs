@@ -1,3 +1,20 @@
+// Copyright (C) 2019 Yee Foundation.
+//
+// This file is part of YeeChain.
+//
+// YeeChain is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// YeeChain is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
+
 use crate::client::{Client,Rpc};
 use crate::config::WorkerConfig;
 use crate::worker::{start_worker, WorkerController, WorkerMessage};
@@ -130,7 +147,7 @@ impl Miner {
                         shard_cnt: value.shard_cnt.clone(),
                         merkle_proof: value.merkle_proof.clone()
                     };
-                  //  debug!("find seal-{}:{} ,now  submit_job  work_id: {:?}", Local::now().time(),value.rawHash.clone(), submitjob);
+                    debug!("find seal-{}:{} ,now  submit_job  work_id: {:?}", Local::now().time(),value.rawHash.clone(), submitjob);
                   //  debug!("find seal-{}:{} ", Local::now().time(),value.rawHash.clone());
                    // debug!("                                 ");
                    // debug!("--{}",value.url.clone());
@@ -142,9 +159,9 @@ impl Miner {
 
 
                     let p = crate::job::ProofMulti{
-                        extra_data: "".to_string(),
+                        extra_data: "0x010203040506".to_string(),
                         merkle_root: submitjob.merkle_root,
-                        nonce: seal.nonce.to_string(),
+                        nonce: "0x400".to_string(),
                         merkle_proof: "0x150bb6eaccbbe063541a313834a1a9e8ead4c3247a9c164197fed7b15a535386".to_string()
                     };
 
