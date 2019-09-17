@@ -55,6 +55,7 @@ use {
 pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti};
 pub use crate::job::{JobManager, DefaultJobManager, DefaultJob};
+use yee_sharding::ShardingDigestItem;
 
 mod job;
 mod digest;
@@ -86,7 +87,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u32>,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
@@ -129,7 +130,7 @@ pub fn import_queue<B, C, AuthorityId>(
     inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
     C: 'static + Send + Sync,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {

@@ -19,7 +19,8 @@ primitives = { package = "substrate-primitives", git = "https://github.com/yeeco
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 serde = { version = "1.0", optional = true, features = ["derive"] }
-merkle_light = "0.3.1"
+merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
+yee-sharding = { package = "yee-sharding", path = "../../sharding" }
 
 [dev-dependencies]
 hex-literal = "0.2"

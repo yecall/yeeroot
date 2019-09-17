@@ -75,8 +75,7 @@ pub struct ProofMulti<Hash> {
     pub merkle_root: Hash,
     #[serde(with = "SerdeHex")]
     pub nonce: u64,
-    #[serde(with = "SerdeHex")]
-    pub merkle_proof: Vec<u8>,
+    pub merkle_proof: Vec<Hash>,
 }
 
 impl<B, AuthorityId> From<DefaultJob<B, AuthorityId>> for Job<B::Hash, B::Header, AuthorityId> where

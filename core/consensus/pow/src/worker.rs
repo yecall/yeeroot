@@ -48,6 +48,7 @@ use super::{
 };
 use crate::job::{JobManager, DefaultJob};
 use crate::pow::check_proof;
+use yee_sharding::ShardingDigestItem;
 
 pub trait PowWorker<JM: JobManager> {
     type Error: Debug + Send;
@@ -94,7 +95,7 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
     B: Block,
     DigestFor<B>: Digest,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
     AuthorityId: Decode + Encode + Clone + 'static,
 {

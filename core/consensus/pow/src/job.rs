@@ -57,6 +57,7 @@ use {
 	pow_primitives::{YeePOWApi, DifficultyType},
 };
 use crate::pow::check_proof;
+use yee_sharding::ShardingDigestItem;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -134,7 +135,7 @@ impl<B, C, E, AuthorityId, I> DefaultJobManager<B, C, E, AuthorityId, I> where
 
 impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AuthorityId, I>
 	where B: Block,
-	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId>,
+	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
 	      C: ChainHead<B> + Send + Sync + 'static,
 	      C: HeaderBackend<B> + ProvideRuntimeApi,
 	      <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
@@ -299,122 +300,4 @@ fn calc_difficulty<B, C, AuthorityId>(
 	info!("    new difficulty {:#x}", new_difficulty);
 
 	Ok(new_difficulty)
-}
-
-#[cfg(test)]
-mod tests {
-	use merkle_light::hash::Algorithm;
-	use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
-	use std::hash::Hasher;
-	use primitives::H256;
-	use std::marker::PhantomData;
-	use merkle_light::merkle::MerkleTree;
-	use merkle_light::proof::Proof;
-	use std::iter::FromIterator;
-
-	#[derive(Clone)]
-	struct MiningAlgorithm<H: HashT>(Vec<u8>, PhantomData<H>);
-
-	impl<H: HashT> MiningAlgorithm<H> {
-		fn new() -> MiningAlgorithm<H> {
-			MiningAlgorithm(Vec::with_capacity(32), PhantomData)
-		}
-	}
-
-	impl<H: HashT> Default for MiningAlgorithm<H> {
-		fn default() -> MiningAlgorithm<H> {
-			MiningAlgorithm::new()
-		}
-	}
-
-	impl<H: HashT> Hasher for MiningAlgorithm<H> {
-		#[inline]
-		fn write(&mut self, msg: &[u8]) {
-			self.0.extend_from_slice(msg)
-		}
-
-		#[inline]
-		fn finish(&self) -> u64 {
-			unimplemented!()
-		}
-	}
-
-	type MiningHash<H: HashT> = H::Output;
-
-	impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> {
-		#[inline]
-		fn hash(&mut self) -> MiningHash<H> {
-			H::hash(&self.0)
-		}
-
-		#[inline]
-		fn reset(&mut self) {
-			self.0.truncate(0);
-		}
-
-		fn leaf(&mut self, leaf: MiningHash<H>) -> MiningHash<H> {
-			leaf
-		}
-
-		fn node(&mut self, left: MiningHash<H>, right: MiningHash<H>) -> MiningHash<H> {
-			self.write(left.as_ref());
-			self.write(right.as_ref());
-			self.hash()
-		}
-	}
-
-
-	#[test]
-	fn test_merkle_root() {
-		let shard0_header_hash: H256 = [1u8; 32].into();
-		let shard1_header_hash: H256 = [2u8; 32].into();
-		let shard2_header_hash: H256 = [3u8; 32].into();
-		let shard3_header_hash: H256 = [4u8; 32].into();
-
-		let mut a = MiningAlgorithm::<BlakeTwo256>::new();
-
-		let hash10 = a.node(shard0_header_hash, shard1_header_hash);
-
-		a.reset();
-		let hash11 = a.node(shard2_header_hash, shard3_header_hash);
-
-		a.reset();
-		let root = a.node(hash10, hash11);
-
-		let t: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
-			MerkleTree::from_iter(vec![shard0_header_hash, shard1_header_hash, shard2_header_hash, shard3_header_hash]);
-
-		let a = t.root();
-
-		assert_eq!(root, a);
-	}
-
-	#[test]
-	fn test_merkle_proof() {
-		let shard0_header_hash: H256 = [1u8; 32].into();
-		let shard1_header_hash: H256 = [2u8; 32].into();
-		let shard2_header_hash: H256 = [3u8; 32].into();
-		let shard3_header_hash: H256 = [4u8; 32].into();
-
-		let mut a = MiningAlgorithm::<BlakeTwo256>::new();
-
-		let hash10 = a.node(shard0_header_hash, shard1_header_hash);
-
-		a.reset();
-		let hash11 = a.node(shard2_header_hash, shard3_header_hash);
-
-		a.reset();
-		let root = a.node(hash10, hash11);
-
-		let t: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
-			MerkleTree::from_iter(vec![shard0_header_hash, shard1_header_hash, shard2_header_hash, shard3_header_hash]);
-
-		assert_eq!(Proof::new(vec![shard0_header_hash, shard1_header_hash, hash11, root], vec![true, true]), t.gen_proof(0));
-
-		assert_eq!(Proof::new(vec![shard1_header_hash, shard0_header_hash, hash11, root], vec![false, true]), t.gen_proof(1));
-
-		assert_eq!(Proof::new(vec![shard2_header_hash, shard3_header_hash, hash10, root], vec![true, false]), t.gen_proof(2));
-
-		assert_eq!(Proof::new(vec![shard3_header_hash, shard2_header_hash, hash10, root], vec![false, false]), t.gen_proof(3));
-	}
 }

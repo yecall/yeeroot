@@ -38,6 +38,7 @@ use {
 };
 use super::CompatibleDigestItem;
 use crate::pow::check_proof;
+use yee_sharding::ShardingDigestItem;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C, AuthorityId> {
@@ -49,7 +50,7 @@ pub struct PowVerifier<C, AuthorityId> {
 #[forbid(deprecated)]
 impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
     C: Send + Sync,
     AuthorityId: Decode + Encode + Clone + Send + Sync,
 {
@@ -91,7 +92,7 @@ fn check_header<B, AccountId>(
     hash: B::Hash,
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId> + ShardingDigestItem<u32>,
     AccountId: Decode + Encode + Clone,
 {
     // pow work proof MUST be last digest item

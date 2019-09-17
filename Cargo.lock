@@ -1970,7 +1970,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "merkle_light"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
+source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#9b8c958a408c1c55a75cdeb3289fbca6dea8182c"
 
 [[package]]
 name = "merlin"
@@ -5039,7 +5039,7 @@ dependencies = [
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-literal 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "merkle_light 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?branch=yee)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5053,6 +5053,7 @@ dependencies = [
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-consensus-pow-primitives 0.1.0",
  "yee-runtime 1.0.0",
+ "yee-sharding 0.1.0",
 ]
 
 [[package]]
@@ -5248,7 +5249,9 @@ name = "yee-sharding"
 version = "0.1.0"
 dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-network 0.1.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
 ]
 
@@ -5564,7 +5567,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum memoffset 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0f9dc261e2b62d7a622bf416ea3c5245cdd5d9a7fcc428c0d06804dfce1775b3"
 "checksum memory-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)" = "1eeeeab44c01c7da4409e68ec5b5db74c92305386efab3615e495b1dacaec196"
 "checksum memory_units 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
-"checksum merkle_light 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2522fe9e6a71447b7acc0841bced2517976f982e7ea8d494870eb71464ebc269"
+"checksum merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?branch=yee)" = "<none>"
 "checksum merlin 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8c39467de91b004f5b9c06fac5bbc8e7d28309a205ee66905166b70804a71fea"
 "checksum mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ba626b8a6de5da682e1caa06bdb42a335aee5a84db8e5046a3e8ab17ba0a3ae0"
 "checksum mime 0.3.13 (registry+https://github.com/rust-lang/crates.io-index)" = "3e27ca21f40a310bd06d9031785f4801710d566c184a6e15bad4f1d9b65f9425"
