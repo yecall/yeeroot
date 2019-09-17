@@ -86,8 +86,8 @@ impl<B, AuthorityId> Mining<B, AuthorityId> where
         cache.insert(job.hash.clone(), (job.clone(), expire_at));
 
         let expired : Vec<B::Hash> = cache.iter()
-            .filter(|(k, v)|(**v).1.lt(&now))
-            .map(|(k,v)|k).cloned().collect();
+            .filter(|(_k, v)|(**v).1.lt(&now))
+            .map(|(k,_v)|k).cloned().collect();
 
         for i in expired{
             cache.remove(&i);

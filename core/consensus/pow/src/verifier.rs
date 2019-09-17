@@ -37,6 +37,7 @@ use {
     },
 };
 use super::CompatibleDigestItem;
+use crate::pow::check_proof;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C, AuthorityId> {
@@ -50,7 +51,7 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
     C: Send + Sync,
-    AuthorityId: Decode + Encode + Send + Sync,
+    AuthorityId: Decode + Encode + Clone + Send + Sync,
 {
     fn verify(
         &self,
@@ -91,7 +92,7 @@ fn check_header<B, AccountId>(
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
-    AccountId: Decode + Encode,
+    AccountId: Decode + Encode + Clone,
 {
     // pow work proof MUST be last digest item
     let digest_item = match header.digest_mut().pop() {
@@ -102,11 +103,9 @@ fn check_header<B, AccountId>(
         format!("Header {:?} not sealed", hash)
     })?;
 
-    let pre_hash = header.hash();
-
     // TODO: check seal.difficulty
 
-    seal.check_seal(hash)?;
+    check_proof(&header, &seal)?;
 
     Ok((header, digest_item))
 }

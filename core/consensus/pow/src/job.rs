@@ -51,11 +51,12 @@ use {
 };
 use std::time::Duration;
 use crate::{PowSeal, WorkProof, CompatibleDigestItem};
-use parity_codec::{Decode, Encode, Codec};
+use parity_codec::{Decode, Encode};
 use log::info;
 use {
 	pow_primitives::{YeePOWApi, DifficultyType},
 };
+use crate::pow::check_proof;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -208,21 +209,13 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
 
-			let mut work_header = job.header.clone();
-			let mut seal = job.digest_item.clone();
-			let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(seal.clone());
-			work_header.digest_mut().push(item);
+			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
 
-			let post_hash = work_header.hash();
-
-			seal.check_seal(post_hash)?;
-
-			let valid_seal = work_header.digest_mut().pop().expect("must exists");
 			let import_block: ImportBlock<B> = ImportBlock {
 				origin: BlockOrigin::Own,
-				header: work_header,
+				header: job.header,
 				justification: None,
-				post_digests: vec![valid_seal],
+				post_digests: vec![post_digest],
 				body: Some(job.body),
 				finalized: false,
 				auxiliary: Vec::new(),
@@ -230,7 +223,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 			};
 			block_import.import_block(import_block, Default::default())?;
 
-			Ok(post_hash)
+			Ok(hash)
 		};
 
 		Box::new(check_job(job).into_future())
@@ -252,7 +245,7 @@ fn calc_difficulty<B, C, AuthorityId>(
 	DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId>,
 	C: HeaderBackend<B> + ProvideRuntimeApi,
 	<C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
-	AuthorityId: Encode + Decode,
+	AuthorityId: Encode + Decode + Clone,
 {
 	let curr_block_id = BlockId::hash(*header.parent_hash());
 	let api = client.runtime_api();

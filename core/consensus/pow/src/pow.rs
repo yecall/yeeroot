@@ -21,18 +21,19 @@ use runtime_primitives::{
     codec::{
         Decode, Encode,
     },
-    traits::Block,
+    traits::{Block, DigestItemFor, DigestFor, Digest, Header},
 };
 use {
     pow_primitives::DifficultyType,
 };
+use crate::CompatibleDigestItem;
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW consensus seal
 #[derive(Clone, Debug, Decode, Encode)]
-pub struct PowSeal<B: Block, AuthorityId: Decode + Encode> {
+pub struct PowSeal<B: Block, AuthorityId: Decode + Encode + Clone> {
     pub authority_id: AuthorityId,
     pub difficulty: DifficultyType,
     pub timestamp: u64,
@@ -85,37 +86,72 @@ pub struct ProofMulti<B: Block> {
     pub merkle_root: B::Hash,
     /// POW block nonce
     pub nonce: u64,
-    /// merkle tree spv proof
+    /// merkle proof
     pub merkle_proof: Vec<u8>,
 }
 
-impl<B: Block> ProofMulti<B> {
-    //
-}
-
-impl<B, AccountId> PowSeal<B, AccountId> where
+/// Check proof
+///
+/// Returns (post_digest, hash)
+pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, AuthorityId>) -> Result<(DigestItemFor<B>, B::Hash), String> where
     B: Block,
-    AccountId: Decode + Encode,
+    AuthorityId: Decode + Encode + Clone,
+    DigestFor<B>: Digest,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
 {
-    pub fn check_seal(&self, hash: B::Hash) -> Result<(), String> {
-        match self.work_proof {
-            WorkProof::Unknown => Err(format!("invalid work proof")),
-            WorkProof::Nonce(ref proof_nonce) => {
-                if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
-                    return Err(format!("extra data too long"));
-                }
-                let proof_difficulty = DifficultyType::from(hash.as_ref());
-                if proof_difficulty > self.difficulty {
-                    return Err(format!("difficulty not enough, need {}, got {}", self.difficulty, proof_difficulty));
-                }
-                Ok(())
+    match seal.work_proof{
+        WorkProof::Unknown => Err(format!("invalid work proof")),
+        WorkProof::Nonce(ref proof_nonce) => {
+            if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
+                return Err(format!("extra data too long"));
             }
-            WorkProof::Multi(ref _proof_multi) => {
-                Err(format!("TODO"))
+
+            let mut work_header = header.clone();
+            let seal_owned : PowSeal<B, AuthorityId> = seal.to_owned();
+            let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(seal_owned);
+            work_header.digest_mut().push(item);
+
+            let hash = work_header.hash();
+
+            let proof_difficulty = DifficultyType::from(hash.as_ref());
+
+            if proof_difficulty > seal.difficulty {
+                return Err(format!("difficulty not enough, need {}, got {}", seal.difficulty, proof_difficulty));
             }
+
+            let post_digest = work_header.digest_mut().pop().expect("must exist");
+
+            Ok((post_digest, hash))
+        },
+        WorkProof::Multi(ref _proof_multi) => {
+            Err(format!("TODO"))
         }
     }
 }
+
+//impl<B, AccountId> PowSeal<B, AccountId> where
+//    B: Block,
+//    AccountId: Decode + Encode,
+//{
+//    pub fn check_seal(&self, hash: B::Hash) -> Result<(), String> {
+//        match self.work_proof {
+//            WorkProof::Unknown => Err(format!("invalid work proof")),
+//            WorkProof::Nonce(ref proof_nonce) => {
+//                if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
+//                    return Err(format!("extra data too long"));
+//                }
+//                let proof_difficulty = DifficultyType::from(hash.as_ref());
+//                if proof_difficulty > self.difficulty {
+//                    return Err(format!("difficulty not enough, need {}, got {}", self.difficulty, proof_difficulty));
+//                }
+//                Ok(())
+//            }
+//            WorkProof::Multi(ref _proof_multi) => {
+//                Err(format!("TODO"))
+//            }
+//        }
+//    }
+//}
 
 #[cfg(test)]
 mod tests {
