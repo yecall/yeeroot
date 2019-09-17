@@ -229,6 +229,13 @@ pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Nonce, Call>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive = executive::Executive<Runtime, Block, Context, Balances, AllModules>;
 
+#[cfg(feature = "std")]
+impl Clone for GenesisConfig {
+    fn clone(&self) -> Self {
+        unreachable!()
+    }
+}
+
 // Implement our runtime API endpoints. This is just a bunch of proxying.
 impl_runtime_apis! {
 	impl runtime_api::Core<Block> for Runtime {

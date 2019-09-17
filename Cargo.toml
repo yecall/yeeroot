@@ -36,7 +36,7 @@ parity-codec = "3.2"
 trie-root = "0.12.0"
 yee-runtime = { path = "runtime" }
 consensus = { package = "yee-consensus-pow", path = "core/consensus/pow" }
-sharding_primitives = { package = "yee-sharding-primitives", path = "sharding/primitives" }
+sharding_primitives = { package = "yee-sharding-primitives", path = "core/sharding/primitives" }
 sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
@@ -54,11 +54,12 @@ ansi_term = "0.11"
 yee-switch = { package = "yee-switch", path = "switch" }
 yee-rpc = { package = "yee-rpc", path = "rpc" }
 yee-bootnodes-router = { package = "yee-bootnodes-router", path = "bootnodes-router" }
-yee-sharding = { package = "yee-sharding", path = "sharding" }
+yee-sharding = { package = "yee-sharding", path = "core/sharding" }
 yee-foreign-network = { package = "yee-foreign-network", path = "foreign/network" }
 yee-dev = { package = "yee-dev", path = "dev" }
 srml-sharding = { package = "yee-srml-sharding", path = "srml/yee-sharding" }
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+foreign_chain = { package = "yee-foreign-chain", path = "foreign/chain" }
 
 [build-dependencies]
 vergen = "3"

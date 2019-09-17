@@ -75,8 +75,7 @@ pub struct ProofMulti<Hash> {
     pub merkle_root: Hash,
     #[serde(with = "SerdeHex")]
     pub nonce: u64,
-    #[serde(with = "SerdeHex")]
-    pub merkle_proof: Vec<u8>,
+    pub merkle_proof: Vec<Hash>,
 }
 
 impl<B, AuthorityId> From<DefaultJob<B, AuthorityId>> for Job<B::Hash, B::Header, AuthorityId> where
@@ -136,6 +135,41 @@ impl<B> From<DefaultProofMulti<B>> for ProofMulti<B::Hash> where
             merkle_root: dpm.merkle_root,
             nonce: dpm.nonce,
             merkle_proof: dpm.merkle_proof,
+        }
+    }
+}
+
+
+impl<B> Into<DefaultWorkProof<B>> for WorkProof<B::Hash> where
+    B: BlockT
+{
+    fn into(self) -> DefaultWorkProof<B> {
+        match self{
+            WorkProof::Unknown => DefaultWorkProof::Unknown,
+            WorkProof::Nonce(t) => DefaultWorkProof::Nonce(t.into()),
+            WorkProof::Multi(t) => DefaultWorkProof::Multi(t.into()),
+        }
+    }
+}
+
+impl Into<DefaultProofNonce> for ProofNonce {
+    fn into(self) -> DefaultProofNonce {
+        DefaultProofNonce{
+            extra_data: self.extra_data,
+            nonce: self.nonce,
+        }
+    }
+}
+
+impl<B> Into<DefaultProofMulti<B>> for ProofMulti<B::Hash> where
+    B: BlockT
+{
+    fn into(self) -> DefaultProofMulti<B> {
+        DefaultProofMulti{
+            extra_data: self.extra_data,
+            merkle_root: self.merkle_root,
+            nonce: self.nonce,
+            merkle_proof: self.merkle_proof,
         }
     }
 }

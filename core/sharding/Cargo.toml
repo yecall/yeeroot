@@ -8,3 +8,5 @@ edition = "2018"
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 regex = "1"
 log = "0.4"
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+parity-codec = "3.2"

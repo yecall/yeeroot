@@ -55,6 +55,7 @@ use {
 pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti};
 pub use crate::job::{JobManager, DefaultJobManager, DefaultJob};
+use yee_sharding::ShardingDigestItem;
 
 mod job;
 mod digest;
@@ -70,7 +71,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     sync_oracle: SO,
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
-    coin_base: AccountId,
+    _coin_base: AccountId,
     job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, P::Public>>>>>>,
     _force_authoring: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
@@ -86,13 +87,14 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem<B, P::Public>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u32>,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
         env.clone(),
         inherent_data_providers.clone(),
-        local_key.public()
+        local_key.public(),
+        block_import.clone(),
     ));
 
     let mut reg_lock = job_manager.write();
@@ -108,13 +110,8 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
 
     let worker = Arc::new(worker::DefaultWorker::new(
         inner_job_manager.clone(),
-        local_key.clone(),
-        client.clone(),
         block_import,
-        sync_oracle.clone(),
         inherent_data_providers.clone(),
-        coin_base,
-        PhantomData,
     ));
     worker::start_worker(
         worker,
@@ -133,9 +130,9 @@ pub fn import_queue<B, C, AuthorityId>(
     inherent_data_providers: InherentDataProviders,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
     C: 'static + Send + Sync,
-    AuthorityId: Decode + Encode + Send + Sync + 'static,
+    AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {
     register_inherent_data_provider(&inherent_data_providers)?;
 

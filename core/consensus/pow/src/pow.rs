@@ -21,18 +21,25 @@ use runtime_primitives::{
     codec::{
         Decode, Encode,
     },
-    traits::Block,
+    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT},
 };
 use {
     pow_primitives::DifficultyType,
 };
+use crate::CompatibleDigestItem;
+use yee_sharding::ShardingDigestItem;
+use log::debug;
+use std::marker::PhantomData;
+use std::hash::Hasher;
+use merkle_light::hash::Algorithm;
+use merkle_light::proof::Proof;
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 /// POW consensus seal
 #[derive(Clone, Debug, Decode, Encode)]
-pub struct PowSeal<B: Block, AuthorityId: Decode + Encode> {
+pub struct PowSeal<B: Block, AuthorityId: Decode + Encode + Clone> {
     pub authority_id: AuthorityId,
     pub difficulty: DifficultyType,
     pub timestamp: u64,
@@ -85,42 +92,252 @@ pub struct ProofMulti<B: Block> {
     pub merkle_root: B::Hash,
     /// POW block nonce
     pub nonce: u64,
-    /// merkle tree spv proof
-    pub merkle_proof: Vec<u8>,
+    /// merkle proof
+    pub merkle_proof: Vec<B::Hash>,
 }
 
-impl<B: Block> ProofMulti<B> {
-    //
-}
-
-impl<B, AccountId> PowSeal<B, AccountId> where
+/// Check proof
+///
+/// Returns (post_digest, hash)
+pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, AuthorityId>) -> Result<(DigestItemFor<B>, B::Hash), String> where
     B: Block,
-    AccountId: Decode + Encode,
+    AuthorityId: Decode + Encode + Clone,
+    DigestFor<B>: Digest,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
 {
-    pub fn check_seal(&self, hash: B::Hash, _pre_hash: B::Hash) -> Result<(), String> {
-        match self.work_proof {
-            WorkProof::Unknown => Err(format!("invalid work proof")),
-            WorkProof::Nonce(ref proof_nonce) => {
-                if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
-                    return Err(format!("extra data too long"));
-                }
-                let proof_difficulty = DifficultyType::from(hash.as_ref());
-                if proof_difficulty > self.difficulty {
-                    return Err(format!("difficulty not enough, need {}, got {}", self.difficulty, proof_difficulty));
-                }
-                Ok(())
+    match seal.work_proof{
+        WorkProof::Unknown => Err(format!("invalid work proof")),
+        WorkProof::Nonce(ref proof_nonce) => {
+            if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
+                return Err(format!("extra data too long"));
             }
-            WorkProof::Multi(ref _proof_multi) => {
-                Err(format!("TODO"))
+
+            let mut work_header = header.clone();
+            let seal_owned : PowSeal<B, AuthorityId> = seal.to_owned();
+            let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(seal_owned);
+            work_header.digest_mut().push(item);
+
+            let hash = work_header.hash();
+
+            let proof_difficulty = DifficultyType::from(hash.as_ref());
+
+            if proof_difficulty > seal.difficulty {
+                return Err(format!("Nonce proof: difficulty not enough, need {}, got {}", seal.difficulty, proof_difficulty));
             }
+
+            let post_digest = work_header.digest_mut().pop().expect("must exist");
+
+            Ok((post_digest, hash))
+        },
+        WorkProof::Multi(ref proof_multi) => {
+
+            let shard_info = header.digest().logs().iter().rev()
+                .filter_map(ShardingDigestItem::as_sharding_info)
+                .next();
+
+            let (shard_num, shard_count) = shard_info.expect("must exist");
+            let (shard_num, shard_count) = (shard_num as u16, shard_count as u16);
+            debug!("Check multi proof: shard_num: {}, shard_count: {}", shard_num, shard_count);
+
+            let pre_hash = header.hash();
+
+            //merkle proof validate
+            let compact_proof = CompactMerkleProof::<<B::Header as Header>::Hashing> {
+                proof: proof_multi.merkle_proof.clone(),
+                item: pre_hash,
+                root: proof_multi.merkle_root.clone(),
+                num: shard_num,
+                count: shard_count,
+            };
+            let original_proof = parse_original(compact_proof)?;
+
+            let valid = original_proof.proof.validate::<MiningAlgorithm<<B::Header as Header>::Hashing>>();
+
+            if !valid {
+                return Err(format!("Invalid merkle proof"));
+            }
+
+            //diff validate
+            let source = (proof_multi.merkle_root.clone(), proof_multi.extra_data.clone(), proof_multi.nonce);
+            let source_hash = <B::Header as Header>::Hashing::hash_of(&source);
+            let source_difficulty = DifficultyType::from(source_hash.as_ref());
+
+            if source_difficulty > seal.difficulty {
+                return Err(format!("Multi proof: difficulty not enough, need {}, got {}", seal.difficulty, source_difficulty));
+            }
+
+            //make hash
+            let mut work_header = header.clone();
+            let seal_owned : PowSeal<B, AuthorityId> = seal.to_owned();
+            let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(seal_owned);
+            work_header.digest_mut().push(item);
+
+            let hash = work_header.hash();
+
+            let post_digest = work_header.digest_mut().pop().expect("must exist");
+
+            Ok((post_digest, hash))
         }
     }
+}
+
+#[derive(Clone)]
+pub struct MiningAlgorithm<H: HashT>(Vec<u8>, PhantomData<H>);
+
+impl<H: HashT> MiningAlgorithm<H> {
+    fn new() -> MiningAlgorithm<H> {
+        MiningAlgorithm(Vec::with_capacity(32), PhantomData)
+    }
+}
+
+impl<H: HashT> Default for MiningAlgorithm<H> {
+    fn default() -> MiningAlgorithm<H> {
+        MiningAlgorithm::new()
+    }
+}
+
+impl<H: HashT> Hasher for MiningAlgorithm<H> {
+    #[inline]
+    fn write(&mut self, msg: &[u8]) {
+        self.0.extend_from_slice(msg)
+    }
+
+    #[inline]
+    fn finish(&self) -> u64 {
+        unimplemented!()
+    }
+}
+
+pub type MiningHash<H> = <H as HashT>::Output;
+
+impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> {
+    #[inline]
+    fn hash(&mut self) -> MiningHash<H> {
+        H::hash(&self.0)
+    }
+
+    #[inline]
+    fn reset(&mut self) {
+        self.0.truncate(0);
+    }
+
+    fn leaf(&mut self, leaf: MiningHash<H>) -> MiningHash<H> {
+        leaf
+    }
+
+    fn node(&mut self, left: MiningHash<H>, right: MiningHash<H>) -> MiningHash<H> {
+        self.write(left.as_ref());
+        self.write(right.as_ref());
+        self.hash()
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct OriginalMerkleProof<H: HashT>{
+    pub proof: Proof<MiningHash<H>>,
+    pub num: u16,
+    pub count: u16,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct CompactMerkleProof<H: HashT> {
+    pub proof: Vec<H::Output>,
+    pub item: H::Output,
+    pub root: H::Output,
+    pub num: u16,
+    pub count: u16,
+}
+
+impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H>{
+    fn from(omp: OriginalMerkleProof<H>) -> Self{
+        let lemma = omp.proof.lemma();
+        let len = lemma.len();
+
+        let item = omp.proof.item();
+        let root = omp.proof.root();
+
+        //exclude first(leaf to proof) and last(root)
+        let mut proof = Vec::new();
+        for i in 1..(len-1){
+            let node = lemma[i];
+            proof.push(node)
+        }
+
+        Self {
+            proof,
+            item,
+            root,
+            num: omp.num,
+            count: omp.count,
+        }
+    }
+}
+
+fn parse_original<H>(cmp: CompactMerkleProof<H>) -> Result<OriginalMerkleProof<H>, String> where
+    H: HashT,
+{
+    let num = cmp.num;
+    let count = cmp.count;
+    if num >= count{
+        return Err(format!("Invalid num: {}", num));
+    }
+
+    let height = log2(count);
+    if pow2(height) != count {
+        return Err(format!("Invalid count: {}", count));
+    }
+
+    let compact_proof = cmp.proof;
+    let expect_proof_size = height as usize;
+
+    if compact_proof.len() != expect_proof_size {
+        return Err(format!("Invalid proof size: {}, expected: {}", compact_proof.len(), expect_proof_size));
+    }
+
+    let mut lemma = Vec::new();
+    lemma.push(cmp.item);
+    lemma.extend(compact_proof);
+    lemma.push(cmp.root);
+
+    let mut path = Vec::new();
+    let mut tmp_num = num;
+    for _ in 0..height{
+        let path_item = tmp_num % 2 == 0 ;
+        path.push(path_item);
+        tmp_num = tmp_num / 2;
+    }
+
+    Ok(OriginalMerkleProof{
+        proof: Proof::new(lemma, path),
+        num: num,
+        count: count,
+    })
+}
+
+fn log2(n: u16) -> u16 {
+    let mut s = n;
+    let mut i = 0;
+    while s > 0 {
+        s = s >> 1;
+        i = i + 1;
+    }
+    i - 1
+}
+
+fn pow2(n: u16) -> u16{
+    1u16 << n
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use hex_literal::hex;
+    use yee_runtime::Block;
+    use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
+    use primitives::H256;
+    use merkle_light::merkle::MerkleTree;
+    use merkle_light::proof::Proof;
+    use std::iter::FromIterator;
 
     #[test]
     fn proof_nonce_encode() {
@@ -131,8 +348,174 @@ mod tests {
         ];
 
         for (extra, nonce, expected) in tests {
-            let proof = WorkProof::Nonce(ProofNonce { extra_data: extra.as_bytes().to_vec(), nonce });
+            let proof = WorkProof::<Block>::Nonce(ProofNonce { extra_data: extra.as_bytes().to_vec(), nonce });
             assert_eq!(proof.encode(), expected);
         }
+    }
+
+    #[test]
+    fn test_merkle_root() {
+        let shard0_header_hash: H256 = [1u8; 32].into();
+        let shard1_header_hash: H256 = [2u8; 32].into();
+        let shard2_header_hash: H256 = [3u8; 32].into();
+        let shard3_header_hash: H256 = [4u8; 32].into();
+
+        let mut a = MiningAlgorithm::<BlakeTwo256>::new();
+
+        let hash10 = a.node(shard0_header_hash, shard1_header_hash);
+
+        a.reset();
+        let hash11 = a.node(shard2_header_hash, shard3_header_hash);
+
+        a.reset();
+        let root = a.node(hash10, hash11);
+
+        let t: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
+            MerkleTree::from_iter(vec![shard0_header_hash, shard1_header_hash, shard2_header_hash, shard3_header_hash]);
+
+        let a = t.root();
+
+        assert_eq!(root, a);
+    }
+
+    #[test]
+    fn test_merkle_proof() {
+        let shard0_header_hash: H256 = [1u8; 32].into();
+        let shard1_header_hash: H256 = [2u8; 32].into();
+        let shard2_header_hash: H256 = [3u8; 32].into();
+        let shard3_header_hash: H256 = [4u8; 32].into();
+
+        let mut a = MiningAlgorithm::<BlakeTwo256>::new();
+
+        let hash10 = a.node(shard0_header_hash, shard1_header_hash);
+
+        a.reset();
+        let hash11 = a.node(shard2_header_hash, shard3_header_hash);
+
+        a.reset();
+        let root = a.node(hash10, hash11);
+
+        let t: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
+            MerkleTree::from_iter(vec![shard0_header_hash, shard1_header_hash, shard2_header_hash, shard3_header_hash]);
+
+        assert_eq!(Proof::new(vec![shard0_header_hash, shard1_header_hash, hash11, root], vec![true, true]), t.gen_proof(0));
+
+        assert_eq!(Proof::new(vec![shard1_header_hash, shard0_header_hash, hash11, root], vec![false, true]), t.gen_proof(1));
+
+        assert_eq!(Proof::new(vec![shard2_header_hash, shard3_header_hash, hash10, root], vec![true, false]), t.gen_proof(2));
+
+        assert_eq!(Proof::new(vec![shard3_header_hash, shard2_header_hash, hash10, root], vec![false, false]), t.gen_proof(3));
+    }
+
+    #[test]
+    fn test_merkle_proof_to_compact() {
+        let shard0_header_hash: H256 = [1u8; 32].into();
+        let shard1_header_hash: H256 = [2u8; 32].into();
+        let shard2_header_hash: H256 = [3u8; 32].into();
+        let shard3_header_hash: H256 = [4u8; 32].into();
+
+        let mut a = MiningAlgorithm::<BlakeTwo256>::new();
+
+        let hash10 = a.node(shard0_header_hash, shard1_header_hash);
+
+        a.reset();
+        let hash11 = a.node(shard2_header_hash, shard3_header_hash);
+
+        a.reset();
+        let root = a.node(hash10, hash11);
+
+        let t: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
+            MerkleTree::from_iter(vec![shard0_header_hash, shard1_header_hash, shard2_header_hash, shard3_header_hash]);
+
+        let proof = t.gen_proof(1);
+
+        let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+            proof,
+            num: 1,
+            count: 4,
+        };
+
+        let compact_proof : CompactMerkleProof<BlakeTwo256> = ori_proof.into();
+
+        let mut proof = Vec::new();
+        proof.push(shard0_header_hash);
+        proof.push(hash11);
+        let compact_proof2 = CompactMerkleProof::<BlakeTwo256>{
+            proof: proof,
+            item: shard1_header_hash,
+            root: root,
+            num: 1,
+            count: 4,
+        };
+
+        assert_eq!(compact_proof, compact_proof2);
+    }
+
+    #[test]
+    fn test_parse_original() {
+        let shard0_header_hash: H256 = [1u8; 32].into();
+        let shard1_header_hash: H256 = [2u8; 32].into();
+        let shard2_header_hash: H256 = [3u8; 32].into();
+        let shard3_header_hash: H256 = [4u8; 32].into();
+
+        let mut a = MiningAlgorithm::<BlakeTwo256>::new();
+
+        let hash10 = a.node(shard0_header_hash, shard1_header_hash);
+
+        a.reset();
+        let hash11 = a.node(shard2_header_hash, shard3_header_hash);
+
+        a.reset();
+        let root = a.node(hash10, hash11);
+
+        let t: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
+            MerkleTree::from_iter(vec![shard0_header_hash, shard1_header_hash, shard2_header_hash, shard3_header_hash]);
+
+        //1
+        let proof = t.gen_proof(1);
+
+        let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+            proof,
+            num: 1,
+            count: 4,
+        };
+
+        let mut proof = Vec::new();
+        proof.push(shard0_header_hash);
+        proof.push(hash11);
+        let compact_proof = CompactMerkleProof::<BlakeTwo256>{
+            proof: proof,
+            item: shard1_header_hash,
+            root: root,
+            num: 1,
+            count: 4,
+        };
+        let ori_proof2 = parse_original(compact_proof).expect("qed");
+
+        assert_eq!(ori_proof, ori_proof2);
+
+        //2
+        let proof = t.gen_proof(2);
+
+        let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+            proof,
+            num: 2,
+            count: 4,
+        };
+
+        let mut proof = Vec::new();
+        proof.push(shard3_header_hash);
+        proof.push(hash10);
+        let compact_proof = CompactMerkleProof::<BlakeTwo256>{
+            proof: proof,
+            item: shard2_header_hash,
+            root: root,
+            num: 2,
+            count: 4,
+        };
+        let ori_proof2 = parse_original(compact_proof).expect("qed");
+
+        assert_eq!(ori_proof, ori_proof2);
+
     }
 }
