@@ -139,7 +139,17 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             let (shard_num, shard_count) = (shard_num as u16, shard_count as u16);
             debug!("Check multi proof: shard_num: {}, shard_count: {}", shard_num, shard_count);
 
-            let pre_hash = header.hash();
+            //get pre hash
+            let pow_seal = PowSeal {
+                authority_id: seal.authority_id.clone(),
+                difficulty: seal.difficulty,
+                timestamp: seal.timestamp,
+                work_proof: WorkProof::Unknown,
+            };
+            let mut header_with_pow_seal = header.clone();
+            let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
+            header_with_pow_seal.digest_mut().push(item);
+            let pre_hash = header_with_pow_seal.hash();
 
             //merkle proof validate
             let compact_proof = CompactMerkleProof::<<B::Header as Header>::Hashing> {
