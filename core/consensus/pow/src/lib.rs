@@ -59,7 +59,7 @@ use yee_sharding::ShardingDigestItem;
 
 mod job;
 mod digest;
-mod pow;
+pub mod pow;
 mod verifier;
 mod worker;
 

@@ -34,12 +34,8 @@ use std::collections::HashMap;
 use std::any::Any;
 use failure::Error;
 use uuid::Uuid;
-use crate::merkle::{CryptoYeeAlgorithm,CryptoSHA256Hash,HexSlice};
-use yee_merkle::hash::{Algorithm, Hashable};
-use yee_merkle::merkle::MerkleTree;
 use std::iter::FromIterator;
 use primitives::{H256,blake2_256};
-
 extern crate crypto;
 use std::fmt;
 use std::hash::Hasher;
@@ -49,6 +45,12 @@ use primitives::hexdisplay::HexDisplay;
 use crate::job::Job;
 use yee_switch_rpc::Config;
 use rand::Rng;
+use merkle_light::hash::Algorithm;
+use merkle_light::proof::Proof;
+use merkle_light::merkle::MerkleTree;
+use yee_consensus_pow::pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
+use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
+use core::borrow::Borrow;
 
 const WORK_CACHE_SIZE: usize = 32;
 
@@ -63,12 +65,10 @@ pub struct Gateway {
 impl Gateway {
     pub fn new(client: Client,new_work_tx: Sender<WorkMap>,map:Config) -> Gateway {
         //init
-
         let job = JobTemplate{ difficulty:  DifficultyType::from(0x00000000) << 224,
                                rawHash: blake2_256( "".as_bytes()).into(),
             url: "".to_string()
         };
-
 
         let mut  set:HashMap<String,JobTemplate> =  HashMap::new();
 
@@ -131,100 +131,68 @@ impl Gateway {
 
         }
 
-
-
-
         let mut f = false; //更新标记，只要有一个分片数据更新即为true
 
         if !set.is_empty(){
             for (key, value) in set {
                // debug!("set data---[{}] = {:?}", key, value);
-
                 if self.current_job_set.get(&key).unwrap().clone().rawHash != value.rawHash{
                     f = true;
                 }
-
                 self.current_job_set.insert(key.clone(),value.clone());//最终数据全覆盖
-
-              //  self.current_job_set.get_key_value("");
             }
-
-
         }else {
             warn!("warning:No data of shard  updates");
-
         }
-
-
         if f {
             let mut work_map:HashMap<String,Work> =  HashMap::new();
-            //let len = self.current_job_set.len();
             let  extra_data =  "YeeRoot".as_bytes().to_vec();
+            let len = self.current_job_set.len();
+            let mut merkle_vec = vec![];
 
-            let mut va = vec![];
-
-            let mut sort:HashMap<String,usize> =  HashMap::new();
-
-            let mut i = 0;
-            let borrowed_string ="0x".to_string();
-            let mut a = CryptoYeeAlgorithm::new();
-
-            for (key, value) in  self.current_job_set.clone() {
-
-                let together = format!("{}{}", borrowed_string, HexDisplay::from(H256::as_fixed_bytes(&value.rawHash.clone())).to_string());
-                together.clone().hash(&mut a);
-                let h2 = a.hash();
-               // println!("h2{}-{:?}",value.rawHash.clone(), h2);
-                a.reset();
-
-                va.push(together.clone());
-                sort.insert(together.clone(),i);
-                i = i+1;
+            for i in 0..len {
+                merkle_vec.push(self.current_job_set.get(&i.to_string()).unwrap().rawHash.clone());
             }
+            let mt: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
+                MerkleTree::from_iter(merkle_vec);
+            let merkle_root = mt.root();
 
-            let mt: MerkleTree<CryptoSHA256Hash, CryptoYeeAlgorithm> =
-                MerkleTree::from_iter(va.iter().map(|x|{
-                    a.reset();
-                    x.hash(&mut a);
-                    a.hash()
-                }));
+            for i in 0..len {
+                let mut key = i.to_string();
+                let mut value = self.current_job_set.get(&key).unwrap();
 
-            let root = mt.root();
-            let leas = mt.clone().leafs;
-            //debug!("leas-{:?}", leas);
-            //debug!("data-{:?}", data);
+                let proof = mt.gen_proof(i);
+                let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+                    proof:proof.clone(),
+                    num: i as u16,
+                    count: len as u16,
+                };
 
+                let ori = OriginalMerkleProof::<BlakeTwo256>{
+                    proof:proof.clone(),
+                    num: i as u16,
+                    count: len as u16,
+                };
 
-            let  merkle_root = root.into();
-
-
-
-            for (key, value) in  self.current_job_set.clone() {
-                let proof = mt.gen_proof(*sort.get(&format!("{}{}", borrowed_string, HexDisplay::from(H256::as_fixed_bytes(&value.rawHash.clone())).to_string())).unwrap());
+                let compact_proof : CompactMerkleProof<BlakeTwo256> = ori_proof.into();
                 let w = Work{
                     rawHash: value.rawHash,
                     difficulty: value.difficulty,
                     extra_data: extra_data.clone(),
                     merkle_root: merkle_root,
-                    merkle_proof: proof.clone(),
-                    shard_num: key.parse().unwrap(),
-                    shard_cnt: self.map.shards.len() as u32,
-                    url:value.url
+                    merkle_proof: compact_proof.proof,
+                    url: value.url.clone(),
+                    original_proof: ori,
                 };
                 // debug!("work---check-{:?}",w);
                 // debug!("shard-{}-update! check-{:?}",w.shard_num.clone(),w.clone());
-
-
                 work_map.insert(key,w);
-
             }
-
 
             let pmap = WorkMap{ work_id: Uuid::new_v4().to_string(),merkle_root,extra_data,work_map };
             if let Err(e) = self.notify_new_work(pmap) {
                 error!("gateWay notify_new_work error: {:?}", e);
             }
-
         }
     }
 

@@ -36,9 +36,7 @@ pub struct WorkerConfig {
     pub threads: usize,
 }
 
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NodeConfig {
-
     pub shards: Vec<String>,
 }

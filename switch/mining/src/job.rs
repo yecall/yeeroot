@@ -18,7 +18,7 @@
 use primitives::{H256,U256};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::DeserializeOwned;
-
+use crate::job_template::ProofMulti;
 pub type DifficultyType = primitives::U256;
 
 
@@ -79,10 +79,4 @@ pub struct ProofNonce {
     pub nonce: u64,
 }
 
-#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
-pub struct ProofMulti {
-    pub extra_data: String,
-    pub merkle_root: H256,
-    pub nonce: String,
-    pub merkle_proof: String,
-}
+

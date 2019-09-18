@@ -17,13 +17,10 @@
 
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
-use yee_merkle::proof::Proof;
 use crate::job::Job;
-
+use yee_serde_hex::SerdeHex;
 pub type DifficultyType = primitives::U256;
-
 pub type Hash = primitives::H256;
-
 
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct JobTemplate {
@@ -55,20 +52,18 @@ pub struct ProofNonce {
     pub nonce: u64,
 }
 
-#[derive(Clone, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct ProofMulti {
     /// Extra Data used to encode miner info AND more entropy
+    #[serde(with = "SerdeHex")]
     pub extra_data: Vec<u8>,
     /// merkle root of multi-mining headers
     pub merkle_root: Hash,
     /// merkle tree spv proof
-    pub merkle_proof: Proof<[u8;32]>,
+    pub merkle_proof: Vec<Hash>,
     /// POW block nonce
+    #[serde(with = "SerdeHex")]
     pub nonce: u64,
-    /// shard info
-    pub shard_num: u32,
-    pub shard_cnt: u32,
-
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -78,6 +73,5 @@ pub struct Task {
     pub extra_data: Vec<u8>,
     /// merkle root of multi-mining headers
     pub merkle_root: Hash,
-
 
 }

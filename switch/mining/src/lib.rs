@@ -22,10 +22,8 @@ pub mod job_template;
 use crate::job_template::{ProofMulti,JobTemplate,Hash,DifficultyType};
 pub mod worker;
 pub mod miner;
-pub mod merkle;
 pub mod gateway;
 use std::collections::HashMap;
-use yee_merkle::proof::Proof;
 use std::thread;
 use crossbeam_channel::unbounded;
 use crate::client::Client;
@@ -34,8 +32,10 @@ use crate::miner::Miner;
 use crate::config::{WorkerConfig,NodeConfig,MinerConfig,ClientConfig};
 use crate::gateway::Gateway;
 use yee_switch_rpc::Config;
+use yee_consensus_pow::pow::OriginalMerkleProof;
+use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
 
-#[derive(Clone,  Debug)]
+#[derive(  Debug)]
 pub struct Work {
     pub rawHash:Hash,
     pub difficulty: DifficultyType,
@@ -44,14 +44,11 @@ pub struct Work {
     /// merkle root of multi-mining headers
     pub merkle_root: Hash,
     /// merkle tree spv proof
-    pub merkle_proof:Proof<[u8;32]>,
-    /// shard info
-    pub shard_num: u32,
-    pub shard_cnt: u32,
+    pub merkle_proof: Vec<Hash>,
     pub url:String,
-
+    pub original_proof: OriginalMerkleProof<BlakeTwo256>,
 }
-#[derive(Clone, Debug)]
+#[derive( Debug)]
 pub struct WorkMap {
     pub work_id: String,
     pub merkle_root: Hash,

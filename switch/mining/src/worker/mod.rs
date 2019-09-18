@@ -24,7 +24,6 @@ use std::sync::Arc;
 use std::thread;
 use crate::job_template::{ProofMulti,JobTemplate,Hash,Task};
 use pow::Dummy;
-use yee_merkle::proof::Proof;
 use log::{info,error,warn,debug};
 
 #[derive(Clone)]
@@ -45,7 +44,7 @@ pub struct Seal {
 
 pub struct MerkleSeal {
     pub merkle_root: Hash,
-    pub merkle_proof: Proof<[u8;32]>,
+    pub merkle_proof: Vec<Hash>,
 }
 
 pub struct WorkerController {
