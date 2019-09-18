@@ -183,6 +183,7 @@ pub fn start_worker<W, SO, OnExit, JM>(
     worker: Arc<W>,
     sync_oracle: SO,
     on_exit: OnExit,
+    mine: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     W: PowWorker<JM>,
     SO: SyncOracle,
@@ -198,6 +199,10 @@ pub fn start_worker<W, SO, OnExit, JM>(
         let delay = Delay::new(Instant::now() + Duration::from_secs(5));
         let delayed_continue = Either::A(delay.then(|_| future::ok(Loop::Continue(()))));
         let no_delay_stop = Either::B(future::ok(Loop::Break(())));
+
+        if !mine {
+            return Either::A(no_delay_stop);
+        }
 
         match worker.stop_sign().read() {
             Ok(stop_sign) => {

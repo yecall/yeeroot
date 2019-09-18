@@ -74,6 +74,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     _coin_base: AccountId,
     job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, P::Public>>>>>>,
     _force_authoring: bool,
+    mine: bool,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     P: Pair + 'static,
@@ -116,7 +117,8 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     worker::start_worker(
         worker,
         sync_oracle,
-        on_exit)
+        on_exit,
+        mine)
 }
 
 /// POW chain import queue
