@@ -151,6 +151,8 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             };
             let original_proof = parse_original(compact_proof)?;
 
+            debug!("Check multi proof: original_proof: {:?}", original_proof);
+
             let valid = original_proof.proof.validate::<MiningAlgorithm<<B::Header as Header>::Hashing>>();
 
             if !valid {
