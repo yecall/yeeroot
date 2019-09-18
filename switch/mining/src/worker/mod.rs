@@ -82,7 +82,6 @@ fn nonce_generator(range: Range<u64>) -> impl FnMut() -> u64 {
     move || rng.gen_range(start, end)
 }
 
-
 pub fn start_worker(
     config: WorkerConfig,
     seal_tx: Sender<(String, Seal)>,
@@ -91,10 +90,8 @@ pub fn start_worker(
                     .map(|i| {
                         let worker_name = format!("yee-Worker-{}", i);
                         let nonce_range = partition_nonce(i as u64, config.threads as u64);
-
                         let (worker_tx, worker_rx) = unbounded();
                         let mut worker = Dummy::new(seal_tx.clone(), worker_rx);
-
                         thread::Builder::new()
                             .name(worker_name)
                             .spawn(move || {
@@ -105,10 +102,8 @@ pub fn start_worker(
                         worker_tx
                     })
                     .collect();
-
                 WorkerController::new(worker_txs)
             }
-
 
 pub trait Worker {
     fn run<G: FnMut() -> u64>(&mut self, rng: G);

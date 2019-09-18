@@ -14,10 +14,10 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
-
+use serde::{Serializer, Deserializer};
+use serde::de::DeserializeOwned;
 use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
-use crate::job::Job;
 use yee_serde_hex::SerdeHex;
 pub type DifficultyType = primitives::U256;
 pub type Hash = primitives::H256;
@@ -44,14 +44,6 @@ impl JobTemplate {
     }
 }
 
-
-pub struct ProofNonce {
-    /// Extra Data used to encode miner info AND more entropy
-    pub extra_data: Vec<u8>,
-    /// POW block nonce
-    pub nonce: u64,
-}
-
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct ProofMulti {
     /// Extra Data used to encode miner info AND more entropy
@@ -75,3 +67,59 @@ pub struct Task {
     pub merkle_root: Hash,
 
 }
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct Job {
+    pub digest_item: DigestItem,
+    pub hash: Hash,
+    pub header:Header,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct DigestItem {
+    pub authority_id: String,
+    pub difficulty: DifficultyType,
+    pub timestamp: String,
+    pub work_proof: String,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+
+pub struct Header {
+    pub digest: Digest,
+    pub extrinsicsRoot: Hash,
+    pub number: String,
+    pub parentHash:Hash,
+    pub stateRoot:Hash,
+}
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+
+pub struct Digest {
+    pub logs:Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+
+pub struct JobResult
+{
+    pub hash: Hash,
+    pub digest_item: ResultDigestItem,
+}
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct ResultDigestItem {
+    pub work_proof: WorkProof,
+}
+
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub enum WorkProof{
+    Unknown,
+    Nonce(ProofNonce),
+    Multi(ProofMulti),
+}
+
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
+pub struct ProofNonce {
+    pub extra_data: Vec<u8>,
+    pub nonce: u64,
+}
+

@@ -24,14 +24,14 @@ use rand::{
 use serde_derive::{Deserialize, Serialize};
 use std::thread;
 use std::time::Duration;
-use crate::job_template::{ProofMulti, JobTemplate, Hash,Task};
+use crate::job_template::{ProofMulti, JobTemplate, Hash, Task};
 use log::{info, error, warn, debug};
 use super::Seal;
 use primitives::blake2_256;
 use parity_codec::{Encode, Decode, Input};
 use chrono::prelude::*;
-extern crate chrono;
 
+extern crate chrono;
 
 pub struct Dummy {
     start: bool,
@@ -39,17 +39,6 @@ pub struct Dummy {
     seal_tx: Sender<(String, Seal)>,
     worker_rx: Receiver<WorkerMessage>,
 }
-
-
-//#[derive(Clone, PartialEq, Eq, Encode, Decode)]
-//pub struct Data {
-//    pub extra_data: Vec<u8>,
-//    /// merkle root of multi-mining headers
-//    pub merkle_root: Hash,
-//    /// POW block nonce
-//    pub nonce: u64,
-//
-//}
 
 impl Dummy {
     pub fn new(
@@ -74,21 +63,17 @@ impl Dummy {
                 WorkerMessage::Start => {
                     self.start = true;
                 }
-                WorkerMessage::Run => {
-
-                }
-
+                WorkerMessage::Run => {}
             }
         }
     }
 
     fn solve(&self, task: &Task, nonce: u64) {
-        let data = (task.merkle_root.clone(),task.extra_data.clone(),nonce);
-        let hash:Hash = blake2_256( &data.encode()).into();
-        let seal = Seal {post_hash:hash, nonce };
-       // debug!("solve  input-merkleroot-{}-nonce-{}",data.merkle_root,data.nonce);
+        let data = (task.merkle_root.clone(), task.extra_data.clone(), nonce);
+        let hash: Hash = blake2_256(&data.encode()).into();
+        let seal = Seal { post_hash: hash, nonce };
+        // debug!("solve  input-merkleroot-{}-nonce-{}",data.merkle_root,data.nonce);
         //debug!("solve hash --{}", seal.post_hash);
-        
         if let Err(err) = self.seal_tx.send((task.work_id.clone(), seal)) {
             error!("seal_tx send error {:?}", err);
         }
@@ -100,7 +85,7 @@ impl Worker for Dummy {
         //debug!("thsi is worker thread id {:?}",thread::current().id());
         loop {
             self.poll_worker_message();
-         //  debug!("{}-poll_worker_message--{:?}", Local::now().timestamp_millis(),self.start);
+            //  debug!("{}-poll_worker_message--{:?}", Local::now().timestamp_millis(),self.start);
             if self.start {
                 if let Some(task) = self.task.clone() {
                     self.solve(&task, rng());
@@ -112,14 +97,13 @@ impl Worker for Dummy {
 
 #[cfg(test)]
 mod tests {
-    use primitives::{blake2_256,Blake2Hasher, H256};
+    use primitives::{blake2_256, Blake2Hasher, H256};
+
     #[test]
     fn compare() {
-
         let rawbytes = blake2_256("dw".as_bytes());
-        let hash:H256 = rawbytes.into();
-        let y:[u8; 32] = hash.into();
+        let hash: H256 = rawbytes.into();
+        let y: [u8; 32] = hash.into();
         assert_eq!(rawbytes, y);
     }
-
 }

@@ -21,7 +21,7 @@ use crate::WorkMap;
 use crossbeam_channel::{select, unbounded, Receiver};
 use std::thread;
 use log::{info,error,warn,debug};
-use crate::job_template::{ProofMulti, JobTemplate, DifficultyType};
+use crate::job_template::{ProofMulti, JobTemplate, DifficultyType,Job};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
 use std::time;
@@ -42,7 +42,6 @@ use std::hash::Hasher;
 use crypto::sha2::Sha256;
 use crypto::digest::Digest;
 use primitives::hexdisplay::HexDisplay;
-use crate::job::Job;
 use yee_switch_rpc::Config;
 use rand::Rng;
 use merkle_light::hash::Algorithm;
@@ -50,10 +49,8 @@ use merkle_light::proof::Proof;
 use merkle_light::merkle::MerkleTree;
 use yee_consensus_pow::pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
 use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
-use core::borrow::Borrow;
 
 const WORK_CACHE_SIZE: usize = 32;
-
 pub struct Gateway {
     pub current_job_set:HashMap<String,JobTemplate>,
     pub client: Client,
@@ -98,13 +95,11 @@ impl Gateway {
         let mut  set:HashMap<String,JobTemplate> =  HashMap::new();
 
         for (key, value) in &self.map.shards {
-           // debug!("node url---[{}] = {}", key, value);
-
             let rpc = &value.rpc;
             let mut rng =rand::thread_rng();
             let i = rng.gen_range(0, rpc.len());
             let mut url = &rpc[i];
-
+            //info!("node url--{}", url.clone());
             match self.client.get_job_template(Rpc::new(url.parse().expect("valid rpc url"))).wait() {
                 Ok(job_template) => {
                     set.insert(key.clone().to_string(), JobTemplate::from_job(url.clone(),job_template.clone()));
@@ -128,7 +123,6 @@ impl Gateway {
                     }
                 }
             }
-
         }
 
         let mut f = false; //更新标记，只要有一个分片数据更新即为true
@@ -149,7 +143,6 @@ impl Gateway {
             let  extra_data =  "YeeRoot".as_bytes().to_vec();
             let len = self.current_job_set.len();
             let mut merkle_vec = vec![];
-
             for i in 0..len {
                 merkle_vec.push(self.current_job_set.get(&i.to_string()).unwrap().rawHash.clone());
             }
@@ -168,6 +161,7 @@ impl Gateway {
                     count: len as u16,
                 };
 
+                info!("Check multi proof: original_proof: {:?}", ori_proof);
                 let ori = OriginalMerkleProof::<BlakeTwo256>{
                     proof:proof.clone(),
                     num: i as u16,
@@ -204,4 +198,3 @@ impl Gateway {
 
 
 }
-

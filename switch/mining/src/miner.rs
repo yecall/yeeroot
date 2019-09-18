@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::thread;
 use log::{info,error,warn,debug};
 use crate::worker::Seal;
-use crate::job_template::{ProofMulti,JobTemplate,Hash,Task,DifficultyType};
+use crate::job_template::{ProofMulti,JobTemplate,Hash,Task,DifficultyType,JobResult,ResultDigestItem,WorkProof};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
 use crate::WorkMap;
@@ -34,7 +34,6 @@ use core::borrow::{BorrowMut, Borrow};
 use chrono::prelude::*;
 extern crate chrono;
 use primitives::hexdisplay::HexDisplay;
-use crate::job::{JobResult,ResultDigestItem,WorkProof};
 use std::io::Read;
 use yee_consensus_pow::pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
 use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
@@ -63,7 +62,6 @@ impl Miner {
     ) -> Miner {
         let (seal_tx, seal_rx) = unbounded();
         let worker_controller = start_worker(worker,seal_tx.clone());
-
         Miner {
             works: Mutex::new(LruCache::new(WORK_CACHE_SIZE)),
             state: Mutex::new(LruCache::new(WORK_CACHE_SIZE)),
@@ -87,8 +85,7 @@ impl Miner {
                         let extra_data = work.extra_data.clone();
                        //  debug!("cache_and send_WorkerMessage: {}", work_id);
                         self.works.lock().insert(work_id.clone(), work);
-
-                        let task = Task{
+                       let task = Task{
                                     work_id: work_id,
                                     extra_data: extra_data,
                                     merkle_root: merkle_root
@@ -129,8 +126,11 @@ impl Miner {
                     b = false;
                     i = i+1;
                 }
-
                 if(t&&m&&b){
+                    info!("Check multi seal proof: original_proof: {:?}", value.merkle_proof.clone());
+                    info!("Csubmit url --: {:?}", value.url.clone());
+                    info!("Csubmit value.rawHash --: {:?}", value.rawHash.clone());
+
                     let submitjob = ProofMulti {
                         extra_data: value.extra_data.clone(),
                         merkle_root: value.merkle_root.clone(),
@@ -143,12 +143,6 @@ impl Miner {
                     // debug!("--{}",value.url.clone());
                     //  debug!("-format-{:?}", value.extra_data.clone());
                     self.state.lock().insert(value.rawHash.clone(), submitjob.clone());
-//                    let p = crate::job::ProofMulti{
-//                        extra_data: "0x010203040506".to_string(),
-//                        merkle_root: submitjob.merkle_root,
-//                        nonce: "0x400".to_string(),
-//                        merkle_proof: "0x150bb6eaccbbe063541a313834a1a9e8ead4c3247a9c164197fed7b15a535386".to_string()
-//                    };
 
                     let digest = ResultDigestItem{ work_proof: WorkProof::Multi(submitjob)};
                     let job = JobResult{ hash: value.rawHash, digest_item: digest };
@@ -182,7 +176,6 @@ impl Miner {
     fn verify_merkel_proof(&self,original_proof:&OriginalMerkleProof<BlakeTwo256>)-> bool {
 
         return   original_proof.proof.validate::<MiningAlgorithm<BlakeTwo256>>();
-
     }
 
 }

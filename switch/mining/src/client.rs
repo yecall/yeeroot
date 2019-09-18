@@ -17,7 +17,7 @@
 
 use crate::Work;
 use super::config::{ClientConfig,NodeConfig};
-use crate::job_template::{ProofMulti,JobTemplate,Hash};
+use crate::job_template::{ProofMulti,JobTemplate,Hash,JobResult,Job};
 use yee_jsonrpc_types::{
     error::Error as RpcFail, error::ErrorCode as RpcFailCode, id::Id, params::Params,
     request::MethodCall, response::Output, version::Version, };
@@ -36,7 +36,6 @@ use std::convert::Into;
 use std::thread;
 use std::time;
 use log::{info,error,warn,debug};
-use crate::job::{Job,JobResult};
 type RpcRequest = (oneshot::Sender<Result<Chunk, RpcError>>, MethodCall);
 
 #[derive(Debug)]
@@ -57,21 +56,17 @@ impl Rpc {
     pub fn new(url: Uri) -> Rpc {
         let (sender, receiver) = mpsc::channel(65_535);
         let (stop, stop_rx) = oneshot::channel::<()>();
-
         let thread = thread::spawn(move || {
             debug!("thsi is rpc new  thread id {:?}",thread::current().id());
             let client = HttpClient::builder().keep_alive(true).build_http();
-
             let stream = receiver.for_each(move |(sender, call): RpcRequest| {
                 let req_url = url.clone();
                 let request_json = serde_json::to_vec(&call).expect("valid rpc call");
-
                 let mut req = Request::new(Body::from(request_json));
                 *req.method_mut() = Method::POST;
                 *req.uri_mut() = req_url;
                 req.headers_mut()
                     .insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-
                 let request = client
                     .request(req)
                     .and_then(|res| res.into_body().concat2())
@@ -104,7 +99,6 @@ impl Rpc {
             jsonrpc: Some(Version::V2),
             id: Id::Num(0),
         };
-
         let req = (tx, call);
         let mut sender = self.sender.clone();
         let _ = sender.try_send(req);
@@ -138,11 +132,9 @@ impl Client {
         job: &JobResult,
         rpc:Rpc
     ) -> impl Future<Item = Output, Error = RpcError> {
-        //let block: JsonBlock = block.into();
-        let method = "mining_submitJob".to_owned();
-        let params = vec![json!(job)];
+         let method = "mining_submitJob".to_owned();
+         let params = vec![json!(job)];
        // debug!("submit_job params ---:{:?}", params);
-
         rpc.request(method, params)
     }
     pub fn submit_job(&self, job: &JobResult,rpc:Rpc) {
@@ -151,7 +143,7 @@ impl Client {
             let ret: Result<Option<Hash>, RpcError> = future.and_then(parse_response).wait();
             match ret {
                 Ok(hash) => {
-                    debug!("submit_job return ---:{:?}", hash);
+                    info!("submit_job return ---:{:?}", hash);
 
                     if hash.is_none() {
                         warn!(
@@ -167,14 +159,11 @@ impl Client {
         }
     }
 
-
     pub fn get_job_template(&self,rpc:Rpc) -> impl Future<Item = Job, Error = RpcError> {
         let method = "mining_getJob".to_owned();
         let params = vec![];
-
         rpc.request(method, params).and_then(parse_response)
     }
-
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(output: Output) -> Result<T, RpcError> {

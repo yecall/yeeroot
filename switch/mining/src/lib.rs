@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod job;
 pub mod client;
 pub mod config;
 pub mod job_template;
@@ -58,27 +57,20 @@ pub struct WorkMap {
 }
 
 pub fn run(c: Config,interval:u64) {
-
     let config = ClientConfig {
         poll_interval: interval,
         job_on_submit: true
     };
 
     let (new_work_tx, new_work_rx) = unbounded();
-
     let workerc = WorkerConfig{ threads: 1 };
-
     let  client = Client::new( config.clone());
-
     let mut gateway = Gateway::new(client.clone(),new_work_tx,c);
-
     let mut miner =  Miner::new(client.clone(),new_work_rx,workerc.clone());
-
     thread::Builder::new()
         .name("gateway".to_string())
         .spawn(move || gateway.poll_job_template())
         .expect("Start gateway failed!");
 
     miner.run();
-
 }
