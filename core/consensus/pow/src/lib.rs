@@ -53,8 +53,9 @@ use {
 };
 
 pub use digest::CompatibleDigestItem;
-pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti};
-pub use crate::job::{JobManager, DefaultJobManager, DefaultJob};
+pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
+              MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
+pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::ShardingDigestItem;
 
 mod job;
