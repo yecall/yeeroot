@@ -18,37 +18,27 @@
 use crate::client::{Client,RpcError,Rpc};
 use crate::Work;
 use crate::WorkMap;
-use crossbeam_channel::{select, unbounded, Receiver};
 use std::thread;
 use log::{info,error,warn,debug};
-use crate::job_template::{ProofMulti, JobTemplate, DifficultyType,Job};
+use crate::job_template::{JobTemplate, DifficultyType};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
 use std::time;
-use hyper::rt::{self, Future, Stream};
+use hyper::rt::{ Future};
 use yee_jsonrpc_types::{
-    error::Error as RpcFail, error::ErrorCode as RpcFailCode, id::Id, params::Params,
-    request::MethodCall, response::Output, version::Version};
+    error::Error as RpcFail, error::ErrorCode as RpcFailCode};
 use crossbeam_channel::Sender;
 use std::collections::HashMap;
-use std::any::Any;
 use failure::Error;
 use uuid::Uuid;
 use std::iter::FromIterator;
-use primitives::{H256,blake2_256};
+use primitives::{blake2_256};
 extern crate crypto;
-use std::fmt;
-use std::hash::Hasher;
-use crypto::sha2::Sha256;
-use crypto::digest::Digest;
-use primitives::hexdisplay::HexDisplay;
 use yee_switch_rpc::Config;
 use rand::Rng;
-use merkle_light::hash::Algorithm;
-use merkle_light::proof::Proof;
 use merkle_light::merkle::MerkleTree;
 use yee_consensus_pow::pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
-use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
+use runtime_primitives::traits::{BlakeTwo256};
 
 const WORK_CACHE_SIZE: usize = 32;
 pub struct Gateway {
@@ -63,7 +53,7 @@ impl Gateway {
     pub fn new(client: Client,new_work_tx: Sender<WorkMap>,map:Config) -> Gateway {
         //init
         let job = JobTemplate{ difficulty:  DifficultyType::from(0x00000000) << 224,
-                               rawHash: blake2_256( "".as_bytes()).into(),
+            raw_hash: blake2_256( "".as_bytes()).into(),
             url: "".to_string()
         };
 
@@ -98,7 +88,7 @@ impl Gateway {
             let rpc = &value.rpc;
             let mut rng =rand::thread_rng();
             let i = rng.gen_range(0, rpc.len());
-            let mut url = &rpc[i];
+            let  url = &rpc[i];
             //info!("node url--{}", url.clone());
             match self.client.get_job_template(Rpc::new(url.parse().expect("valid rpc url"))).wait() {
                 Ok(job_template) => {
@@ -130,7 +120,7 @@ impl Gateway {
         if !set.is_empty(){
             for (key, value) in set {
                // debug!("set data---[{}] = {:?}", key, value);
-                if self.current_job_set.get(&key).unwrap().clone().rawHash != value.rawHash{
+                if self.current_job_set.get(&key).unwrap().clone().raw_hash != value.raw_hash{
                     f = true;
                 }
                 self.current_job_set.insert(key.clone(),value.clone());//最终数据全覆盖
@@ -144,15 +134,15 @@ impl Gateway {
             let len = self.current_job_set.len();
             let mut merkle_vec = vec![];
             for i in 0..len {
-                merkle_vec.push(self.current_job_set.get(&i.to_string()).unwrap().rawHash.clone());
+                merkle_vec.push(self.current_job_set.get(&i.to_string()).unwrap().raw_hash.clone());
             }
             let mt: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
                 MerkleTree::from_iter(merkle_vec);
             let merkle_root = mt.root();
 
             for i in 0..len {
-                let mut key = i.to_string();
-                let mut value = self.current_job_set.get(&key).unwrap();
+                let  key = i.to_string();
+                let  value = self.current_job_set.get(&key).unwrap();
 
                 let proof = mt.gen_proof(i);
                 let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
@@ -170,7 +160,7 @@ impl Gateway {
 
                 let compact_proof : CompactMerkleProof<BlakeTwo256> = ori_proof.into();
                 let w = Work{
-                    rawHash: value.rawHash,
+                    raw_hash: value.raw_hash,
                     difficulty: value.difficulty,
                     extra_data: extra_data.clone(),
                     merkle_root: merkle_root,

@@ -18,27 +18,18 @@
 use crate::client::{Client,Rpc};
 use crate::config::WorkerConfig;
 use crate::worker::{start_worker, WorkerController, WorkerMessage};
-use crate::Work;
 use crossbeam_channel::{select, unbounded, Receiver};
-use std::sync::Arc;
 use std::thread;
 use log::{info,error,warn,debug};
 use crate::worker::Seal;
-use crate::job_template::{ProofMulti,JobTemplate,Hash,Task,DifficultyType,JobResult,ResultDigestItem,WorkProof};
+use crate::job_template::{ProofMulti,Hash,Task,DifficultyType,JobResult,ResultDigestItem,WorkProof};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
 use crate::WorkMap;
-use std::collections::HashMap;
-use std::convert::TryInto;
-use core::borrow::{BorrowMut, Borrow};
 use chrono::prelude::*;
 extern crate chrono;
-use primitives::hexdisplay::HexDisplay;
-use std::io::Read;
-use yee_consensus_pow::pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
-use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
-use yee_serde_hex::SerdeHex;
-//use yee_rpc::mining::primitives::JobResult;
+use yee_consensus_pow::pow::{MiningAlgorithm,OriginalMerkleProof};
+use runtime_primitives::traits::{BlakeTwo256};
 
 const WORK_CACHE_SIZE: usize = 32;
 /// Max length in bytes for pow extra data
@@ -73,7 +64,7 @@ impl Miner {
     }
 
     pub fn run(&mut self) {
-        //debug!("thsi is miner run thread id {:?}",thread::current().id());
+        debug!("thsi is miner run thread id {:?}",thread::current().id());
         loop {
             self.notify_workers(WorkerMessage::Run);
             select! {
@@ -113,23 +104,23 @@ impl Miner {
        // debug!("now  check_seal  work_id:");
         if let Some(work) = self.works.lock().get_refresh(&work_id) {
             //debug!("{}--now  check_seal  work_id: {}",  Local::now().timestamp_millis(),work_id);
-            let mut work_set = &work.work_map;
+            let  work_set = &work.work_map;
             let mut i = 0;
             let len = work_set.len();
 
             for (key, value) in  work_set {
                 let t =  self.verify_target(seal.post_hash,value.difficulty,value.extra_data.clone());
                 let m =  self.verify_merkel_proof(&value.original_proof);
-                let m = true;
                 let mut b = true;
-                if let Some(work) = self.state.lock().get_refresh(&value.rawHash) {
+                if let Some(work) = self.state.lock().get_refresh(&value.raw_hash) {
                     b = false;
                     i = i+1;
                 }
+
                 if(t&&m&&b){
                     info!("Check multi seal proof: original_proof: {:?}", value.merkle_proof.clone());
                     info!("Csubmit url --: {:?}", value.url.clone());
-                    info!("Csubmit value.rawHash --: {:?}", value.rawHash.clone());
+                    info!("Csubmit value.rawHash --: {:?}", value.raw_hash.clone());
 
                     let submitjob = ProofMulti {
                         extra_data: value.extra_data.clone(),
@@ -137,15 +128,15 @@ impl Miner {
                         nonce: seal.nonce,
                         merkle_proof: value.merkle_proof.clone()
                     };
-                    debug!("find seal-{}:{} ,now  submit_job  work_id: {:?}", Local::now().time(),value.rawHash.clone(), submitjob);
-                    //  debug!("find seal-{}:{} ", Local::now().time(),value.rawHash.clone());
+                    debug!("find seal-{}:{} ,now  submit_job  work_id: {:?}", Local::now().time(),value.raw_hash.clone(), submitjob);
+                    // debug!("find seal-{}:{} ", Local::now().time(),value.rawHash.clone());
                     // debug!("                                 ");
                     // debug!("--{}",value.url.clone());
                     //  debug!("-format-{:?}", value.extra_data.clone());
-                    self.state.lock().insert(value.rawHash.clone(), submitjob.clone());
+                    self.state.lock().insert(value.raw_hash.clone(), submitjob.clone());
 
                     let digest = ResultDigestItem{ work_proof: WorkProof::Multi(submitjob)};
-                    let job = JobResult{ hash: value.rawHash, digest_item: digest };
+                    let job = JobResult{ hash: value.raw_hash, digest_item: digest };
                     self.client.submit_job(&job,Rpc::new(value.url.parse().expect("valid rpc url")));
                 }
 

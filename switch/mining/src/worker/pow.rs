@@ -16,20 +16,13 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::{Worker, WorkerMessage};
-use crossbeam_channel::{Receiver, Sender};
-use rand::{
-    distributions::{self as dist, Distribution as _},
-    thread_rng,
-};
-use serde_derive::{Deserialize, Serialize};
 use std::thread;
-use std::time::Duration;
-use crate::job_template::{ProofMulti, JobTemplate, Hash, Task};
+use crossbeam_channel::{Receiver, Sender};
+use crate::job_template::{Hash, Task};
 use log::{info, error, warn, debug};
 use super::Seal;
 use primitives::blake2_256;
-use parity_codec::{Encode, Decode, Input};
-use chrono::prelude::*;
+use parity_codec::{Encode};
 
 extern crate chrono;
 
@@ -82,7 +75,7 @@ impl Dummy {
 
 impl Worker for Dummy {
     fn run<G: FnMut() -> u64>(&mut self, mut rng: G) {
-        //debug!("thsi is worker thread id {:?}",thread::current().id());
+        debug!("thsi is worker thread id {:?}",thread::current().id());
         loop {
             self.poll_worker_message();
             //  debug!("{}-poll_worker_message--{:?}", Local::now().timestamp_millis(),self.start);

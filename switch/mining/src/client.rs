@@ -15,15 +15,12 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use crate::Work;
-use super::config::{ClientConfig,NodeConfig};
-use crate::job_template::{ProofMulti,JobTemplate,Hash,JobResult,Job};
+use super::config::{ClientConfig};
+use crate::job_template::{Hash,JobResult,Job};
 use yee_jsonrpc_types::{
-    error::Error as RpcFail, error::ErrorCode as RpcFailCode, id::Id, params::Params,
+    error::Error as RpcFail,id::Id, params::Params,
     request::MethodCall, response::Output, version::Version, };
 use yee_stop_handler::{SignalSender, StopHandler};
-use crossbeam_channel::Sender;
-use failure::Error;
 use futures::sync::{mpsc, oneshot};
 use hyper::error::Error as HyperError;
 use hyper::header::{HeaderValue, CONTENT_TYPE};
@@ -32,9 +29,7 @@ use hyper::Uri;
 use hyper::{Body, Chunk, Client as HttpClient, Method, Request};
 use serde_json::error::Error as JsonError;
 use serde_json::{self, json, Value};
-use std::convert::Into;
 use std::thread;
-use std::time;
 use log::{info,error,warn,debug};
 type RpcRequest = (oneshot::Sender<Result<Chunk, RpcError>>, MethodCall);
 

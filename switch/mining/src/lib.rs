@@ -18,7 +18,7 @@
 pub mod client;
 pub mod config;
 pub mod job_template;
-use crate::job_template::{ProofMulti,JobTemplate,Hash,DifficultyType};
+use crate::job_template::{Hash,DifficultyType};
 pub mod worker;
 pub mod miner;
 pub mod gateway;
@@ -28,15 +28,15 @@ use crossbeam_channel::unbounded;
 use crate::client::Client;
 use log::{info,error,warn,debug};
 use crate::miner::Miner;
-use crate::config::{WorkerConfig,NodeConfig,MinerConfig,ClientConfig};
+use crate::config::{WorkerConfig,ClientConfig};
 use crate::gateway::Gateway;
 use yee_switch_rpc::Config;
 use yee_consensus_pow::pow::OriginalMerkleProof;
-use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
+use runtime_primitives::traits::{BlakeTwo256};
 
 #[derive(  Debug)]
 pub struct Work {
-    pub rawHash:Hash,
+    pub raw_hash:Hash,
     pub difficulty: DifficultyType,
     /// Extra Data used to encode miner info AND more entropy
     pub extra_data: Vec<u8>,

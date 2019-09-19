@@ -18,11 +18,10 @@
 pub mod pow;
 use crate::config::WorkerConfig;
 use crossbeam_channel::{unbounded, Sender};
-use rand::{random, Rng};
+use rand::{Rng};
 use std::ops::Range;
-use std::sync::Arc;
 use std::thread;
-use crate::job_template::{ProofMulti,JobTemplate,Hash,Task};
+use crate::job_template::{Hash,Task};
 use pow::Dummy;
 use log::{info,error,warn,debug};
 
@@ -40,11 +39,6 @@ pub struct Seal {
     /// POW block nonce
     pub nonce: u64,
 
-}
-
-pub struct MerkleSeal {
-    pub merkle_root: Hash,
-    pub merkle_proof: Vec<Hash>,
 }
 
 pub struct WorkerController {

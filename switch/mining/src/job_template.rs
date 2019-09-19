@@ -14,10 +14,7 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
-use serde::{Serializer, Deserializer};
-use serde::de::DeserializeOwned;
 use serde_derive::{Deserialize, Serialize};
-use std::convert::From;
 use yee_serde_hex::SerdeHex;
 pub type DifficultyType = primitives::U256;
 pub type Hash = primitives::H256;
@@ -25,7 +22,7 @@ pub type Hash = primitives::H256;
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct JobTemplate {
     pub difficulty: DifficultyType,
-    pub rawHash:Hash,
+    pub raw_hash:Hash,
     pub url:String,
 
 }
@@ -38,7 +35,7 @@ impl JobTemplate {
         } = job;
         Self {
             difficulty:digest_item.difficulty,
-            rawHash: hash,
+            raw_hash: hash,
             url: str
         }
     }
