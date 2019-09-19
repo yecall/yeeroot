@@ -71,6 +71,7 @@ for dev
     $ ./yee --dev --dev-params --shard-num=2 --base-path=/tmp/yee/shard_2 --mine
     $ ./yee --dev --dev-params --shard-num=3 --base-path=/tmp/yee/shard_3 --mine
     ```
+    If you want to disable mining, you can remove `--mine`
 
 1. Start switch
     ```sh
