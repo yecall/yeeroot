@@ -66,10 +66,10 @@ for dev
 
 1. Start the nodes of the 4 shards
     ```sh
-    $ ./yee --dev --dev-params --shard-num=0 --base-path=/tmp/yee/shard_0
-    $ ./yee --dev --dev-params --shard-num=1 --base-path=/tmp/yee/shard_1
-    $ ./yee --dev --dev-params --shard-num=2 --base-path=/tmp/yee/shard_2
-    $ ./yee --dev --dev-params --shard-num=3 --base-path=/tmp/yee/shard_3
+    $ ./yee --dev --dev-params --shard-num=0 --base-path=/tmp/yee/shard_0 --mine
+    $ ./yee --dev --dev-params --shard-num=1 --base-path=/tmp/yee/shard_1 --mine
+    $ ./yee --dev --dev-params --shard-num=2 --base-path=/tmp/yee/shard_2 --mine
+    $ ./yee --dev --dev-params --shard-num=3 --base-path=/tmp/yee/shard_3 --mine
     ```
 
 1. Start switch

@@ -23,7 +23,7 @@ use {
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
-        Components, ForeignNetParams, FactoryBlock, NetworkProvider, ComponentExHash, ServiceFactory,
+        ForeignNetParams, FactoryBlock, NetworkProvider, ServiceFactory,
     },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
@@ -62,6 +62,7 @@ pub struct NodeConfig {
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
+    pub mine: bool,
 }
 
 impl Default for NodeConfig {
@@ -73,6 +74,7 @@ impl Default for NodeConfig {
             foreign_port: Default::default(),
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
+            mine: Default::default(),
         }
     }
 }
@@ -83,6 +85,7 @@ impl Clone for NodeConfig {
             coin_base: self.coin_base.clone(),
             shard_num: self.shard_num,
             foreign_port: self.foreign_port,
+            mine: self.mine,
 
             // cloned config SHALL NOT SHARE some items with original config
             inherent_data_providers: Default::default(),
@@ -177,6 +180,7 @@ construct_service_factory! {
                         service.config.custom.coin_base.clone(),
                         service.config.custom.job_manager.clone(),
                         service.config.force_authoring,
+                        service.config.custom.mine,
                     )?);
                 }
 

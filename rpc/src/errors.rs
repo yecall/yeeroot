@@ -34,6 +34,10 @@ error_chain! {
 			description("not ready"),
 			display("Not ready"),
 		}
+		JobNotFound {
+			description("job not found"),
+			display("Job not found"),
+		}
 	}
 }
 
@@ -49,6 +53,11 @@ impl From<Error> for rpc::Error {
 			Error(ErrorKind::NotReady, _) => rpc::Error {
 				code: rpc::ErrorCode::ServerError(1),
 				message: "Not ready".into(),
+				data: None,
+			},
+			Error(ErrorKind::JobNotFound, _) => rpc::Error {
+				code: rpc::ErrorCode::ServerError(1),
+				message: "Job not found".into(),
 				data: None,
 			},
 			Error(ErrorKind::Consensus(_), _) => rpc::Error {
