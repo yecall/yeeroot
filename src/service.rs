@@ -168,7 +168,7 @@ construct_service_factory! {
 					key.clone()
 				};
 
-				info!("Running GRANDPA:: local_key:{}, name:{}", local_key.clone().unwrap().public(), service.config.name);
+				info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public());
 				executor.spawn(grandpa::run_grandpa(
 					grandpa::Config {
 						local_key,
