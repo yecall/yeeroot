@@ -31,7 +31,7 @@ use crate::miner::Miner;
 use crate::config::{WorkerConfig,ClientConfig};
 use crate::gateway::Gateway;
 use yee_switch_rpc::Config;
-use yee_consensus_pow::pow::OriginalMerkleProof;
+use yee_consensus_pow::OriginalMerkleProof;
 use runtime_primitives::traits::{BlakeTwo256};
 
 #[derive(  Debug)]

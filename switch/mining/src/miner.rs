@@ -28,7 +28,7 @@ use yee_util::Mutex;
 use crate::WorkMap;
 use chrono::prelude::*;
 extern crate chrono;
-use yee_consensus_pow::pow::{MiningAlgorithm,OriginalMerkleProof};
+use yee_consensus_pow::{MiningAlgorithm,OriginalMerkleProof};
 use runtime_primitives::traits::{BlakeTwo256};
 
 const WORK_CACHE_SIZE: usize = 32;

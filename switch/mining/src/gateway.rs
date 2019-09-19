@@ -37,7 +37,7 @@ extern crate crypto;
 use yee_switch_rpc::Config;
 use rand::Rng;
 use merkle_light::merkle::MerkleTree;
-use yee_consensus_pow::pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
+use yee_consensus_pow::{MiningHash,MiningAlgorithm,CompactMerkleProof,OriginalMerkleProof};
 use runtime_primitives::traits::{BlakeTwo256};
 
 const WORK_CACHE_SIZE: usize = 32;
