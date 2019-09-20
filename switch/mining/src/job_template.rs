@@ -82,6 +82,7 @@ pub struct DigestItem {
     pub work_proof: String,
 }
 
+#[allow(non_snake_case)]
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct Header {
     pub digest: Digest,

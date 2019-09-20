@@ -52,17 +52,13 @@ pub struct SwitchCommandCmd {
     #[structopt(short = "l", long = "log", value_name = "LOG_PATTERN")]
     pub log: Option<String>,
 
-    ///Specify max connections
-    #[structopt(short = "m", long = "max connections", value_name = "MAX-CONNECTIONS" ,default_value = "100")]
-    pub max_connections: u16,
-
     ///Specify miner poll interval
-    #[structopt(long = "job_refresh_interval ", value_name = "JOB_REFRESH_INTERVAL" ,default_value = "6000")]
+    #[structopt(long = "job_refresh_interval ", value_name = "INTERVAL" ,default_value = "6000")]
     pub job_refresh_interval: u64,
 
     /// start miner
-    #[structopt( long = "miner")]
-    pub miner: bool,
+    #[structopt( long = "mine")]
+    pub mine: bool,
 
 }
 

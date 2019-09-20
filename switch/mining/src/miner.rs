@@ -32,37 +32,37 @@ const WORK_CACHE_SIZE: usize = 32;
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 pub struct Miner {
-    pub client: Client,
-    pub worker_controller: WorkerController,
-    pub work_rx: Receiver<WorkMap>,
-    pub seal_rx: Receiver<(String, Seal)>,
-    pub works: Mutex<LruCache<String, WorkMap>>,
-    pub state: Mutex<LruCache<Hash, ProofMulti>>,
+	pub client: Client,
+	pub worker_controller: WorkerController,
+	pub work_rx: Receiver<WorkMap>,
+	pub seal_rx: Receiver<(String, Seal)>,
+	pub works: Mutex<LruCache<String, WorkMap>>,
+	pub state: Mutex<LruCache<Hash, ProofMulti>>,
 
 }
 
 impl Miner {
-    pub fn new(
-        client: Client,
-        work_rx: Receiver<WorkMap>,
-        worker: WorkerConfig,
-    ) -> Miner {
-        let (seal_tx, seal_rx) = unbounded();
-        let worker_controller = start_worker(worker, seal_tx.clone());
-        Miner {
-            works: Mutex::new(LruCache::new(WORK_CACHE_SIZE)),
-            state: Mutex::new(LruCache::new(WORK_CACHE_SIZE)),
-            client,
-            worker_controller,
-            work_rx,
-            seal_rx,
-        }
-    }
+	pub fn new(
+		client: Client,
+		work_rx: Receiver<WorkMap>,
+		worker: WorkerConfig,
+	) -> Miner {
+		let (seal_tx, seal_rx) = unbounded();
+		let worker_controller = start_worker(worker, seal_tx.clone());
+		Miner {
+			works: Mutex::new(LruCache::new(WORK_CACHE_SIZE)),
+			state: Mutex::new(LruCache::new(WORK_CACHE_SIZE)),
+			client,
+			worker_controller,
+			work_rx,
+			seal_rx,
+		}
+	}
 
-    pub fn run(&mut self) {
-        loop {
-            self.notify_workers(WorkerMessage::Run);
-            select! {
+	pub fn run(&mut self) {
+		loop {
+			self.notify_workers(WorkerMessage::Run);
+			select! {
                 recv(self.work_rx) -> msg => match msg {
                     Ok(work) => {
                         let work_id = work.work_id.clone();
@@ -90,60 +90,64 @@ impl Miner {
                     },
                 }
             };
-        }
-    }
+		}
+	}
 
-    fn check_seal(&mut self, work_id: String, seal: Seal) {
-        if let Some(work) = self.works.lock().get_refresh(&work_id) {
-            let work_set = &work.work_map;
-            let mut i = 0;
-            let len = work_set.len();
+	fn check_seal(&mut self, work_id: String, seal: Seal) {
+		if let Some(work) = self.works.lock().get_refresh(&work_id) {
+			let work_set = &work.work_map;
+			let mut i = 0;
+			let len = work_set.len();
 
-            for (_key, value) in work_set {
-                let t = self.verify_target(seal.post_hash, value.difficulty, value.extra_data.clone());
-                let mut b = true;
-                if let Some(_work) = self.state.lock().get_refresh(&value.raw_hash) {
-                    b = false;
-                    i = i + 1;
-                }
+			for (_key, value) in work_set {
+				let t = self.verify_target(seal.post_hash, value.difficulty, value.extra_data.clone());
+				let mut b = true;
+				if let Some(_work) = self.state.lock().get_refresh(&value.raw_hash) {
+					b = false;
+					i = i + 1;
+				}
 
-                if t && b {
-                    info!("Submit raw_hash: {:?}", value.raw_hash.clone());
-                    info!("Submit difficulty: {:?}", value.difficulty.clone());
-                    info!("Submit url: {:?}", value.url.clone());
-                    info!("Submit merkle_proof: {:?}", value.merkle_proof.clone());
-                    let submitjob = ProofMulti {
-                        extra_data: value.extra_data.clone(),
-                        merkle_root: value.merkle_root.clone(),
-                        nonce: seal.nonce,
-                        merkle_proof: value.merkle_proof.clone(),
-                    };
+				if t && b {
+					info!("Submit raw_hash: {:?}, difficulty: {:#x}, url: {:?}, merkle_root: {:?}, merkle_proof: {:?}, post_hash: {:?}",
+					      value.raw_hash.clone(),
+					      value.difficulty.clone(),
+					      value.url.clone(),
+					      value.merkle_root.clone(),
+					      value.merkle_proof.clone(),
+					      seal.post_hash
+					);
+					let submitjob = ProofMulti {
+						extra_data: value.extra_data.clone(),
+						merkle_root: value.merkle_root.clone(),
+						nonce: seal.nonce,
+						merkle_proof: value.merkle_proof.clone(),
+					};
 
-                    self.state.lock().insert(value.raw_hash.clone(), submitjob.clone());
+					self.state.lock().insert(value.raw_hash.clone(), submitjob.clone());
 
-                    let digest = ResultDigestItem { work_proof: WorkProof::Multi(submitjob) };
-                    let job = JobResult { hash: value.raw_hash, digest_item: digest };
-                    self.client.submit_job(&job, Rpc::new(value.url.parse().expect("valid rpc url")));
-                }
-            }
+					let digest = ResultDigestItem { work_proof: WorkProof::Multi(submitjob) };
+					let job = JobResult { hash: value.raw_hash, digest_item: digest };
+					self.client.submit_job(&job, Rpc::new(value.url.parse().expect("valid rpc url")));
+				}
+			}
 
-            if i >= len {
-                self.notify_workers(WorkerMessage::Stop);
-            }
-        }
-    }
+			if i >= len {
+				self.notify_workers(WorkerMessage::Stop);
+			}
+		}
+	}
 
-    fn notify_workers(&self, message: WorkerMessage) {
-        self.worker_controller.send_message(message.clone());
-    }
+	fn notify_workers(&self, message: WorkerMessage) {
+		self.worker_controller.send_message(message.clone());
+	}
 
-    fn verify_target(&self, hash: Hash, difficulty: DifficultyType, extra_data: Vec<u8>) -> bool {
-        let proof_difficulty = DifficultyType::from(hash.as_ref());
+	fn verify_target(&self, hash: Hash, difficulty: DifficultyType, extra_data: Vec<u8>) -> bool {
+		let proof_difficulty = DifficultyType::from(hash.as_ref());
 
-        if extra_data.len() > MAX_EXTRA_DATA_LENGTH || proof_difficulty > difficulty {
-            return false;
-        }
-        return true;
-    }
+		if extra_data.len() > MAX_EXTRA_DATA_LENGTH || proof_difficulty > difficulty {
+			return false;
+		}
+		return true;
+	}
 }
 
