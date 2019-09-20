@@ -15,10 +15,10 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use super::config::{ClientConfig};
-use crate::job_template::{Hash,JobResult,Job};
+use super::config::ClientConfig;
+use crate::job_template::{Hash, JobResult, Job};
 use yee_jsonrpc_types::{
-    error::Error as RpcFail,id::Id, params::Params,
+    error::Error as RpcFail, id::Id, params::Params,
     request::MethodCall, response::Output, version::Version, };
 use yee_stop_handler::{SignalSender, StopHandler};
 use futures::sync::{mpsc, oneshot};
@@ -30,13 +30,15 @@ use hyper::{Body, Chunk, Client as HttpClient, Method, Request};
 use serde_json::error::Error as JsonError;
 use serde_json::{self, json, Value};
 use std::thread;
-use log::{info,error,warn,debug};
+use log::{info, error, warn, debug};
+
 type RpcRequest = (oneshot::Sender<Result<Chunk, RpcError>>, MethodCall);
 
 #[derive(Debug)]
 pub enum RpcError {
     Http(HyperError),
-    Canceled, //oneshot canceled
+    Canceled,
+    //oneshot canceled
     Json(JsonError),
     Fail(RpcFail),
 }
@@ -52,7 +54,6 @@ impl Rpc {
         let (sender, receiver) = mpsc::channel(65_535);
         let (stop, stop_rx) = oneshot::channel::<()>();
         let thread = thread::spawn(move || {
-            debug!("thsi is rpc new  thread id {:?}",thread::current().id());
             let client = HttpClient::builder().keep_alive(true).build_http();
             let stream = receiver.for_each(move |(sender, call): RpcRequest| {
                 let req_url = url.clone();
@@ -85,7 +86,7 @@ impl Rpc {
         &self,
         method: String,
         params: Vec<Value>,
-    ) -> impl Future<Item = Output, Error = RpcError> {
+    ) -> impl Future<Item=Output, Error=RpcError> {
         let (tx, rev) = oneshot::channel();
 
         let call = MethodCall {
@@ -115,8 +116,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new( config: ClientConfig) -> Client {
-
+    pub fn new(config: ClientConfig) -> Client {
         Client {
             config,
         }
@@ -125,21 +125,20 @@ impl Client {
     fn send_submit_job_request(
         &self,
         job: &JobResult,
-        rpc:Rpc
-    ) -> impl Future<Item = Output, Error = RpcError> {
-         let method = "mining_submitJob".to_owned();
-         let params = vec![json!(job)];
-       // debug!("submit_job params ---:{:?}", params);
+        rpc: Rpc,
+    ) -> impl Future<Item=Output, Error=RpcError> {
+        let method = "mining_submitJob".to_owned();
+        let params = vec![json!(job)];
+        // debug!("submit_job params ---:{:?}", params);
         rpc.request(method, params)
     }
-    pub fn submit_job(&self, job: &JobResult,rpc:Rpc) {
-        let future = self.send_submit_job_request(job,rpc);
+    pub fn submit_job(&self, job: &JobResult, rpc: Rpc) {
+        let future = self.send_submit_job_request(job, rpc);
         if self.config.job_on_submit {
             let ret: Result<Option<Hash>, RpcError> = future.and_then(parse_response).wait();
             match ret {
                 Ok(hash) => {
-                    info!("submit_job return ---:{:?}", hash);
-
+                    info!("Submit_job return Hash:{:?}", hash);
                     if hash.is_none() {
                         warn!(
                             "submit_job failed {}",
@@ -154,7 +153,7 @@ impl Client {
         }
     }
 
-    pub fn get_job_template(&self,rpc:Rpc) -> impl Future<Item = Job, Error = RpcError> {
+    pub fn get_job_template(&self, rpc: Rpc) -> impl Future<Item=Job, Error=RpcError> {
         let method = "mining_getJob".to_owned();
         let params = vec![];
         rpc.request(method, params).and_then(parse_response)

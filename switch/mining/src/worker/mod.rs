@@ -16,14 +16,15 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 pub mod pow;
+
 use crate::config::WorkerConfig;
 use crossbeam_channel::{unbounded, Sender};
-use rand::{Rng};
+use rand::Rng;
 use std::ops::Range;
 use std::thread;
-use crate::job_template::{Hash,Task};
+use crate::job_template::{Hash, Task};
 use pow::Dummy;
-use log::{info,error,warn,debug};
+use log::{info, error, warn, debug};
 
 #[derive(Clone)]
 pub enum WorkerMessage {
@@ -53,9 +54,10 @@ impl WorkerController {
     pub fn send_message(&self, message: WorkerMessage) {
         for worker_tx in self.inner.iter() {
             if let Err(err) = worker_tx.send(message.clone()) {
-                error!("worker_tx send error {:?}", err);
+                error!("Worker_tx send error {:?}", err);
             };
         }
+        // self.inner.iter().retain(|worker_tx| worker_tx.send(message.clone()).is_ok());
     }
 }
 
@@ -80,24 +82,24 @@ pub fn start_worker(
     config: WorkerConfig,
     seal_tx: Sender<(String, Seal)>,
 ) -> WorkerController {
-                let worker_txs = (0..config.threads)
-                    .map(|i| {
-                        let worker_name = format!("yee-Worker-{}", i);
-                        let nonce_range = partition_nonce(i as u64, config.threads as u64);
-                        let (worker_tx, worker_rx) = unbounded();
-                        let mut worker = Dummy::new(seal_tx.clone(), worker_rx);
-                        thread::Builder::new()
-                            .name(worker_name)
-                            .spawn(move || {
-                                let rng = nonce_generator(nonce_range);
-                                worker.run(rng);
-                            })
-                            .expect("Start worker thread failed");
-                        worker_tx
-                    })
-                    .collect();
-                WorkerController::new(worker_txs)
-            }
+    let worker_txs = (0..config.threads)
+        .map(|i| {
+            let worker_name = format!("yee-Worker-{}", i);
+            let nonce_range = partition_nonce(i as u64, config.threads as u64);
+            let (worker_tx, worker_rx) = unbounded();
+            let mut worker = Dummy::new(seal_tx.clone(), worker_rx);
+            thread::Builder::new()
+                .name(worker_name)
+                .spawn(move || {
+                    let rng = nonce_generator(nonce_range);
+                    worker.run(rng);
+                })
+                .expect("Start worker thread failed");
+            worker_tx
+        })
+        .collect();
+    WorkerController::new(worker_txs)
+}
 
 pub trait Worker {
     fn run<G: FnMut() -> u64>(&mut self, rng: G);

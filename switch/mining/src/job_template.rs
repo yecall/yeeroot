@@ -16,27 +16,29 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 use serde_derive::{Deserialize, Serialize};
 use yee_serde_hex::SerdeHex;
+
 pub type DifficultyType = primitives::U256;
 pub type Hash = primitives::H256;
 
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct JobTemplate {
     pub difficulty: DifficultyType,
-    pub raw_hash:Hash,
-    pub url:String,
+    pub raw_hash: Hash,
+    pub url: String,
 
 }
+
 impl JobTemplate {
-    pub fn from_job(str:String,job:Job) -> Self {
+    pub fn from_job(str: String, job: Job) -> Self {
         let Job {
-             digest_item,
-             hash,
-             header,
+            digest_item,
+            hash,
+            header,
         } = job;
         Self {
-            difficulty:digest_item.difficulty,
+            difficulty: digest_item.difficulty,
             raw_hash: hash,
-            url: str
+            url: str,
         }
     }
 }
@@ -69,7 +71,7 @@ pub struct Task {
 pub struct Job {
     pub digest_item: DigestItem,
     pub hash: Hash,
-    pub header:Header,
+    pub header: Header,
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
@@ -81,34 +83,33 @@ pub struct DigestItem {
 }
 
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
-
 pub struct Header {
     pub digest: Digest,
     pub extrinsicsRoot: Hash,
     pub number: String,
-    pub parentHash:Hash,
-    pub stateRoot:Hash,
+    pub parentHash: Hash,
+    pub stateRoot: Hash,
 }
-#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 
+#[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct Digest {
-    pub logs:Vec<String>,
+    pub logs: Vec<String>,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
-
 pub struct JobResult
 {
     pub hash: Hash,
     pub digest_item: ResultDigestItem,
 }
+
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct ResultDigestItem {
     pub work_proof: WorkProof,
 }
 
 #[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
-pub enum WorkProof{
+pub enum WorkProof {
     Unknown,
     Nonce(ProofNonce),
     Multi(ProofMulti),

@@ -16,15 +16,16 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 use super::{Worker, WorkerMessage};
-use std::thread;
 use crossbeam_channel::{Receiver, Sender};
 use crate::job_template::{Hash, Task};
 use log::{info, error, warn, debug};
 use super::Seal;
 use primitives::blake2_256;
-use parity_codec::{Encode};
+use parity_codec::Encode;
 
 extern crate chrono;
+
+pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
 pub struct Dummy {
     start: bool,
@@ -65,20 +66,16 @@ impl Dummy {
         let data = (task.merkle_root.clone(), task.extra_data.clone(), nonce);
         let hash: Hash = blake2_256(&data.encode()).into();
         let seal = Seal { post_hash: hash, nonce };
-        // debug!("solve  input-merkleroot-{}-nonce-{}",data.merkle_root,data.nonce);
-        //debug!("solve hash --{}", seal.post_hash);
         if let Err(err) = self.seal_tx.send((task.work_id.clone(), seal)) {
-            error!("seal_tx send error {:?}", err);
+            error!("Seal_tx send error {:?}", err);
         }
     }
 }
 
 impl Worker for Dummy {
     fn run<G: FnMut() -> u64>(&mut self, mut rng: G) {
-        debug!("thsi is worker thread id {:?}",thread::current().id());
         loop {
             self.poll_worker_message();
-            //  debug!("{}-poll_worker_message--{:?}", Local::now().timestamp_millis(),self.start);
             if self.start {
                 if let Some(task) = self.task.clone() {
                     self.solve(&task, rng());
