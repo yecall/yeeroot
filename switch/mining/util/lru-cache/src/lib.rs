@@ -21,7 +21,7 @@ use std::borrow::Borrow;
 use std::hash::Hash;
 
 #[cfg(feature = "heapsize_impl")]
-mod heapsize;
+mod heap_size;
 
 pub type FnvLinkedMap<K, V> = LinkedHashMap<K, V, FnvBuildHasher>;
 
