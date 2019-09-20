@@ -83,12 +83,12 @@ pub fn start_relay_transfer<F, C, A>(
     let import_events = client.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
-            let blockId = BlockId::Hash(hash);
-            let header = client.header(blockId).unwrap().unwrap();
-            let body = client.block_body(&blockId).unwrap().unwrap();
+            let block_id = BlockId::Hash(hash);
+            let header = client.header(block_id).unwrap().unwrap();
+            let body = client.block_body(&block_id).unwrap().unwrap();
             let api = client.runtime_api();
-            let tc = api.get_shard_count(&blockId).unwrap();    // total count
-            let cs = api.get_curr_shard(&blockId).unwrap().unwrap();    // current shard
+            let tc = api.get_shard_count(&block_id).unwrap();    // total count
+            let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
             for mut tx in &body {
                 let ec = tx.encode();
                 debug!(target: "relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
@@ -133,11 +133,11 @@ pub fn start_relay_transfer<F, C, A>(
                 let h = 0u64;
                 let h = h.encode();
                 let h = Decode::decode(&mut h.as_slice()).unwrap();
-                let blockId = BlockId::number(h);
+                let block_id = BlockId::number(h);
                 for tx in &txs {
                     let tx = tx.encode();
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
-                    pool.submit_one(&blockId, tx);
+                    pool.submit_one(&block_id, tx);
                 }
                 info!(target: "relay", "received relay transaction: {:?}", txs);
             }
