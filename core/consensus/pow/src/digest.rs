@@ -31,7 +31,7 @@ use pow_primitives::YEE_POW_ENGINE_ID;
 use super::PowSeal;
 
 /// Digest item acts as a valid POW consensus digest.
-pub trait CompatibleDigestItem<B: Block, AuthorityId: Decode + Encode>: Sized {
+pub trait CompatibleDigestItem<B: Block, AuthorityId: Decode + Encode + Clone>: Sized {
     /// construct digest item with work proof
     fn pow_seal(seal: PowSeal<B, AuthorityId>) -> Self;
 
@@ -41,7 +41,7 @@ pub trait CompatibleDigestItem<B: Block, AuthorityId: Decode + Encode>: Sized {
 
 impl<B, Hash, AuthorityId, SealSignature> CompatibleDigestItem<B, AuthorityId> for DigestItem<Hash, AuthorityId, SealSignature> where
     B: Block,
-    AuthorityId: Decode + Encode,
+    AuthorityId: Decode + Encode + Clone,
 {
     fn pow_seal(seal: PowSeal<B, AuthorityId>) -> Self {
         DigestItem::Consensus(YEE_POW_ENGINE_ID, seal.encode())

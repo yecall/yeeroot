@@ -10,7 +10,7 @@ edition = "2018"
 exit-future = "0.1"
 log = "0.4"
 tokio = "0.1.7"
-sharding_primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
+sharding_primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
 inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 keystore = { package = "substrate-keystore", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

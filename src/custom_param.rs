@@ -49,6 +49,10 @@ pub struct YeeCliConfig {
     /// Whether use dev params or not
     #[structopt(long = "dev-params")]
     pub dev_params: bool,
+
+    /// Whether mine
+    #[structopt(long = "mine")]
+    pub mine: bool,
 }
 
 impl_augment_clap!(YeeCliConfig);
@@ -74,7 +78,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
                     Ok(bootnodes) => {
                         config.network.boot_nodes = bootnodes;
                     },
-                    Err(e) => {
+                    Err(_e) => {
                         warn!("Failed to get bootnodes: {:?}", bootnodes_routers);
                     }
                 }
@@ -88,6 +92,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
     }
 
     config.custom.foreign_port = custom_args.foreign_port;
+    config.custom.mine = custom_args.mine;
 
     info!("Custom params: ");
     info!("  coin base: {}", config.custom.coin_base);
@@ -95,6 +100,7 @@ where F: ServiceFactory<Configuration=NodeConfig>{
     info!("  bootnodes: {:?}", config.network.boot_nodes);
     info!("  foreign port: {:?}", config.custom.foreign_port);
     info!("  bootnodes router conf: {:?}", config.custom.bootnodes_router_conf);
+    info!("  mine: {:?}", config.custom.mine);
 
     Ok(())
 }
