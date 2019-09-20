@@ -1,4 +1,4 @@
- // Copyright (C) 2019 Yee Foundation.
+// Copyright (C) 2019 Yee Foundation.
 //
 // This file is part of YeeChain.
 //
