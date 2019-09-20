@@ -38,7 +38,7 @@ mod service;
 //pub mod specialization;
 
 pub use chain::Client as ClientHandle;
-pub use service::{Service, FetchFuture};
+pub use service::{Service, FetchFuture, ImportQueueMsg, ImportQueuePort};
 pub use protocol::{ProtocolStatus, PeerInfo, Context, FromNetworkMsg};
 pub use sync::{Status as SyncStatus, SyncState};
 pub use substrate_network::{

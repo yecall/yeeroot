@@ -39,6 +39,7 @@ pub type Status<B> = generic::Status<
 pub mod generic {
 	use parity_codec::{Encode, Decode};
 	use network_libp2p::CustomMessage;
+	use runtime_primitives::{traits::{Block as BlockT, Header as HeaderT}};
 
 	/// A network message.
 	#[derive(Debug, PartialEq, Eq, Clone, Encode, Decode)]
@@ -83,8 +84,18 @@ pub mod generic {
 	}
 
 	#[derive(Debug, Clone)]
-	pub enum OutMessage<Extrinsic>{
+	pub enum OutMessage<B: BlockT>{
 		/// Extrinsics.
-		RelayExtrinsics(Vec<Extrinsic>),
+		RelayExtrinsics(Vec<B::Extrinsic>),
+		/// Best info changed
+		BestBlockInfoChanged(u16, BestBlockInfo<B>),
+	}
+
+	#[derive(Debug, Clone)]
+	pub struct BestBlockInfo<B: BlockT> {
+		/// Best block hash.
+		pub best_hash: B::Hash,
+		/// Best block number.
+		pub best_number: <<B as BlockT>::Header as HeaderT>::Number,
 	}
 }

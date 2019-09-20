@@ -17,15 +17,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::{io, thread};
-use log::{warn, debug, error, trace};
-use futures::{Async, Future, Stream, stream, sync::oneshot, sync::mpsc};
+use log::{trace};
+use futures::{sync::oneshot, sync::mpsc};
 use parking_lot::{Mutex, RwLock};
-use peerset::PeersetHandle;
 use consensus::import_queue::{ImportQueue, Link};
 use crate::consensus_gossip::ConsensusGossip;
-use crate::message::Message;
-use crate::protocol::{self, Context, FromNetworkMsg, Protocol, ConnectedPeer, ProtocolMsg, ProtocolStatus, PeerInfo};
+use crate::protocol::{Context, FromNetworkMsg, Protocol, ConnectedPeer, ProtocolMsg, ProtocolStatus};
 use crate::config::Params;
 use crossbeam_channel::{self as channel, Receiver, Sender, TryRecvError};
 use crate::error::Error;
@@ -34,16 +31,14 @@ use crate::specialization::NetworkSpecialization;
 use crate::IdentifySpecialization;
 
 use tokio::prelude::task::AtomicTask;
-use tokio::runtime::Builder as RuntimeBuilder;
-
 use std::marker::PhantomData;
 
-use substrate_network::ExHashT;
+use substrate_network::{ExHashT, Severity};
 
 /// Type that represents fetch completion future.
 pub type FetchFuture = oneshot::Receiver<Vec<u8>>;
 
-use substrate_network::service::{NetworkMsg, NetworkChan, NetworkPort, network_channel, NetworkLink, PeerId};
+use substrate_network::service::{NetworkMsg, NetworkChan, NetworkPort, network_channel, PeerId};
 
 /*
 /// Sync status
@@ -166,7 +161,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	pub fn new<H: ExHashT>(
 		params: Params<B, S, H, I>,
 		import_queue: Box<ImportQueue<B>>,
-	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>), Error> {
+	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>, ImportQueuePort<B>), Error> {
 		let (network_chan, network_port) = network_channel();
 		let status_sinks = Arc::new(Mutex::new(Vec::new()));
 		// Start in off-line mode, since we're not connected to any nodes yet.
@@ -199,15 +194,18 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 			phantom: PhantomData,
 		});
 
+		let (import_queue_sender, import_queue_port) = import_queue_channel();
+
 		// connect the import-queue to the network service.
 		let link = NetworkLink {
 			protocol_sender,
 			network_sender: network_chan.clone(),
+			import_queue_sender,
 		};
 
 		import_queue.start(Box::new(link))?;
 
-		Ok((service, network_chan, network_port, network_to_protocol_sender))
+		Ok((service, network_chan, network_port, network_to_protocol_sender, import_queue_port))
 	}
 
 	/*
@@ -294,6 +292,139 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	fn is_major_syncing(&self) -> bool {
 		self.is_major_syncing.load(Ordering::Relaxed)
 	}
+}
+
+/// A link implementation that connects to the network.
+#[derive(Clone)]
+pub struct NetworkLink<B: BlockT, S: NetworkSpecialization<B>> {
+	/// The protocol sender
+	pub protocol_sender: Sender<ProtocolMsg<B, S>>,
+	/// The network sender
+	pub network_sender: NetworkChan<B>,
+	/// The import queue sender
+	pub import_queue_sender: ImportQueueChan<B>,
+}
+
+impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
+	fn block_imported(&self, hash: &B::Hash, number: NumberFor<B>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::BlockImportedSync(hash.clone(), number));
+	}
+
+	fn blocks_processed(&self, processed_blocks: Vec<B::Hash>, has_error: bool) {
+		let _ = self.protocol_sender.send(ProtocolMsg::BlocksProcessed(processed_blocks.clone(), has_error));
+		self.import_queue_sender.send(ImportQueueMsg::BlocksProcessed(processed_blocks, has_error));
+	}
+
+	fn justification_imported(&self, who: PeerId, hash: &B::Hash, number: NumberFor<B>, success: bool) {
+		let _ = self.protocol_sender.send(ProtocolMsg::JustificationImportResult(hash.clone(), number, success));
+		if !success {
+			let reason = Severity::Bad(format!("Invalid justification provided for #{}", hash).to_string());
+			let _ = self.network_sender.send(NetworkMsg::ReportPeer(who, reason));
+		}
+	}
+
+	fn clear_justification_requests(&self) {
+		let _ = self.protocol_sender.send(ProtocolMsg::ClearJustificationRequests);
+	}
+
+	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number));
+	}
+
+	fn useless_peer(&self, who: PeerId, reason: &str) {
+		trace!(target:"sync", "Useless peer {}, {}", who, reason);
+		self.network_sender.send(NetworkMsg::ReportPeer(who, Severity::Useless(reason.to_string())));
+	}
+
+	fn note_useless_and_restart_sync(&self, who: PeerId, reason: &str) {
+		trace!(target:"sync", "Bad peer {}, {}", who, reason);
+		// is this actually malign or just useless?
+		self.network_sender.send(NetworkMsg::ReportPeer(who, Severity::Useless(reason.to_string())));
+		let _ = self.protocol_sender.send(ProtocolMsg::RestartSync);
+	}
+
+	fn restart(&self) {
+		let _ = self.protocol_sender.send(ProtocolMsg::RestartSync);
+	}
+}
+
+/// Create a ImportQueuePort/Chan pair.
+pub fn import_queue_channel<B: BlockT + 'static>() -> (ImportQueueChan<B>, ImportQueuePort<B>) {
+	let (import_queue_sender, import_queue_receiver) = channel::unbounded();
+	let task_notify = Arc::new(AtomicTask::new());
+	let import_queue_port = ImportQueuePort::new(import_queue_receiver, task_notify.clone());
+	let import_queue_chan = ImportQueueChan::new(import_queue_sender, task_notify);
+	(import_queue_chan, import_queue_port)
+}
+
+
+/// A sender of ProtocolMsg that notifies a task when a message has been sent.
+#[derive(Clone)]
+pub struct ImportQueueChan<B: BlockT + 'static> {
+	sender: Sender<ImportQueueMsg<B>>,
+	task_notify: Arc<AtomicTask>,
+}
+
+impl<B: BlockT + 'static> ImportQueueChan<B> {
+	/// Create a new import_queue chan.
+	pub fn new(sender: Sender<ImportQueueMsg<B>>, task_notify: Arc<AtomicTask>) -> Self {
+		ImportQueueChan {
+			sender,
+			task_notify,
+		}
+	}
+
+	/// Send a messaging, to be handled on a stream. Notify the task handling the stream.
+	pub fn send(&self, msg: ImportQueueMsg<B>) {
+		let _ = self.sender.send(msg);
+		self.task_notify.notify();
+	}
+}
+
+impl<B: BlockT + 'static> Drop for ImportQueueChan<B> {
+	/// Notifying the task when a sender is dropped(when all are dropped, the stream is finished).
+	fn drop(&mut self) {
+		self.task_notify.notify();
+	}
+}
+
+
+/// A receiver of ProtocolMsg that makes the protocol-id available with each message.
+pub struct ImportQueuePort<B: BlockT + 'static> {
+	receiver: Receiver<ImportQueueMsg<B>>,
+	task_notify: Arc<AtomicTask>,
+}
+
+impl<B: BlockT + 'static> ImportQueuePort<B> {
+	/// Create a new import_queue port for a given protocol-id.
+	pub fn new(receiver: Receiver<ImportQueueMsg<B>>, task_notify: Arc<AtomicTask>) -> Self {
+		Self {
+			receiver,
+			task_notify,
+		}
+	}
+
+	/// Receive a message, if any is currently-enqueued.
+	/// Register the current tokio task for notification when a new message is available.
+	pub fn take_one_message(&self) -> Result<Option<ImportQueueMsg<B>>, ()> {
+		self.task_notify.register();
+		match self.receiver.try_recv() {
+			Ok(msg) => Ok(Some(msg)),
+			Err(TryRecvError::Empty) => Ok(None),
+			Err(TryRecvError::Disconnected) => Err(()),
+		}
+	}
+
+	/// Get a reference to the underlying crossbeam receiver.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub fn receiver(&self) -> &Receiver<ImportQueueMsg<B>> {
+		&self.receiver
+	}
+}
+
+pub enum ImportQueueMsg<B: BlockT> {
+	/// A batch of blocks has been processed, with or without errors.
+	BlocksProcessed(Vec<B::Hash>, bool),
 }
 
 /*
