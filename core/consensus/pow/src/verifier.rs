@@ -37,6 +37,8 @@ use {
     },
 };
 use super::CompatibleDigestItem;
+use crate::pow::check_proof;
+use yee_sharding::ShardingDigestItem;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C, AuthorityId> {
@@ -48,9 +50,9 @@ pub struct PowVerifier<C, AuthorityId> {
 #[forbid(deprecated)]
 impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
     C: Send + Sync,
-    AuthorityId: Decode + Encode + Send + Sync,
+    AuthorityId: Decode + Encode + Clone + Send + Sync,
 {
     fn verify(
         &self,
@@ -69,7 +71,6 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
         )?;
 
         // TODO: verify body
-        // TODO: log
 
         let import_block = ImportBlock {
             origin,
@@ -91,8 +92,8 @@ fn check_header<B, AccountId>(
     hash: B::Hash,
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AccountId>,
-    AccountId: Decode + Encode,
+    DigestItemFor<B>: CompatibleDigestItem<B, AccountId> + ShardingDigestItem<u32>,
+    AccountId: Decode + Encode + Clone,
 {
     // pow work proof MUST be last digest item
     let digest_item = match header.digest_mut().pop() {
@@ -100,15 +101,12 @@ fn check_header<B, AccountId>(
         None => return Err(format!("")),
     };
     let seal = digest_item.as_pow_seal().ok_or_else(|| {
-        // TODO: log
         format!("Header {:?} not sealed", hash)
     })?;
 
-    let pre_hash = header.hash();
-
     // TODO: check seal.difficulty
 
-    seal.check_seal(hash, pre_hash)?;
+    check_proof(&header, &seal)?;
 
     Ok((header, digest_item))
 }

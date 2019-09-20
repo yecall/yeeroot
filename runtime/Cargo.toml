@@ -10,7 +10,7 @@ safe-mix = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
 pow = { package = "srml-yee-pow", path = "../srml/yee-pow", default_features = false }
 consensus-pow = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives", default_features = false }
-sharding_primitives = { package = "yee-sharding-primitives", path = "../sharding/primitives", default_features = false }
+sharding_primitives = { package = "yee-sharding-primitives", path = "../core/sharding/primitives", default_features = false }
 sharding = { package = "yee-srml-sharding", path = "../srml/yee-sharding", default_features = false }
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
