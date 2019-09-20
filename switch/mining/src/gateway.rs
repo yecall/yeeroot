@@ -54,9 +54,8 @@ pub struct Gateway {
 
 impl Gateway {
     pub fn new(client: Client, new_work_tx: Sender<WorkMap>, map: Config) -> Gateway {
-        //init
         let job = JobTemplate {
-            difficulty: DifficultyType::from(0x00000000) << 224,
+            difficulty: DifficultyType::from(0x00000000),
             raw_hash: blake2_256("".as_bytes()).into(),
             url: "".to_string(),
         };
@@ -118,13 +117,13 @@ impl Gateway {
             }
         }
 
-        let mut f = false; //更新标记，只要有一个分片数据更新即为true
+        let mut flag = false;
 
         if !set.is_empty() {
             for (key, value) in set {
                 // debug!("set data---[{}] = {:?}", key, value);
                 if self.current_job_set.get(&key).unwrap().clone().raw_hash != value.raw_hash {
-                    f = true;
+                    flag = true;
                 }
                 self.current_job_set.insert(key.clone(), value.clone());//最终数据全覆盖
             }
@@ -132,7 +131,7 @@ impl Gateway {
             info!("No data of shard updates");
         }
 
-        if f {
+        if flag {
             let mut work_map: HashMap<String, Work> = HashMap::new();
             let extra_data = "YeeRoot".as_bytes().to_vec();
             let len = self.current_job_set.len();
@@ -188,3 +187,4 @@ impl Gateway {
         Ok(())
     }
 }
+

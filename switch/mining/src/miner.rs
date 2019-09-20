@@ -65,11 +65,9 @@ impl Miner {
             select! {
                 recv(self.work_rx) -> msg => match msg {
                     Ok(work) => {
-                       // println!("get new work .......");
                         let work_id = work.work_id.clone();
                         let merkle_root = work.merkle_root.clone();
                         let extra_data = work.extra_data.clone();
-                       //  debug!("cache_and send_WorkerMessage: {}", work_id);
                         self.works.lock().insert(work_id.clone(), work);
                        let task = Task{
                                     work_id: work_id,
@@ -148,3 +146,4 @@ impl Miner {
         return true;
     }
 }
+

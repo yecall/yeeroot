@@ -129,7 +129,6 @@ impl Client {
     ) -> impl Future<Item=Output, Error=RpcError> {
         let method = "mining_submitJob".to_owned();
         let params = vec![json!(job)];
-        // debug!("submit_job params ---:{:?}", params);
         rpc.request(method, params)
     }
     pub fn submit_job(&self, job: &JobResult, rpc: Rpc) {
@@ -161,7 +160,6 @@ impl Client {
 }
 
 fn parse_response<T: serde::de::DeserializeOwned>(output: Output) -> Result<T, RpcError> {
-    //debug!("output---:{:?}", output);
     match output {
         Output::Success(success) => {
             serde_json::from_value::<T>(success.result).map_err(RpcError::Json)
@@ -169,3 +167,4 @@ fn parse_response<T: serde::de::DeserializeOwned>(output: Output) -> Result<T, R
         Output::Failure(failure) => Err(RpcError::Fail(failure.error)),
     }
 }
+

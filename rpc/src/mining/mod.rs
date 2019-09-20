@@ -158,3 +158,4 @@ impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, Au
 fn parse_error<E: Into<errors::Error>>(error: E) -> errors::Error {
     error.into()
 }
+

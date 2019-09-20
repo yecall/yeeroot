@@ -23,7 +23,7 @@ use rand::Rng;
 use std::ops::Range;
 use std::thread;
 use crate::job_template::{Hash, Task};
-use pow::Dummy;
+use pow::PowSolve;
 use log::{info, error, warn, debug};
 
 #[derive(Clone)]
@@ -87,7 +87,7 @@ pub fn start_worker(
             let worker_name = format!("yee-Worker-{}", i);
             let nonce_range = partition_nonce(i as u64, config.threads as u64);
             let (worker_tx, worker_rx) = unbounded();
-            let mut worker = Dummy::new(seal_tx.clone(), worker_rx);
+            let mut worker = PowSolve::new(seal_tx.clone(), worker_rx);
             thread::Builder::new()
                 .name(worker_name)
                 .spawn(move || {

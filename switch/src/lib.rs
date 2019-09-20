@@ -49,8 +49,8 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     let rpc_address_ws = parse_address(&format!("{}:{}", ws_interface, DEFAULT_WS_PORT), cmd.ws_port)?;
 
-    if cmd.start_miner {
-        yee_mining::run(rpc_config.clone(), cmd.poll_interval);
+    if cmd.miner {
+        yee_mining::run(rpc_config.clone(), cmd.job_refresh_interval);
     }
 
     let handler = || {

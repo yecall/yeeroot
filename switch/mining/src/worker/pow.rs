@@ -27,14 +27,14 @@ extern crate chrono;
 
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 
-pub struct Dummy {
+pub struct PowSolve {
     start: bool,
     task: Option<Task>,
     seal_tx: Sender<(String, Seal)>,
     worker_rx: Receiver<WorkerMessage>,
 }
 
-impl Dummy {
+impl PowSolve {
     pub fn new(
         seal_tx: Sender<(String, Seal)>,
         worker_rx: Receiver<WorkerMessage>,
@@ -72,7 +72,7 @@ impl Dummy {
     }
 }
 
-impl Worker for Dummy {
+impl Worker for PowSolve {
     fn run<G: FnMut() -> u64>(&mut self, mut rng: G) {
         loop {
             self.poll_worker_message();
