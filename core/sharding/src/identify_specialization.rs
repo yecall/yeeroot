@@ -61,7 +61,7 @@ impl ShardingIdentifySpecialization {
 }
 
 impl IdentifySpecialization for ShardingIdentifySpecialization {
-    fn customize_protocol_version(&self, protocol_version: &str) -> String {
+    fn customize_protocol_version(&self, _protocol_version: &str) -> String {
         let protocol_version = self.protocol_version.clone();
         protocol_version
     }
@@ -71,12 +71,12 @@ impl IdentifySpecialization for ShardingIdentifySpecialization {
         user_agent
     }
 
-    fn should_add_discovered_node(&self, peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> bool {
+    fn should_add_discovered_node(&self, _peer_id: &PeerId, identify_info: Option<&IdentifyInfo>) -> bool {
 
         self.user_agent_match(identify_info)
     }
 
-    fn should_accept_identify_info(&self, peer_id: &PeerId, identify_info: &IdentifyInfo) -> bool {
+    fn should_accept_identify_info(&self, _peer_id: &PeerId, identify_info: &IdentifyInfo) -> bool {
         if !identify_info.protocol_version.contains(&self.protocol_version) {
             debug!(target: "sharding", "Protocol version not match, identify_info: {:?}", identify_info);
             return false;

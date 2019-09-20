@@ -10,16 +10,16 @@ safe-mix = { version = "1.0", default-features = false }
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
 pow = { package = "srml-yee-pow", path = "../srml/yee-pow", default_features = false }
 consensus-pow = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives", default_features = false }
-sharding_primitives = { package = "yee-sharding-primitives", path = "../sharding/primitives", default_features = false }
+sharding_primitives = { package = "yee-sharding-primitives", path = "../core/sharding/primitives", default_features = false }
 sharding = { package = "yee-srml-sharding", path = "../srml/yee-sharding", default_features = false }
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-balances = { package = "srml-balances", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+balances = { package = "yee-srml-balances", path="../srml/yee-balances", default_features = false }
 consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-executive = { package = "srml-executive", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+executive = { package = "yee-srml-executive", path="../srml/yee-executive", default_features = false }
 indices = { package = "srml-indices", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
