@@ -36,7 +36,7 @@ use yee_runtime::{
 };
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Block as BlockT, Header},
+    traits::{ProvideRuntimeApi, Block as BlockT, Header, Hash},
 };
 use substrate_client::{
     self,
@@ -47,9 +47,6 @@ use substrate_client::{
 };
 use substrate_primitives::{
     hexdisplay::HexDisplay,
-    H256,
-    Blake2Hasher,
-    Hasher,
 };
 use transaction_pool::txpool::{self, Pool as TransactionPool};
 use log::{debug, info, error};
@@ -64,7 +61,7 @@ const MAX_BLOCK_INTERVAL:u64 = 2;   // TODO
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
-    foreign_network: Arc<SyncProvider<FactoryBlock<F>, H256>>,
+    foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
     foreign_chains: Arc<ForeignChain<F, C>>,
     pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
@@ -116,8 +113,8 @@ pub fn start_relay_transfer<F, C, A>(
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
                     let relay = Decode::decode(&mut buf.as_slice()).unwrap();
-                    let relay_hash = Blake2Hasher::hash(buf.as_slice());
-                    info!(target: "foreign-relay", "shard: {}, height: {}, amount: {}, hash:{}, encode: {}", ds, h.0, value, relay_hash, HexDisplay::from(&buf));
+                    let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
+                    info!(target: "foreign-relay", "shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}", ds, h.0, value, relay_hash, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
                     network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
