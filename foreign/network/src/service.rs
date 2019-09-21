@@ -55,9 +55,6 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 
 	// Get client info.
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>;
-
-	// Get client
-	fn client(&self, shard_num: u16) -> Option<Arc<substrate_network::chain::Client<B>>>;
 }
 
 /// Minimum Requirements for a Hash within Networking
@@ -238,11 +235,6 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 
 		info
 	}
-
-	fn client(&self, shard_num: u16) -> Option<Arc<substrate_network::chain::Client<B>>> {
-		self.vnetwork_holder.chain_list.read().get(&shard_num).cloned()
-	}
-
 }
 
 /// Create a NetworkPort/Chan pair.
