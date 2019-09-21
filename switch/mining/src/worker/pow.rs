@@ -18,7 +18,7 @@
 use super::{Worker, WorkerMessage};
 use crossbeam_channel::{Receiver, Sender};
 use crate::job_template::{Hash, Task};
-use log::{info, error, warn, debug};
+use log::{error};
 use super::Seal;
 use primitives::blake2_256;
 use parity_codec::Encode;

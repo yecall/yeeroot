@@ -29,7 +29,6 @@ use std::collections::HashMap;
 use std::thread;
 use crossbeam_channel::unbounded;
 use crate::client::Client;
-use log::{info, error, warn, debug};
 use crate::miner::Miner;
 use crate::config::{WorkerConfig, ClientConfig};
 use crate::gateway::Gateway;

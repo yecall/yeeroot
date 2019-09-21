@@ -19,7 +19,7 @@ use crate::client::{Client, RpcError, Rpc};
 use crate::Work;
 use crate::WorkMap;
 use std::thread;
-use log::{info, error, warn, debug};
+use log::{info, error, debug};
 use crate::job_template::{JobTemplate, DifficultyType};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
