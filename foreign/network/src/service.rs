@@ -39,7 +39,7 @@ use tokio::runtime::Builder as RuntimeBuilder;
 
 pub use network_libp2p::PeerId;
 use serde::export::PhantomData;
-use crate::message::generic::{Message as GenericMessage, OutMessage};
+use crate::message::generic::{Message as GenericMessage, OutMessage, BestBlockInfo};
 use crate::chain::Client;
 use regex::Regex;
 
@@ -48,7 +48,7 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 
 	fn on_relay_extrinsics(&self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>);
 
-	fn out_messages(&self) -> mpsc::UnboundedReceiver<OutMessage<B::Extrinsic>>;
+	fn out_messages(&self) -> mpsc::UnboundedReceiver<OutMessage<B>>;
 
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
@@ -70,7 +70,7 @@ impl<T> ExHashT for T where
 /// Substrate network service. Handles network IO and manages connectivity.
 pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 	/// Sinks to propagate out messages.
-	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B::Extrinsic>>>>>,
+	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 	/// Are we connected to any peer?
 	is_offline: Arc<AtomicBool>,
 	/// Are we actively catching up with the chain?
@@ -138,6 +138,8 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			protocol_sender_list: Arc::new(RwLock::new(HashMap::new())),
 			chain_list: Arc::new(RwLock::new(HashMap::new())),
 			from_network_chan,
+			import_queue_port_list: Arc::new(RwLock::new(HashMap::new())),
+			out_message_sinks: out_message_sinks.clone(),
 		};
 		let vnetwork_thread = vnetwork_holder.start_thread()?;
 
@@ -213,7 +215,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 		self.on_relay_extrinsics(shard_num, extrinsics);
 	}
 
-	fn out_messages(&self) -> mpsc::UnboundedReceiver<OutMessage<B::Extrinsic>>{
+	fn out_messages(&self) -> mpsc::UnboundedReceiver<OutMessage<B>>{
 		let (sink, stream) = mpsc::unbounded();
 		self.out_message_sinks.lock().push(sink);
 		stream
@@ -567,6 +569,8 @@ struct VNetworkHolder<B: BlockT + 'static, I: IdentifySpecialization>{
 	protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
 	chain_list: Arc<RwLock<HashMap<u16, Arc<substrate_network::chain::Client<B>>>>>,
 	from_network_chan: FromNetworkChan<B>,
+	import_queue_port_list: Arc<RwLock<HashMap<u16, vnetwork::ImportQueuePort<B>>>>,
+	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 }
 
 impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
@@ -582,6 +586,9 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		let from_network_port = self.from_network_port.clone();
 		let protocol_sender_list = self.protocol_sender_list.clone();
 		let from_network_chan = self.from_network_chan.clone();
+		let import_queue_port_list = self.import_queue_port_list.clone();
+		let chain_list = self.chain_list.clone();
+		let out_message_sinks = self.out_message_sinks.clone();
 
 		let thread = thread::Builder::new().name("vnetwork".to_string()).spawn(move || {
 			let fut = Self::run_thread(
@@ -590,7 +597,10 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 				network_port_list,
 				from_network_port,
 				protocol_sender_list,
-				from_network_chan
+				from_network_chan,
+				import_queue_port_list,
+				chain_list,
+				out_message_sinks,
 			)
 				.select(close_rx.then(|_| Ok(())))
 				.map(|(val, _)| val)
@@ -615,7 +625,9 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		from_network_port: Arc<FromNetworkPort<B>>,
 		protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
 		from_network_chan: FromNetworkChan<B>,
-
+		import_queue_port_list: Arc<RwLock<HashMap<u16, vnetwork::ImportQueuePort<B>>>>,
+		chain_list: Arc<RwLock<HashMap<u16, Arc<substrate_network::chain::Client<B>>>>>,
+		out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 	) -> impl Future<Item = (), Error = io::Error> {
 
 		let peerset_router = peerset.router();
@@ -750,10 +762,58 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 			Ok(())
 		});
 
+		let import_queue = stream::poll_fn(move || {
+
+			let mut error_shard_num = None;
+			for (shard_num, import_queue_port) in &*import_queue_port_list.read(){
+				let shard_num = *shard_num;
+				match import_queue_port.take_one_message() {
+					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
+					Ok(None) => {},
+					Err(_) => {
+						error_shard_num = Some(shard_num);
+						break;
+					}
+				}
+			}
+			if let Some(error_shard_num) = error_shard_num{
+				import_queue_port_list.write().remove(&error_shard_num);
+			}
+
+			Ok(Async::NotReady)
+
+		}).for_each(move |(shard_num, msg)| {
+			// Handle message from Protocol.
+			match msg {
+				vnetwork::ImportQueueMsg::BlocksProcessed(hashes, has_error) => {
+					debug!(target: "sync-foreign", "Blocks processed: shard_num:{}, hashes: {:?}, has_error={}", shard_num, hashes, has_error);
+					if let Some(chain) = chain_list.read().get(&shard_num) {
+						if let Ok(info) = chain.info() {
+							let chain_info = info.chain;
+							let out_message = OutMessage::BestBlockInfoChanged(shard_num, BestBlockInfo {
+								best_number: chain_info.best_number,
+								best_hash: chain_info.best_hash,
+							});
+							debug!(target: "sync-foreign", "Send out message: {:?}", out_message);
+							out_message_sinks.lock().retain(|sink| sink.unbounded_send(out_message.clone()).is_ok());
+						}
+					}
+				}
+			}
+			Ok(())
+		}).then(|res : Result<(), io::Error> | {
+			match res {
+				Ok(()) => (),
+				Err(_) => error!("import queue disconnected"),
+			};
+			Ok(())
+		});
+
 		// Merge all futures into one.
 		let futures: Vec<Box<Future<Item = (), Error = io::Error> + Send>> = vec![
 			Box::new(protocol) as Box<_>,
-			Box::new(network) as Box<_>
+			Box::new(network) as Box<_>,
+			Box::new(import_queue) as Box<_>,
 		];
 
 		futures::select_all(futures)
@@ -785,12 +845,13 @@ impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBloc
 		let chain = params.chain.clone();
 
 		let (service, network_chan,
-			network_port, network_to_protocol_sender) =
+			network_port, network_to_protocol_sender, import_queue_port) =
 			vnetwork::Service::new(params, import_queue)?;
 
 		self.vnetwork_holder.network_port_list.write().entry(shard_num).or_insert(network_port);
 		self.vnetwork_holder.protocol_sender_list.write().entry(shard_num).or_insert(network_to_protocol_sender);
 		self.vnetwork_holder.chain_list.write().entry(shard_num).or_insert(chain);
+		self.vnetwork_holder.import_queue_port_list.write().entry(shard_num).or_insert(import_queue_port);
 
 		Ok(network_chan)
 	}

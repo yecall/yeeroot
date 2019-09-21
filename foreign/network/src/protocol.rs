@@ -45,7 +45,7 @@ const MIN_VERSION: u32 = 2;
 
 // Lock must always be taken in order declared here.
 pub struct Protocol<B: BlockT, H: ExHashT> {
-	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B::Extrinsic>>>>>,
+	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 	network_chan: NetworkChan<B>,
 	port: Receiver<ProtocolMsg<B, H>>,
 	from_network_port: Receiver<FromNetworkMsg<B>>,
@@ -126,7 +126,7 @@ enum Incoming<B: BlockT, H: ExHashT> {
 impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	/// Create a new instance.
 	pub fn new(
-		out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B::Extrinsic>>>>>,
+		out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 		is_offline: Arc<AtomicBool>,
 		is_major_syncing: Arc<AtomicBool>,
 		network_chan: NetworkChan<B>,
