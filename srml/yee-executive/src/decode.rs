@@ -111,7 +111,7 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
             None => return None
         };
         // amount
-        let mut amount: Balance = match Decode::decode(&mut input) {
+        let amount: Balance = match Decode::decode(&mut input) {
             Some(a) => {
                 let a_c: Compact<u128> = a;
                 let buf = a_c.0.encode();

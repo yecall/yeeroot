@@ -235,7 +235,6 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 
 		info
 	}
-
 }
 
 /// Create a NetworkPort/Chan pair.

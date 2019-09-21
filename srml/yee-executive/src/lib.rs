@@ -27,12 +27,13 @@ use primitives::traits::{
     OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker,
 };
 use srml_support::{Dispatchable, traits::MakePayment};
-use parity_codec::{Codec, Encode};
+use parity_codec::{Codec, Encode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 
 mod decode;
+use decode::RelayTransfer;
 
 mod internal {
     pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
@@ -50,8 +51,6 @@ mod internal {
         Fail(&'static str),
     }
 }
-
-use decode::{RelayTransfer, OriginTransfer};
 
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
@@ -200,7 +199,8 @@ impl<
             if index != &expected_index {
                 return Err(
                     if index < &expected_index { internal::ApplyError::Stale } else { internal::ApplyError::Future }
-                ); }
+                );
+            }
 
             // pay any fees.
             Payment::make_payment(sender, encoded_len).map_err(|_| internal::ApplyError::CantPay)?;
@@ -210,7 +210,7 @@ impl<
             // increment nonce in storage
             <system::Module<System>>::inc_account_nonce(sender);
         } else {
-            if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
+            if let Some(_rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
                 // check origin signature and proof
                 // TODO
             }
@@ -326,10 +326,10 @@ impl<
         // todo
 
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
+        let requires = (Compact(shard_num), Compact(rtx.number()), rtx.hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
-            // requires: vec![(shard_num, rtx.number(), rtx.hash(), rtx.parent()).encode()],
-            requires: vec![],    // todo
+            requires: vec![requires],
             provides: vec![],
             longevity: TransactionLongevity::max_value(),
         }

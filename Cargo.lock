@@ -5164,7 +5164,7 @@ dependencies = [
  "yee-bootnodes-router 0.1.0",
  "yee-consensus-pow 0.1.0",
  "yee-dev 0.4.0",
- "yee-foreign-chain 0.1.0",
+ "yee-foreign-chain 0.4.0",
  "yee-foreign-network 0.4.0",
  "yee-foreign-relay 0.4.0",
  "yee-rpc 0.1.0",
@@ -5246,7 +5246,7 @@ dependencies = [
 
 [[package]]
 name = "yee-foreign-chain"
-version = "0.1.0"
+version = "0.4.0"
 dependencies = [
  "exit-future 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5334,6 +5334,7 @@ dependencies = [
  "substrate-transaction-graph 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-transaction-pool 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yee-foreign-chain 0.4.0",
  "yee-foreign-network 0.4.0",
  "yee-runtime 1.0.0",
  "yee-sharding-primitives 0.1.0",

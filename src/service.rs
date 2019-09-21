@@ -209,6 +209,7 @@ construct_service_factory! {
                     service.client(),
                     &executor,
                     foreign_network.clone(),
+                    Arc::new(foreigh_chain),
                     service.transaction_pool()
                 ).map_err(|e| format!("{:?}", e))?;
 

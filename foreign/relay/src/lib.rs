@@ -18,27 +18,25 @@
 use std::{
     sync::Arc,
     marker::{Send, Sync},
+    iter::once,
 };
 use parity_codec::{Decode, Encode, Compact};
 use futures::{
     Stream,
-    future::{self, Loop},
-    Future, IntoFuture,
 };
 use substrate_service::{
+    config::Configuration,
     ServiceFactory,
     TaskExecutor,
     FactoryBlock,
-    FactoryExtrinsic,
 };
 use yee_runtime::{
     Call,
-    Block,
     UncheckedExtrinsic,
 };
 use runtime_primitives::{
-    generic::{BlockId, UncheckedMortalCompactExtrinsic},
-    traits::{ProvideRuntimeApi, Block as BlockT, Header},
+    generic::BlockId,
+    traits::{ProvideRuntimeApi, Block as BlockT, Header, Hash},
 };
 use substrate_client::{
     self,
@@ -49,49 +47,50 @@ use substrate_client::{
 };
 use substrate_primitives::{
     hexdisplay::HexDisplay,
-    H256,
-    Blake2Hasher,
-    Hasher,
-};
-use pool_graph::{
-    ChainApi,
-    ExtrinsicFor,
 };
 use transaction_pool::txpool::{self, Pool as TransactionPool};
-use log::{debug, info, warn};
+use log::{debug, info, error};
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
+use foreign_network::{SyncProvider, message::generic::OutMessage};
+use foreign_chain::{ForeignChain, ForeignChainConfig};
 
+const MAX_BLOCK_INTERVAL:u64 = 2;   // TODO
 
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
-    foreign_network: Arc<network::SyncProvider<FactoryBlock<F>, H256>>,
-    pool: Arc<TransactionPool<A>>,
+    foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
+    foreign_chains: Arc<ForeignChain<F, C>>,
+    pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
-    where F: ServiceFactory,
+    where F: ServiceFactory + Send + Sync,
           C: 'static + Send + Sync,
           C: HeaderBackend<FactoryBlock<F>> + BlockBody<FactoryBlock<F>>,
-          C: BlockchainEvents<FactoryBlock<F>>,
+          C: BlockchainEvents<FactoryBlock<F>> + ChainHead<<F as ServiceFactory>::Block>,
           C: ProvideRuntimeApi,
           <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
           A: txpool::ChainApi + 'static,
+          <F as ServiceFactory>::Configuration: ForeignChainConfig + Send + Sync,
+          Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
+          <<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Number: From<u64>,
+          u64: From<<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Number>,
 {
     let network_send = foreign_network.clone();
     let network_rev = foreign_network.clone();
     let import_events = client.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
-            let blockId = BlockId::Hash(hash);
-            let header = client.header(blockId).unwrap().unwrap();
-            let body = client.block_body(&blockId).unwrap().unwrap();
+            let block_id = BlockId::Hash(hash);
+            let header = client.header(block_id).unwrap().unwrap();
+            let body = client.block_body(&block_id).unwrap().unwrap();
             let api = client.runtime_api();
-            let tc = api.get_shard_count(&blockId).unwrap();    // total count
-            let cs = api.get_curr_shard(&blockId).unwrap().unwrap();    // current shard
-            for mut tx in &body {
+            let tc = api.get_shard_count(&block_id).unwrap();    // total count
+            let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
+            for tx in &body {
                 let ec = tx.encode();
-                debug!(target: "relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
+                debug!(target: "foreign-relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
                 let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).unwrap();
                 let sig = &ex.signature;
                 if let None = sig {
@@ -109,15 +108,13 @@ pub fn start_relay_transfer<F, C, A>(
 
                     // create relay transfer
                     let proof: Vec<u8> = vec![]; // todo
-                    let h = header.number().encode();
-                    let mut h = h.as_slice();
-                    let h: Compact<u64> = Decode::decode(&mut h).unwrap();
+                    let h: Compact<u64> = Compact((*header.number()).into());
                     let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash(), proof));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
                     let relay = Decode::decode(&mut buf.as_slice()).unwrap();
-                    let relay_hash = Blake2Hasher::hash(buf.as_slice());
-                    info!(target: "relay", "shard: {}, amount: {}, hash:{}, encode: {}", ds, value, relay_hash, HexDisplay::from(&buf));
+                    let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
+                    info!(target: "foreign-relay", "shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}", ds, h.0, value, relay_hash, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
                     network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
@@ -129,17 +126,32 @@ pub fn start_relay_transfer<F, C, A>(
 
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
         match messages {
-            network::message::generic::OutMessage::RelayExtrinsics(txs) => {
+            OutMessage::RelayExtrinsics(txs) => {
                 let h = 0u64;
                 let h = h.encode();
                 let h = Decode::decode(&mut h.as_slice()).unwrap();
-                let blockId = BlockId::number(h);
+                let block_id = BlockId::number(h);
                 for tx in &txs {
                     let tx = tx.encode();
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
-                    pool.submit_one(&blockId, tx);
+                    pool.submit_one(&block_id, tx).expect("Submit relay transfer into pool failed!");
                 }
-                info!(target: "relay", "received relay transaction: {:?}", txs);
+                info!(target: "foreign-relay", "received relay transaction: {:?}", txs);
+            }
+            OutMessage::BestBlockInfoChanged(shard_num, info) => {
+                let mut number: u64 = info.best_number.into();
+                if number > MAX_BLOCK_INTERVAL {
+                    if let Some(chain) = foreign_chains.get_shard_component(shard_num as u32) {
+                        number -= MAX_BLOCK_INTERVAL;
+                        let block_id = BlockId::number(number.into());
+                        let spv_header = chain.client().header(&block_id).unwrap().unwrap();
+                        let tag = (Compact(shard_num), Compact(number), spv_header.hash().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec()).encode();
+                        info!(target: "foreign-relay", "best block info reached. tag: {:?}", tag);
+                        pool.import_provides(once(tag));
+                    } else {
+                        error!(target: "foreign-relay", "Get shard component({:?}) failed!", shard_num);
+                    }
+                }
             }
             _ => { /* do nothing */ }
         }
