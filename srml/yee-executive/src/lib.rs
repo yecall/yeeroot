@@ -326,9 +326,10 @@ impl<
         // todo
 
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
+        let requires = (Compact(shard_num), Compact(rtx.number()), rtx.hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
-            requires: vec![(Compact(shard_num), Compact(rtx.number()), rtx.hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode()],
+            requires: vec![requires],
             provides: vec![],
             longevity: TransactionLongevity::max_value(),
         }

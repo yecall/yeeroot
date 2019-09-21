@@ -59,13 +59,14 @@ use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 
+const MAX_BLOCK_INTERVAL:u64 = 2;   // TODO
 
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
     foreign_network: Arc<SyncProvider<FactoryBlock<F>, H256>>,
     foreign_chains: Arc<ForeignChain<F, C>>,
-    pool: Arc<TransactionPool<A>>,
+    pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
     where F: ServiceFactory + Send + Sync,
           C: 'static + Send + Sync,
@@ -110,15 +111,13 @@ pub fn start_relay_transfer<F, C, A>(
 
                     // create relay transfer
                     let proof: Vec<u8> = vec![]; // todo
-                    let h = header.number().encode();
-                    let mut h = h.as_slice();
-                    let h: Compact<u64> = Decode::decode(&mut h).unwrap();
+                    let h: Compact<u64> = Compact((*header.number()).into());
                     let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash(), proof));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
                     let relay = Decode::decode(&mut buf.as_slice()).unwrap();
                     let relay_hash = Blake2Hasher::hash(buf.as_slice());
-                    info!(target: "foreign-relay", "shard: {}, amount: {}, hash:{}, encode: {}", ds, value, relay_hash, HexDisplay::from(&buf));
+                    info!(target: "foreign-relay", "shard: {}, height: {}, amount: {}, hash:{}, encode: {}", ds, h.0, value, relay_hash, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
                     network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
@@ -144,12 +143,13 @@ pub fn start_relay_transfer<F, C, A>(
             }
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
                 let mut number: u64 = info.best_number.into();
-                if number > 12u64 {
+                if number > MAX_BLOCK_INTERVAL {
                     if let Some(chain) = foreign_chains.get_shard_component(shard_num as u32) {
-                        number -= 12;
+                        number -= MAX_BLOCK_INTERVAL;
                         let block_id = BlockId::number(number.into());
                         let spv_header = chain.client().header(&block_id).unwrap().unwrap();
                         let tag = (Compact(shard_num), Compact(number), spv_header.hash().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec()).encode();
+                        info!(target: "foreign-relay", "best block info reached. tag: {:?}", tag);
                         pool.import_provides(once(tag));
                     } else {
                         error!(target: "foreign-relay", "Get shard component({:?}) failed!", shard_num);
