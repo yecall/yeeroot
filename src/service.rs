@@ -104,7 +104,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
     }
 }
 
-impl ForeignChainConfig for NodeConfig<F> where F: substrate_service::ServiceFactory {
+impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::ServiceFactory {
     fn get_shard_num(&self) -> u32 {
         self.shard_num as u32
     }
