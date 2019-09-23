@@ -14,12 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-/// Integrate grandpa finality with substrate service
+/// Integrate crfg finality with substrate service
 
 use client;
 use service::{FullBackend, FullExecutor, ServiceFactory};
 
-pub type BlockImportForService<F> = crate::GrandpaBlockImport<
+pub type BlockImportForService<F> = crate::CrfgBlockImport<
 	FullBackend<F>,
 	FullExecutor<F>,
 	<F as ServiceFactory>::Block,

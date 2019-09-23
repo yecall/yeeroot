@@ -49,7 +49,7 @@ substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "y
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-grandpa = { package = "yee-crfg-grandpa", path = "core/crfg" }
+crfg = { package = "yee-crfg", path = "core/crfg" }
 structopt = "0.2"
 ansi_term = "0.11"
 yee-switch = { package = "yee-switch", path = "switch" }

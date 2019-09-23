@@ -14,16 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! GRANDPA block finality proof generation and check.
+//! CRFG block finality proof generation and check.
 //!
 //! Finality of block B is proved by providing:
 //! 1) valid headers sub-chain from the block B to the block F;
-//! 2) valid (with respect to proved authorities) GRANDPA justification of the block F;
-//! 3) proof-of-execution of the `grandpa_authorities` call at the block F.
+//! 2) valid (with respect to proved authorities) CRFG justification of the block F;
+//! 3) proof-of-execution of the `crfg_authorities` call at the block F.
 //!
-//! Since earliest possible justification is returned, the GRANDPA authorities set
+//! Since earliest possible justification is returned, the CRFG authorities set
 //! at the block F is guaranteed to be the same as in the block B (this is because block
-//! that enacts new GRANDPA authorities set always comes with justification). It also
+//! that enacts new CRFG authorities set always comes with justification). It also
 //! means that the `set_id` is the same at blocks B and F.
 //!
 //! The caller should track the `set_id`. The most straightforward way is to fetch finality
@@ -46,7 +46,7 @@ use substrate_primitives::{ed25519, H256};
 use ed25519::Public as AuthorityId;
 use substrate_telemetry::{telemetry, CONSENSUS_INFO};
 
-use crate::justification::GrandpaJustification;
+use crate::justification::CrfgJustification;
 
 /// Prepare proof-of-finality for the given block.
 ///
@@ -80,15 +80,15 @@ pub fn prove_finality<Block: BlockT, B, G>(
 
 	// now that we know that the block is finalized, we can generate finalization proof
 
-	// we need to prove grandpa authorities set that has generated justification
-	// BUT since `GrandpaApi::grandpa_authorities` call returns the set that becames actual
+	// we need to prove crfg authorities set that has generated justification
+	// BUT since `CrfgApi::crfg_authorities` call returns the set that becames actual
 	// at the next block, the proof-of execution is generated using parent block' state
 	// (this will fail if we're trying to prove genesis finality, but such the call itself is redundant)
 	let mut current_header = blockchain.expect_header(BlockId::Hash(block))?;
 	let parent_block_id = BlockId::Hash(*current_header.parent_hash());
 	let authorities_proof = generate_execution_proof(
 		&parent_block_id,
-		"GrandpaApi_grandpa_authorities",
+		"CrfgApi_crfg_authorities",
 		&[],
 	)?;
 
@@ -132,7 +132,7 @@ pub fn check_finality_proof<Block: BlockT<Hash=H256>, C>(
 		NumberFor<Block>: grandpa::BlockNumberOps,
 		C: Fn(&RemoteCallRequest<Block::Header>) -> ClientResult<Vec<u8>>,
 {
-	do_check_finality_proof::<Block, C, GrandpaJustification<Block>>(
+	do_check_finality_proof::<Block, C, CrfgJustification<Block>>(
 		check_execution_proof,
 		parent_header,
 		block,
@@ -183,19 +183,19 @@ fn do_check_finality_proof<Block: BlockT<Hash=H256>, C, J>(
 		}
 	}
 
-	// check authorities set proof && get grandpa authorities that should have signed justification
-	let grandpa_authorities = check_execution_proof(&RemoteCallRequest {
+	// check authorities set proof && get crfg authorities that should have signed justification
+	let crfg_authorities = check_execution_proof(&RemoteCallRequest {
 		block: just_block.1,
 		header: parent_header,
-		method: "GrandpaApi_grandpa_authorities".into(),
+		method: "CrfgApi_crfg_authorities".into(),
 		call_data: vec![],
 		retry_count: None,
 	})?;
-	let grandpa_authorities: Vec<(AuthorityId, u64)> = Decode::decode(&mut &grandpa_authorities[..])
-		.ok_or_else(|| ClientErrorKind::BadJustification("failed to decode GRANDPA authorities set proof".into()))?;
+	let crfg_authorities: Vec<(AuthorityId, u64)> = Decode::decode(&mut &crfg_authorities[..])
+		.ok_or_else(|| ClientErrorKind::BadJustification("failed to decode CRFG authorities set proof".into()))?;
 
 	// and now check justification
-	proof.justification.verify(set_id, &grandpa_authorities.into_iter().collect())?;
+	proof.justification.verify(set_id, &crfg_authorities.into_iter().collect())?;
 
 	telemetry!(CONSENSUS_INFO; "afg.finality_proof_ok";
 		"set_id" => ?set_id, "finalized_header_hash" => ?block.1);
@@ -206,8 +206,8 @@ fn do_check_finality_proof<Block: BlockT<Hash=H256>, C, J>(
 ///
 /// Finality of block B is proved by providing:
 /// 1) valid headers sub-chain from the block B to the block F;
-/// 2) proof of `GrandpaApi::grandpa_authorities()` call at the block F;
-/// 3) valid (with respect to proved authorities) GRANDPA justification of the block F.
+/// 2) proof of `CrfgApi::crfg_authorities()` call at the block F;
+/// 3) valid (with respect to proved authorities) CRFG justification of the block F.
 #[derive(Debug, PartialEq, Encode, Decode)]
 struct FinalityProof<Header, Justification> {
 	/// Headers-path (ordered by block number, ascending) from the block we're gathering proof for
@@ -215,7 +215,7 @@ struct FinalityProof<Header, Justification> {
 	pub finalization_path: Vec<Header>,
 	/// Justification (finalization) of the last block from the `finalization_path`.
 	pub justification: Justification,
-	/// Proof of `GrandpaApi::grandpa_authorities` call execution at the
+	/// Proof of `CrfgApi::crfg_authorities` call execution at the
 	/// justification' target block.
 	pub authorities_proof: Vec<Vec<u8>>,
 }
@@ -229,7 +229,7 @@ trait ProvableJustification<Header: HeaderT>: Encode + Decode {
 	fn verify(&self, set_id: u64, authorities: &VoterSet<AuthorityId>) -> ClientResult<()>;
 }
 
-impl<Block: BlockT<Hash=H256>> ProvableJustification<Block::Header> for GrandpaJustification<Block>
+impl<Block: BlockT<Hash=H256>> ProvableJustification<Block::Header> for CrfgJustification<Block>
 	where
 		NumberFor<Block>: BlockNumberOps,
 {
@@ -238,7 +238,7 @@ impl<Block: BlockT<Hash=H256>> ProvableJustification<Block::Header> for GrandpaJ
 	}
 
 	fn verify(&self, set_id: u64, authorities: &VoterSet<AuthorityId>) -> ClientResult<()> {
-		GrandpaJustification::verify(self, set_id, authorities)
+		CrfgJustification::verify(self, set_id, authorities)
 	}
 }
 

@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Primitives for GRANDPA integration, suitable for WASM compilation.
+//! Primitives for CRFG integration, suitable for WASM compilation.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc))]
@@ -41,32 +41,32 @@ pub struct ScheduledChange<N> {
 }
 
 /// WASM function call to check for pending changes.
-pub const PENDING_CHANGE_CALL: &str = "grandpa_pending_change";
-/// WASM function call to get current GRANDPA authorities.
-pub const AUTHORITIES_CALL: &str = "grandpa_authorities";
+pub const PENDING_CHANGE_CALL: &str = "crfg_pending_change";
+/// WASM function call to get current CRFG authorities.
+pub const AUTHORITIES_CALL: &str = "crfg_authorities";
 
-/// Well-known storage keys for GRANDPA.
+/// Well-known storage keys for CRFG.
 pub mod well_known_keys {
 	/// The key for the authorities and weights vector in storage.
-	//pub const AUTHORITY_PREFIX: &[u8] = b":grandpa:auth:";
-	pub const AUTHORITY_PREFIX: &[u8] = b":grandpa:auth:";
+	//pub const AUTHORITY_PREFIX: &[u8] = b":crfg:auth:";
+	pub const AUTHORITY_PREFIX: &[u8] = b":crfg:auth:";
 	/// The key for the authorities count.
-	//pub const AUTHORITY_COUNT: &[u8] = b":grandpa:auth:len";
-	pub const AUTHORITY_COUNT: &[u8] = b":grandpa:auth:len";
+	//pub const AUTHORITY_COUNT: &[u8] = b":crfg:auth:len";
+	pub const AUTHORITY_COUNT: &[u8] = b":crfg:auth:len";
 }
 
 decl_runtime_apis! {
-	/// APIs for integrating the GRANDPA finality gadget into runtimes.
+	/// APIs for integrating the CRFG finality gadget into runtimes.
 	/// This should be implemented on the runtime side.
 	///
 	/// This is primarily used for negotiating authority-set changes for the
-	/// gadget. GRANDPA uses a signaling model of changing authority sets:
+	/// gadget. CRFG uses a signaling model of changing authority sets:
 	/// changes should be signaled with a delay of N blocks, and then automatically
 	/// applied in the runtime after those N blocks have passed.
 	///
 	/// The consensus protocol will coordinate the handoff externally.
 	#[api_version(2)]
-	pub trait GrandpaApi {
+	pub trait CrfgApi {
 		/// Check a digest for pending changes.
 		/// Return `None` if there are no pending changes.
 		///
@@ -79,7 +79,7 @@ decl_runtime_apis! {
 		/// This should be a pure function: i.e. as long as the runtime can interpret
 		/// the digest type it should return the same result regardless of the current
 		/// state.
-		fn grandpa_pending_change(digest: &DigestFor<Block>)
+		fn crfg_pending_change(digest: &DigestFor<Block>)
 			-> Option<ScheduledChange<NumberFor<Block>>>;
 
 		/// Check a digest for forced changes.
@@ -101,15 +101,15 @@ decl_runtime_apis! {
 		/// This should be a pure function: i.e. as long as the runtime can interpret
 		/// the digest type it should return the same result regardless of the current
 		/// state.
-		fn grandpa_forced_change(digest: &DigestFor<Block>)
+		fn crfg_forced_change(digest: &DigestFor<Block>)
 			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>;
 
-		/// Get the current GRANDPA authorities and weights. This should not change except
+		/// Get the current CRFG authorities and weights. This should not change except
 		/// for when changes are scheduled and the corresponding delay has passed.
 		///
 		/// When called at block B, it will return the set of authorities that should be
 		/// used to finalize descendants of this block (B+1, B+2, ...). The block B itself
 		/// is finalized by the authorities from block B-1.
-		fn grandpa_authorities() -> Vec<(AuthorityId, u64)>;
+		fn crfg_authorities() -> Vec<(AuthorityId, u64)>;
 	}
 }

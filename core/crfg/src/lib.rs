@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Integration of the GRANDPA finality gadget into substrate.
+//! Integration of the CRFG finality gadget into substrate.
 //!
 //! This crate is unstable and the API and usage may change.
 //!
@@ -23,18 +23,18 @@
 //! # Usage
 //!
 //! First, create a block-import wrapper with the `block_import` function.
-//! The GRANDPA worker needs to be linked together with this block import object,
+//! The CRFG worker needs to be linked together with this block import object,
 //! so a `LinkHalf` is returned as well. All blocks imported (from network or consensus or otherwise)
 //! must pass through this wrapper, otherwise consensus is likely to break in
 //! unexpected ways.
 //!
-//! Next, use the `LinkHalf` and a local configuration to `run_grandpa`. This requires a
+//! Next, use the `LinkHalf` and a local configuration to `run_crfg`. This requires a
 //! `Network` implementation. The returned future should be driven to completion and
 //! will finalize blocks in the background.
 //!
 //! # Changing authority sets
 //!
-//! The rough idea behind changing authority sets in GRANDPA is that at some point,
+//! The rough idea behind changing authority sets in CRFG is that at some point,
 //! we obtain agreement for some maximum block height that the current set can
 //! finalize, and once a block with that height is finalized the next set will
 //! pick up finalization from there.
@@ -65,7 +65,7 @@ use runtime_primitives::traits::{
 	NumberFor, Block as BlockT, Header as HeaderT, DigestFor, ProvideRuntimeApi, Hash as HashT,
 	DigestItemFor, DigestItem,
 };
-use fg_primitives::GrandpaApi;
+use fg_primitives::CrfgApi;
 use inherents::InherentDataProviders;
 use runtime_primitives::generic::BlockId;
 use substrate_primitives::{ed25519, H256, Blake2Hasher, Pair};
@@ -103,7 +103,7 @@ pub use service_integration::{LinkHalfForService, BlockImportForService};
 use aux_schema::{PersistentData, VoterSetState};
 use environment::Environment;
 pub use finality_proof::{prove_finality, check_finality_proof};
-use import::GrandpaBlockImport;
+use import::CrfgBlockImport;
 use until_imported::UntilCommitBlocksImported;
 
 use ed25519::{Public as AuthorityId, Signature as AuthoritySignature};
@@ -111,10 +111,10 @@ use ed25519::{Public as AuthorityId, Signature as AuthoritySignature};
 #[cfg(test)]
 mod tests;
 
-const GRANDPA_ENGINE_ID: runtime_primitives::ConsensusEngineId = [b'a', b'f', b'g', b'1'];
+const CRFG_ENGINE_ID: runtime_primitives::ConsensusEngineId = [b'a', b'f', b'g', b'1'];
 const MESSAGE_ROUND_TOLERANCE: u64 = 2;
 
-/// A GRANDPA message for a substrate chain.
+/// A CRFG message for a substrate chain.
 pub type Message<Block> = grandpa::Message<<Block as BlockT>::Hash, NumberFor<Block>>;
 /// A signed message.
 pub type SignedMessage<Block> = grandpa::SignedMessage<
@@ -124,13 +124,13 @@ pub type SignedMessage<Block> = grandpa::SignedMessage<
 	AuthorityId,
 >;
 
-/// Grandpa gossip message type.
+/// Crfg gossip message type.
 /// This is the root type that gets encoded and sent on the network.
 #[derive(Debug, Encode, Decode)]
 pub enum GossipMessage<Block: BlockT> {
-	/// Grandpa message with round and set info.
+	/// Crfg message with round and set info.
 	VoteOrPrecommit(VoteOrPrecommitMessage<Block>),
-	/// Grandpa commit message with round and set info.
+	/// Crfg commit message with round and set info.
 	Commit(FullCommitMessage<Block>),
 }
 
@@ -169,12 +169,12 @@ pub struct FullCommitMessage<Block: BlockT> {
 	pub message: CompactCommit<Block>,
 }
 
-/// Configuration for the GRANDPA service.
+/// Configuration for the CRFG service.
 #[derive(Clone)]
 pub struct Config {
 	/// The expected duration for a message to be gossiped across the network.
 	pub gossip_duration: Duration,
-	/// Justification generation period (in blocks). GRANDPA will try to generate justifications
+	/// Justification generation period (in blocks). CRFG will try to generate justifications
 	/// at least every justification_period blocks. There are some other events which might cause
 	/// justification generation.
 	pub justification_period: u64,
@@ -190,11 +190,11 @@ impl Config {
 	}
 }
 
-/// Errors that can occur while voting in GRANDPA.
+/// Errors that can occur while voting in CRFG.
 #[derive(Debug)]
 pub enum Error {
-	/// An error within grandpa.
-	Grandpa(GrandpaError),
+	/// An error within crfg.
+	Crfg(GrandpaError),
 	/// A network error.
 	Network(String),
 	/// A blockchain error.
@@ -209,7 +209,7 @@ pub enum Error {
 
 impl From<GrandpaError> for Error {
 	fn from(e: GrandpaError) -> Self {
-		Error::Grandpa(e)
+		Error::Crfg(e)
 	}
 }
 
@@ -464,7 +464,7 @@ pub trait Network<Block: BlockT>: Clone {
 	fn announce(&self, round: u64, set_id: u64, block: Block::Hash);
 }
 
-///  Bridge between NetworkService, gossiping consensus messages and Grandpa
+///  Bridge between NetworkService, gossiping consensus messages and Crfg
 pub struct NetworkBridge<B: BlockT, S: network::specialization::NetworkSpecialization<B>, I: network::IdentifySpecialization> {
 	service: Arc<NetworkService<B, S, I>>,
 	validator: Arc<GossipValidator<B>>,
@@ -476,7 +476,7 @@ impl<B: BlockT, S: network::specialization::NetworkSpecialization<B>, I: network
 		let validator = Arc::new(GossipValidator::new());
 		let v = validator.clone();
 		service.with_gossip(move |gossip, _| {
-			gossip.register_validator(GRANDPA_ENGINE_ID, v);
+			gossip.register_validator(CRFG_ENGINE_ID, v);
 		});
 		NetworkBridge { service, validator: validator }
 	}
@@ -505,7 +505,7 @@ impl<B: BlockT, S: network::specialization::NetworkSpecialization<B>, I: network
 		self.validator.note_round(round, set_id);
 		let (tx, rx) = sync::oneshot::channel();
 		self.service.with_gossip(move |gossip, _| {
-			let inner_rx = gossip.messages_for(GRANDPA_ENGINE_ID, message_topic::<B>(round, set_id));
+			let inner_rx = gossip.messages_for(CRFG_ENGINE_ID, message_topic::<B>(round, set_id));
 			let _ = tx.send(inner_rx);
 		});
 		NetworkStream { outer: rx, inner: None }
@@ -513,7 +513,7 @@ impl<B: BlockT, S: network::specialization::NetworkSpecialization<B>, I: network
 
 	fn send_message(&self, round: u64, set_id: u64, message: Vec<u8>, force: bool) {
 		let topic = message_topic::<B>(round, set_id);
-		self.service.gossip_consensus_message(topic, GRANDPA_ENGINE_ID, message, force);
+		self.service.gossip_consensus_message(topic, CRFG_ENGINE_ID, message, force);
 	}
 
 	fn drop_round_messages(&self, round: u64, set_id: u64) {
@@ -530,7 +530,7 @@ impl<B: BlockT, S: network::specialization::NetworkSpecialization<B>, I: network
 		self.validator.note_set(set_id);
 		let (tx, rx) = sync::oneshot::channel();
 		self.service.with_gossip(move |gossip, _| {
-			let inner_rx = gossip.messages_for(GRANDPA_ENGINE_ID, commit_topic::<B>(set_id));
+			let inner_rx = gossip.messages_for(CRFG_ENGINE_ID, commit_topic::<B>(set_id));
 			let _ = tx.send(inner_rx);
 		});
 		NetworkStream { outer: rx, inner: None }
@@ -538,7 +538,7 @@ impl<B: BlockT, S: network::specialization::NetworkSpecialization<B>, I: network
 
 	fn send_commit(&self, _round: u64, set_id: u64, message: Vec<u8>, force: bool) {
 		let topic = commit_topic::<B>(set_id);
-		self.service.gossip_consensus_message(topic, GRANDPA_ENGINE_ID, message, force);
+		self.service.gossip_consensus_message(topic, CRFG_ENGINE_ID, message, force);
 	}
 
 	fn announce(&self, round: u64, _set_id: u64, block: B::Hash) {
@@ -652,13 +652,13 @@ pub struct LinkHalf<B, E, Block: BlockT<Hash=H256>, RA> {
 pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	client: Arc<Client<B, E, Block, RA>>,
 	api: Arc<PRA>
-) -> Result<(GrandpaBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
+) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
 		E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
 		RA: Send + Sync,
 		PRA: ProvideRuntimeApi,
-		PRA::Api: GrandpaApi<Block>,
+		PRA::Api: CrfgApi<Block>,
 {
 	use runtime_primitives::traits::Zero;
 
@@ -671,7 +671,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 		<NumberFor<Block>>::zero(),
 		|| {
 			let genesis_authorities = api.runtime_api()
-				.grandpa_authorities(&BlockId::number(Zero::zero()))?;
+				.crfg_authorities(&BlockId::number(Zero::zero()))?;
 			telemetry!(CONSENSUS_DEBUG; "afg.loading_authorities";
 				"authorities_len" => ?genesis_authorities.len()
 			);
@@ -682,7 +682,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	let (voter_commands_tx, voter_commands_rx) = mpsc::unbounded();
 
 	Ok((
-		GrandpaBlockImport::new(
+		CrfgBlockImport::new(
 			client.clone(),
 			persistent_data.authority_set.clone(),
 			voter_commands_tx,
@@ -750,7 +750,7 @@ fn committer_communication<Block: BlockT<Hash=H256>, B, E, N, RA>(
 }
 
 /// Register the finality tracker inherent data provider (which is used by
-/// GRANDPA), if not registered already.
+/// CRFG), if not registered already.
 fn register_finality_tracker_inherent_data_provider<B, E, Block: BlockT<Hash=H256>, RA>(
 	client: Arc<Client<B, E, Block, RA>>,
 	inherent_data_providers: &InherentDataProviders,
@@ -779,9 +779,9 @@ fn register_finality_tracker_inherent_data_provider<B, E, Block: BlockT<Hash=H25
 	}
 }
 
-/// Run a GRANDPA voter as a task. Provide configuration and a link to a
+/// Run a CRFG voter as a task. Provide configuration and a link to a
 /// block import worker that has already been instantiated with `block_import`.
-pub fn run_grandpa<B, E, Block: BlockT<Hash=H256>, N, RA>(
+pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	config: Config,
 	link: LinkHalf<B, E, Block, RA>,
 	network: N,
@@ -965,7 +965,7 @@ pub fn run_grandpa<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		.join(broadcast_worker)
 		.map(|((), ())| ())
 		.map_err(|e| {
-			warn!("GRANDPA Voter failed: {:?}", e);
+			warn!("CRFG Voter failed: {:?}", e);
 			telemetry!(CONSENSUS_WARN; "afg.voter_failed"; "e" => ?e);
 		});
 

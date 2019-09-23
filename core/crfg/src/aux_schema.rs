@@ -31,10 +31,10 @@ use crate::NewAuthoritySet;
 
 use substrate_primitives::ed25519::Public as AuthorityId;
 
-const VERSION_KEY: &[u8] = b"grandpa_schema_version";
-const SET_STATE_KEY: &[u8] = b"grandpa_completed_round";
-const AUTHORITY_SET_KEY: &[u8] = b"grandpa_voters";
-const CONSENSUS_CHANGES_KEY: &[u8] = b"grandpa_consensus_changes";
+const VERSION_KEY: &[u8] = b"crfg_schema_version";
+const SET_STATE_KEY: &[u8] = b"crfg_completed_round";
+const AUTHORITY_SET_KEY: &[u8] = b"crfg_voters";
+const CONSENSUS_CHANGES_KEY: &[u8] = b"crfg_consensus_changes";
 
 const CURRENT_VERSION: u32 = 1;
 
@@ -117,7 +117,7 @@ fn load_decode<B: AuxStore, T: Decode>(backend: &B, key: &[u8]) -> ClientResult<
 		None => Ok(None),
 		Some(t) => T::decode(&mut &t[..])
 			.ok_or_else(
-				|| ClientErrorKind::Backend(format!("GRANDPA DB is corrupted.")).into(),
+				|| ClientErrorKind::Backend(format!("CRFG DB is corrupted.")).into(),
 			)
 			.map(Some)
 	}
@@ -191,12 +191,12 @@ pub(crate) fn load_persistent<B, H, N, G>(
 			}
 		}
 		Some(other) => return Err(ClientErrorKind::Backend(
-			format!("Unsupported GRANDPA DB version: {:?}", other)
+			format!("Unsupported CRFG DB version: {:?}", other)
 		).into()),
 	}
 
 	// genesis.
-	info!(target: "afg", "Loading GRANDPA authority set \
+	info!(target: "afg", "Loading CRFG authority set \
 		from genesis on what appears to be first startup.");
 
 	let genesis_set = AuthoritySet::genesis(genesis_authorities()?);

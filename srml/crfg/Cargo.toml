@@ -1,5 +1,5 @@
 [package]
-name = "srml-grandpa"
+name = "srml-crfg"
 version = "1.0.0"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition = "2018"
@@ -8,7 +8,7 @@ edition = "2018"
 serde = { version = "1.0", optional = true, features = ["derive"] }
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
 substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-grandpa-primitives = { path = "../../core/crfg/primitives", default-features = false }
+crfg-primitives = { path = "../../core/crfg/primitives", default-features = false }
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
@@ -26,7 +26,7 @@ std = [
 	"serde",
 	"parity-codec/std",
 	"substrate-primitives/std",
-	"grandpa-primitives/std",
+	"crfg-primitives/std",
 	"rstd/std",
 	"srml-support/std",
 	"primitives/std",

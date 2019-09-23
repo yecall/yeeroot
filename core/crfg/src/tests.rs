@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Tests and test helpers for GRANDPA.
+//! Tests and test helpers for CRFG.
 
 use super::*;
 use network::test::{Block, DummySpecialization, Hash, TestNetFactory, Peer, PeersClient};
@@ -51,17 +51,17 @@ type PeerData =
 			>
 		>
 	>;
-type GrandpaPeer = Peer<PeerData, DummySpecialization>;
+type CrfgPeer = Peer<PeerData, DummySpecialization>;
 
-struct GrandpaTestNet {
-	peers: Vec<Arc<GrandpaPeer>>,
+struct CrfgTestNet {
+	peers: Vec<Arc<CrfgPeer>>,
 	test_config: TestApi,
 	started: bool,
 }
 
-impl GrandpaTestNet {
+impl CrfgTestNet {
 	fn new(test_config: TestApi, n_peers: usize) -> Self {
-		let mut net = GrandpaTestNet {
+		let mut net = CrfgTestNet {
 			peers: Vec::with_capacity(n_peers),
 			started: false,
 			test_config,
@@ -74,14 +74,14 @@ impl GrandpaTestNet {
 	}
 }
 
-impl TestNetFactory for GrandpaTestNet {
+impl TestNetFactory for CrfgTestNet {
 	type Specialization = DummySpecialization;
 	type Verifier = PassThroughVerifier;
 	type PeerData = PeerData;
 
 	/// Create new test network with peers and given config.
 	fn from_config(_config: &ProtocolConfig) -> Self {
-		GrandpaTestNet {
+		CrfgTestNet {
 			peers: Vec::new(),
 			test_config: Default::default(),
 			started: false,
@@ -112,15 +112,15 @@ impl TestNetFactory for GrandpaTestNet {
 		(shared_import.clone(), Some(shared_import), Mutex::new(Some(link)))
 	}
 
-	fn peer(&self, i: usize) -> &GrandpaPeer {
+	fn peer(&self, i: usize) -> &CrfgPeer {
 		&self.peers[i]
 	}
 
-	fn peers(&self) -> &Vec<Arc<GrandpaPeer>> {
+	fn peers(&self) -> &Vec<Arc<CrfgPeer>> {
 		&self.peers
 	}
 
-	fn mut_peers<F: FnOnce(&mut Vec<Arc<GrandpaPeer>>)>(&mut self, closure: F) {
+	fn mut_peers<F: FnOnce(&mut Vec<Arc<CrfgPeer>>)>(&mut self, closure: F) {
 		closure(&mut self.peers);
 	}
 
@@ -135,20 +135,20 @@ impl TestNetFactory for GrandpaTestNet {
 
 #[derive(Clone)]
 struct MessageRouting {
-	inner: Arc<Mutex<GrandpaTestNet>>,
+	inner: Arc<Mutex<CrfgTestNet>>,
 	peer_id: usize,
 	validator: Arc<GossipValidator<Block>>,
 }
 
 impl MessageRouting {
-	fn new(inner: Arc<Mutex<GrandpaTestNet>>, peer_id: usize,) -> Self {
+	fn new(inner: Arc<Mutex<CrfgTestNet>>, peer_id: usize,) -> Self {
 		let validator = Arc::new(GossipValidator::new());
 		let v = validator.clone();
 		{
 			let inner = inner.lock();
 			let peer = inner.peer(peer_id);
 			peer.with_gossip(move |gossip, _| {
-				gossip.register_validator(GRANDPA_ENGINE_ID, v);
+				gossip.register_validator(CRFG_ENGINE_ID, v);
 			});
 		}
 		MessageRouting {
@@ -181,7 +181,7 @@ impl Network<Block> for MessageRouting {
 		let inner = self.inner.lock();
 		let peer = inner.peer(self.peer_id);
 		let messages = peer.consensus_gossip_messages_for(
-			GRANDPA_ENGINE_ID,
+			CRFG_ENGINE_ID,
 			make_topic(round, set_id),
 		);
 
@@ -195,7 +195,7 @@ impl Network<Block> for MessageRouting {
 	fn send_message(&self, round: u64, set_id: u64, message: Vec<u8>, force: bool) {
 		let inner = self.inner.lock();
 		inner.peer(self.peer_id)
-			.gossip_message(make_topic(round, set_id), GRANDPA_ENGINE_ID, message, force);
+			.gossip_message(make_topic(round, set_id), CRFG_ENGINE_ID, message, force);
 	}
 
 	fn drop_round_messages(&self, round: u64, set_id: u64) {
@@ -215,7 +215,7 @@ impl Network<Block> for MessageRouting {
 		let inner = self.inner.lock();
 		let peer = inner.peer(self.peer_id);
 		let messages = peer.consensus_gossip_messages_for(
-			GRANDPA_ENGINE_ID,
+			CRFG_ENGINE_ID,
 			make_commit_topic(set_id),
 		);
 
@@ -229,7 +229,7 @@ impl Network<Block> for MessageRouting {
 	fn send_commit(&self, _round: u64, set_id: u64, message: Vec<u8>, force: bool) {
 		let inner = self.inner.lock();
 		inner.peer(self.peer_id)
-			.gossip_message(make_commit_topic(set_id), GRANDPA_ENGINE_ID, message, force);
+			.gossip_message(make_commit_topic(set_id), CRFG_ENGINE_ID, message, force);
 	}
 
 	fn announce(&self, _round: u64, _set_id: u64, _block: H256) {
@@ -320,8 +320,8 @@ impl ApiExt<Block> for RuntimeApi {
 	}
 }
 
-impl GrandpaApi<Block> for RuntimeApi {
-	fn GrandpaApi_grandpa_authorities_runtime_api_impl(
+impl CrfgApi<Block> for RuntimeApi {
+	fn CrfgApi_crfg_authorities_runtime_api_impl(
 		&self,
 		at: &BlockId<Block>,
 		_: ExecutionContext,
@@ -335,7 +335,7 @@ impl GrandpaApi<Block> for RuntimeApi {
 		}
 	}
 
-	fn GrandpaApi_grandpa_pending_change_runtime_api_impl(
+	fn CrfgApi_crfg_pending_change_runtime_api_impl(
 		&self,
 		at: &BlockId<Block>,
 		_: ExecutionContext,
@@ -352,7 +352,7 @@ impl GrandpaApi<Block> for RuntimeApi {
 		Ok(self.inner.scheduled_changes.lock().get(&parent_hash).map(|c| c.clone())).map(NativeOrEncoded::Native)
 	}
 
-	fn GrandpaApi_grandpa_forced_change_runtime_api_impl(
+	fn CrfgApi_crfg_forced_change_runtime_api_impl(
 		&self,
 		at: &BlockId<Block>,
 		_: ExecutionContext,
@@ -385,7 +385,7 @@ fn make_ids(keys: &[AuthorityKeyring]) -> Vec<(AuthorityId, u64)> {
 // the voters are spawned but before blocking on them.
 fn run_to_completion_with<F: FnOnce()>(
 	blocks: u64,
-	net: Arc<Mutex<GrandpaTestNet>>,
+	net: Arc<Mutex<CrfgTestNet>>,
 	peers: &[AuthorityKeyring],
 	before_waiting: F,
 ) -> u64 {
@@ -420,7 +420,7 @@ fn run_to_completion_with<F: FnOnce()>(
 		);
 		fn assert_send<T: Send>(_: &T) { }
 
-		let voter = run_grandpa(
+		let voter = run_crfg(
 			Config {
 				gossip_duration: TEST_GOSSIP_DURATION,
 				justification_period: 32,
@@ -462,7 +462,7 @@ fn run_to_completion_with<F: FnOnce()>(
 	highest_finalized
 }
 
-fn run_to_completion(blocks: u64, net: Arc<Mutex<GrandpaTestNet>>, peers: &[AuthorityKeyring]) -> u64 {
+fn run_to_completion(blocks: u64, net: Arc<Mutex<CrfgTestNet>>, peers: &[AuthorityKeyring]) -> u64 {
 	run_to_completion_with(blocks, net, peers, || {})
 }
 
@@ -472,7 +472,7 @@ fn finalize_3_voters_no_observers() {
 	let peers = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob, AuthorityKeyring::Charlie];
 	let voters = make_ids(peers);
 
-	let mut net = GrandpaTestNet::new(TestApi::new(voters), 3);
+	let mut net = CrfgTestNet::new(TestApi::new(voters), 3);
 	net.peer(0).push_blocks(20, false);
 	net.sync();
 
@@ -494,7 +494,7 @@ fn finalize_3_voters_1_observer() {
 	let peers = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob, AuthorityKeyring::Charlie];
 	let voters = make_ids(peers);
 
-	let mut net = GrandpaTestNet::new(TestApi::new(voters), 4);
+	let mut net = CrfgTestNet::new(TestApi::new(voters), 4);
 	net.peer(0).push_blocks(20, false);
 	net.sync();
 
@@ -521,7 +521,7 @@ fn finalize_3_voters_1_observer() {
 				.take_while(|n| Ok(n.header.number() < &20))
 				.for_each(move |_| Ok(()))
 		);
-		let voter = run_grandpa(
+		let voter = run_crfg(
 			Config {
 				gossip_duration: TEST_GOSSIP_DURATION,
 				justification_period: 32,
@@ -577,7 +577,7 @@ fn transition_3_voters_twice_1_observer() {
 
 	let api = TestApi::new(genesis_voters);
 	let transitions = api.scheduled_changes.clone();
-	let net = Arc::new(Mutex::new(GrandpaTestNet::new(api, 8)));
+	let net = Arc::new(Mutex::new(CrfgTestNet::new(api, 8)));
 
 	let mut runtime = current_thread::Runtime::new().unwrap();
 
@@ -683,7 +683,7 @@ fn transition_3_voters_twice_1_observer() {
 					assert_eq!(set.pending_changes().count(), 0);
 				})
 		);
-		let voter = run_grandpa(
+		let voter = run_crfg(
 			Config {
 				gossip_duration: TEST_GOSSIP_DURATION,
 				justification_period: 32,
@@ -720,7 +720,7 @@ fn transition_3_voters_twice_1_observer() {
 #[test]
 fn justification_is_emitted_when_consensus_data_changes() {
 	let peers = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob, AuthorityKeyring::Charlie];
-	let mut net = GrandpaTestNet::new(TestApi::new(make_ids(peers)), 3);
+	let mut net = CrfgTestNet::new(TestApi::new(make_ids(peers)), 3);
 
 	// import block#1 WITH consensus data change
 	let new_authorities = vec![AuthorityId::from_raw([42; 32])];
@@ -739,7 +739,7 @@ fn justification_is_generated_periodically() {
 	let peers = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob, AuthorityKeyring::Charlie];
 	let voters = make_ids(peers);
 
-	let mut net = GrandpaTestNet::new(TestApi::new(voters), 3);
+	let mut net = CrfgTestNet::new(TestApi::new(voters), 3);
 	net.peer(0).push_blocks(32, false);
 	net.sync();
 
@@ -779,10 +779,10 @@ fn sync_justifications_on_change_blocks() {
 	let peers_b = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob];
 	let voters = make_ids(peers_b);
 
-	// 4 peers, 3 of them are authorities and participate in grandpa
+	// 4 peers, 3 of them are authorities and participate in crfg
 	let api = TestApi::new(voters);
 	let transitions = api.scheduled_changes.clone();
-	let mut net = GrandpaTestNet::new(api, 4);
+	let mut net = CrfgTestNet::new(api, 4);
 
 	// add 20 blocks
 	net.peer(0).push_blocks(20, false);
@@ -809,7 +809,7 @@ fn sync_justifications_on_change_blocks() {
 	let net = Arc::new(Mutex::new(net));
 	run_to_completion(25, net.clone(), peers_a);
 
-	// the first 3 peers are grandpa voters and therefore have already finalized
+	// the first 3 peers are crfg voters and therefore have already finalized
 	// block 21 and stored a justification
 	for i in 0..3 {
 		assert!(net.lock().peer(i).client().justification(&BlockId::Number(21)).unwrap().is_some());
@@ -835,10 +835,10 @@ fn finalizes_multiple_pending_changes_in_order() {
 	];
 	let genesis_voters = make_ids(peers_a);
 
-	// 6 peers, 3 of them are authorities and participate in grandpa from genesis
+	// 6 peers, 3 of them are authorities and participate in crfg from genesis
 	let api = TestApi::new(genesis_voters);
 	let transitions = api.scheduled_changes.clone();
-	let mut net = GrandpaTestNet::new(api, 6);
+	let mut net = CrfgTestNet::new(api, 6);
 
 	// add 20 blocks
 	net.peer(0).push_blocks(20, false);
@@ -886,7 +886,7 @@ fn doesnt_vote_on_the_tip_of_the_chain() {
 	let peers_a = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob, AuthorityKeyring::Charlie];
 	let voters = make_ids(peers_a);
 	let api = TestApi::new(voters);
-	let mut net = GrandpaTestNet::new(api, 3);
+	let mut net = CrfgTestNet::new(api, 3);
 
 	// add 100 blocks
 	net.peer(0).push_blocks(100, false);
@@ -914,7 +914,7 @@ fn force_change_to_new_set() {
 	let voters = make_ids(peers_a);
 	let normal_transitions = api.scheduled_changes.clone();
 	let forced_transitions = api.forced_changes.clone();
-	let net = GrandpaTestNet::new(api, 3);
+	let net = CrfgTestNet::new(api, 3);
 	let net = Arc::new(Mutex::new(net));
 
 	let runner_net = net.clone();
@@ -964,7 +964,7 @@ fn allows_reimporting_change_blocks() {
 	let peers_b = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob];
 	let voters = make_ids(peers_a);
 	let api = TestApi::new(voters);
-	let net = GrandpaTestNet::new(api.clone(), 3);
+	let net = CrfgTestNet::new(api.clone(), 3);
 
 	let client = net.peer(0).client().clone();
 	let (block_import, ..) = net.make_block_import(client.clone());
@@ -1007,7 +1007,7 @@ fn test_bad_justification() {
 	let peers_b = &[AuthorityKeyring::Alice, AuthorityKeyring::Bob];
 	let voters = make_ids(peers_a);
 	let api = TestApi::new(voters);
-	let net = GrandpaTestNet::new(api.clone(), 3);
+	let net = CrfgTestNet::new(api.clone(), 3);
 
 	let client = net.peer(0).client().clone();
 	let (block_import, ..) = net.make_block_import(client.clone());

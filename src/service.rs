@@ -44,7 +44,7 @@ pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_rpc::ProvideJobManager;
 
-use grandpa;
+use crfg;
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -60,9 +60,9 @@ native_executor_instance!(
 
 /// Node specific configuration
 pub struct NodeConfig<F: substrate_service::ServiceFactory> {
-    /// grandpa connection to import block
+    /// crfg connection to import block
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
-    pub grandpa_import_setup: Option<(Arc<grandpa::BlockImportForService<F>>, grandpa::LinkHalfForService<F>)>,
+    pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
 	inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
     pub shard_num: u16,
@@ -75,7 +75,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
 impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
     fn default() -> Self {
         Self {
-            grandpa_import_setup: None,
+            crfg_import_setup: None,
             inherent_data_providers: Default::default(),
             coin_base: Default::default(),
             shard_num: Default::default(),
@@ -90,7 +90,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
 impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
     fn clone(&self) -> Self {
         Self {
-            grandpa_import_setup: None,
+            crfg_import_setup: None,
             coin_base: self.coin_base.clone(),
             shard_num: self.shard_num,
             foreign_port: self.foreign_port,
@@ -170,7 +170,7 @@ construct_service_factory! {
 			},
 		AuthoritySetup = {
 			|mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>| {
-				let (block_import, link_half) = service.config.custom.grandpa_import_setup.take()
+				let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
 					.expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
 				if let Some(ref key) = key {
@@ -232,8 +232,8 @@ construct_service_factory! {
 				};
 
 				info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public());
-				executor.spawn(grandpa::run_grandpa(
-					grandpa::Config {
+				executor.spawn(crfg::run_crfg(
+					crfg::Config {
 						local_key,
 						// FIXME #1578 make this available through chainspec
 						gossip_duration: Duration::from_millis(333),
@@ -241,7 +241,7 @@ construct_service_factory! {
 						name: Some(service.config.name.clone())
 					},
 					link_half,
-					grandpa::NetworkBridge::new(service.network()),
+					crfg::NetworkBridge::new(service.network()),
 					service.config.custom.inherent_data_providers.clone(),
 					service.on_exit(),
 				)?);
@@ -254,13 +254,13 @@ construct_service_factory! {
         FullImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
                     prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-				    let (block_import, link_half) = grandpa::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
+				    let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
                         client.clone(), client.clone()
                     )?;
 
 				    let block_import = Arc::new(block_import);
 				    let justification_import = block_import.clone();
-				    config.custom.grandpa_import_setup = Some((block_import.clone(), link_half));
+				    config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
 					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
 				    	block_import,

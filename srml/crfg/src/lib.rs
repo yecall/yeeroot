@@ -14,21 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-//! GRANDPA Consensus module for runtime.
+//! CRFG Consensus module for runtime.
 //!
-//! This manages the GRANDPA authority set ready for the native code.
-//! These authorities are only for GRANDPA finality, not for consensus overall.
+//! This manages the CRFG authority set ready for the native code.
+//! These authorities are only for CRFG finality, not for consensus overall.
 //!
 //! In the future, it will also handle misbehavior reports, and on-chain
 //! finality notifications.
 //!
-//! For full integration with GRANDPA, the `GrandpaApi` should be implemented.
+//! For full integration with CRFG, the `CrfgApi` should be implemented.
 //! The necessary items are re-exported via the `fg_primitives` crate.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // re-export since this is necessary for `impl_apis` in runtime.
-pub use grandpa_primitives as fg_primitives;
+pub use crfg_primitives as fg_primitives;
 
 #[cfg(feature = "std")]
 use serde::Serialize;
@@ -61,9 +61,9 @@ pub type Log<T> = RawLog<
 	<T as Trait>::SessionKey,
 >;
 
-/// Logs which can be scanned by GRANDPA for authorities change events.
-//pub trait GrandpaChangeSignal<N> {
-pub trait GrandpaChangeSignal<N> {
+/// Logs which can be scanned by CRFG for authorities change events.
+//pub trait CrfgChangeSignal<N> {
+pub trait CrfgChangeSignal<N> {
 	/// Try to cast the log entry as a contained signal.
 	fn as_signal(&self) -> Option<ScheduledChange<N>>;
 	/// Try to cast the log entry as a contained forced signal.
@@ -101,8 +101,8 @@ impl<N: Clone, SessionKey> RawLog<N, SessionKey> {
 	}
 }
 
-//impl<N, SessionKey> GrandpaChangeSignal<N> for RawLog<N, SessionKey>
-impl<N, SessionKey> GrandpaChangeSignal<N> for RawLog<N, SessionKey>
+//impl<N, SessionKey> CrfgChangeSignal<N> for RawLog<N, SessionKey>
+impl<N, SessionKey> CrfgChangeSignal<N> for RawLog<N, SessionKey>
 	where N: Clone, SessionKey: Clone + Into<AuthorityId>,
 {
 	fn as_signal(&self) -> Option<ScheduledChange<N>> {
@@ -186,8 +186,8 @@ decl_event!(
 );
 
 decl_storage! {
-	//trait Store for Module<T: Trait> as GrandpaFinality {
-	trait Store for Module<T: Trait> as GrandpaFinality {
+	//trait Store for Module<T: Trait> as CrfgFinality {
+	trait Store for Module<T: Trait> as CrfgFinality {
 // Pending change: (signaled at, scheduled change).
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
 		// next block number where we can force a change.
@@ -255,7 +255,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 	/// Get the current set of authorities, along with their respective weights.
-	pub fn grandpa_authorities() -> Vec<(T::SessionKey, u64)> {
+	pub fn crfg_authorities() -> Vec<(T::SessionKey, u64)> {
 		<AuthorityStorageVec<T::SessionKey>>::items()
 	}
 
@@ -269,7 +269,7 @@ impl<T: Trait> Module<T> {
 	/// set has been synchronously determined to be offline and that after
 	/// `in_blocks` the given change should be applied. The given block number
 	/// indicates the median last finalized block number and it should be used
-	/// as the canon block when starting the new grandpa voter.
+	/// as the canon block when starting the new crfg voter.
 	///
 	/// No change should be signaled while any change is pending. Returns
 	/// an error if a change is already pending.
@@ -302,7 +302,7 @@ impl<T: Trait> Module<T> {
 
 			Ok(())
 		} else {
-			Err("Attempt to signal GRANDPA change with one already pending.")
+			Err("Attempt to signal CRFG change with one already pending.")
 		}
 	}
 
@@ -317,22 +317,22 @@ impl<T: Trait> Module<T> where AuthorityId: core::convert::From<<T as Trait>::Se
 	pub fn scrape_digest_change(log: &Log<T>)
 		-> Option<ScheduledChange<T::BlockNumber>>
 	{
-		//<Log<T> as GrandpaChangeSignal<T::BlockNumber>>::as_signal(log)
-		<Log<T> as GrandpaChangeSignal<T::BlockNumber>>::as_signal(log)
+		//<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_signal(log)
+		<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_signal(log)
 	}
 
 	/// See if the digest contains any forced scheduled change.
 	pub fn scrape_digest_forced_change(log: &Log<T>)
 		-> Option<(T::BlockNumber, ScheduledChange<T::BlockNumber>)>
 	{
-		//<Log<T> as GrandpaChangeSignal<T::BlockNumber>>::as_forced_signal(log)
-		<Log<T> as GrandpaChangeSignal<T::BlockNumber>>::as_forced_signal(log)
+		//<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_forced_signal(log)
+		<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_forced_signal(log)
 	}
 }
 
 /// Helper for authorities being synchronized with the general session authorities.
 ///
-/// This is not the only way to manage an authority set for GRANDPA, but it is
+/// This is not the only way to manage an authority set for CRFG, but it is
 /// a convenient one. When this is used, no other mechanism for altering authority
 /// sets should be.
 pub struct SyncedAuthorities<T>(::rstd::marker::PhantomData<T>);
@@ -357,7 +357,7 @@ impl<X, T> session::OnSessionChange<X> for SyncedAuthorities<T> where
 			.collect::<Vec<(<T as Trait>::SessionKey, u64)>>();
 
 		// instant changes
-		let last_authorities = <Module<T>>::grandpa_authorities();
+		let last_authorities = <Module<T>>::crfg_authorities();
 		if next_authorities != last_authorities {
 			let _ = <Module<T>>::schedule_change(next_authorities, Zero::zero(), None);
 		}

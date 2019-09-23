@@ -1,5 +1,5 @@
 [package]
-name = "yee-crfg-grandpa"
+name = "yee-crfg"
 version = "0.4.0"
 authors = ["YeeCo contact@yeefoundation.com"]
 edition = "2018"
@@ -21,7 +21,7 @@ inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/s
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, branch = "yee-v1.0" }
 srml-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-fg_primitives = { package = "grandpa-primitives", path = "./primitives" }
+fg_primitives = { package = "crfg-primitives", path = "./primitives" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", features = ["derive-codec"] }
 
 [dev-dependencies]

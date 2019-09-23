@@ -58,13 +58,13 @@ impl system::Trait for Test {
 	type Log = DigestItem;
 }
 
-mod grandpa {
+mod crfg {
 	pub use crate::Event;
 }
 
 impl_outer_event!{
 	pub enum TestEvent for Test {
-		grandpa<T>,
+		crfg<T>,
 	}
 }
 
@@ -77,4 +77,4 @@ pub fn new_test_ext(authorities: Vec<(u64, u64)>) -> runtime_io::TestExternaliti
 }
 
 pub type System = system::Module<Test>;
-pub type Grandpa = Module<Test>;
+pub type Crfg = Module<Test>;

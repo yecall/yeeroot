@@ -18,13 +18,13 @@ use runtime_primitives::{
 //use runtime_primitives::traits::{
 //	BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, AuthorityIdFor, Convert
 //};
-use grandpa::fg_primitives::{self, ScheduledChange};
+use crfg::fg_primitives::{self, ScheduledChange};
 //pub use staking::StakerStatus;
 use client::{
 	block_builder::api::{CheckInherentsResult, InherentData, self as block_builder_api},
 	runtime_api, impl_runtime_apis
 };
-//pub use grandpa::Call as GrandpaCall;
+//pub use crfg::Call as CrfgCall;
 use version::RuntimeVersion;
 #[cfg(feature = "std")]
 use version::NativeVersion;
@@ -199,19 +199,19 @@ impl balances::Trait for Runtime {
     type Sharding = sharding::Module<Runtime>;
 }
 
-impl grandpa::Trait for Runtime {
+impl crfg::Trait for Runtime {
 	type SessionKey = AuthorityId;
 	type Log = Log;
 	type Event = Event;
 }
 
 impl finality_tracker::Trait for Runtime {
-	type OnFinalizationStalled = grandpa::SyncedAuthorities<Runtime>;
+	type OnFinalizationStalled = crfg::SyncedAuthorities<Runtime>;
 }
 
 //impl session::Trait for Runtime {
 //	type ConvertAccountIdToSessionKey = ();
-//	type OnSessionChange = (Staking, grandpa::SyncedAuthorities<Runtime>);
+//	type OnSessionChange = (Staking, crfg::SyncedAuthorities<Runtime>);
 //	type Event = Event;
 //}
 
@@ -243,7 +243,7 @@ construct_runtime!(
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
-		Grandpa: grandpa::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>},
 		FinalityTracker: finality_tracker::{Module, Call, Inherent},
 		//Staking: staking::{default, OfflineWorker},
 	}
@@ -355,37 +355,37 @@ impl_runtime_apis! {
 		}
 	}
 
-	impl fg_primitives::GrandpaApi<Block> for Runtime {
-		fn grandpa_pending_change(digest: &DigestFor<Block>)
+	impl fg_primitives::CrfgApi<Block> for Runtime {
+		fn crfg_pending_change(digest: &DigestFor<Block>)
 			-> Option<ScheduledChange<NumberFor<Block>>>
 		{
 			for log in digest.logs.iter().filter_map(|l| match l {
-				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				Log(InternalLog::crfg(crfg_signal)) => Some(crfg_signal),
 				_ => None
 			}) {
-				if let Some(change) = Grandpa::scrape_digest_change(log) {
+				if let Some(change) = Crfg::scrape_digest_change(log) {
 					return Some(change);
 				}
 			}
 			None
 		}
 
-		fn grandpa_forced_change(digest: &DigestFor<Block>)
+		fn crfg_forced_change(digest: &DigestFor<Block>)
 			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
 		{
 			for log in digest.logs.iter().filter_map(|l| match l {
-				Log(InternalLog::grandpa(grandpa_signal)) => Some(grandpa_signal),
+				Log(InternalLog::crfg(crfg_signal)) => Some(crfg_signal),
 				_ => None
 			}) {
-				if let Some(change) = Grandpa::scrape_digest_forced_change(log) {
+				if let Some(change) = Crfg::scrape_digest_forced_change(log) {
 					return Some(change);
 				}
 			}
 			None
 		}
 
-		fn grandpa_authorities() -> Vec<(AuthorityId, u64)> {
-			Grandpa::grandpa_authorities()
+		fn crfg_authorities() -> Vec<(AuthorityId, u64)> {
+			Crfg::crfg_authorities()
 		}
 	}
 

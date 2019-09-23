@@ -202,7 +202,7 @@ impl<Block: BlockT, Status, I, M> Stream for UntilImported<Block, Status, I, M> 
 fn warn_authority_wrong_target<H: ::std::fmt::Display>(hash: H, id: AuthorityId) {
 	warn!(
 		target: "afg",
-		"Authority {:?} signed GRANDPA message with \
+		"Authority {:?} signed CRFG message with \
 		wrong block number for hash {}",
 		id,
 		hash,

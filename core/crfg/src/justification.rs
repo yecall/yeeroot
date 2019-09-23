@@ -32,7 +32,7 @@ use crate::communication;
 
 use ed25519::Public as AuthorityId;
 
-/// A GRANDPA justification for block finality, it includes a commit message and
+/// A CRFG justification for block finality, it includes a commit message and
 /// an ancestry proof including all headers routing all precommit target blocks
 /// to the commit target block. Due to the current voting strategy the precommit
 /// targets should be the same as the commit target, since honest voters don't
@@ -41,20 +41,20 @@ use ed25519::Public as AuthorityId;
 /// This is meant to be stored in the db and passed around the network to other
 /// nodes, and are used by syncing nodes to prove authority set handoffs.
 #[derive(Encode, Decode)]
-pub(crate) struct GrandpaJustification<Block: BlockT> {
+pub(crate) struct CrfgJustification<Block: BlockT> {
 	round: u64,
 	pub(crate) commit: Commit<Block>,
 	votes_ancestries: Vec<Block::Header>,
 }
 
-impl<Block: BlockT<Hash=H256>> GrandpaJustification<Block> {
-	/// Create a GRANDPA justification from the given commit. This method
+impl<Block: BlockT<Hash=H256>> CrfgJustification<Block> {
+	/// Create a CRFG justification from the given commit. This method
 	/// assumes the commit is valid and well-formed.
 	pub(crate) fn from_commit<B, E, RA>(
 		client: &Client<B, E, Block, RA>,
 		round: u64,
 		commit: Commit<Block>,
-	) -> Result<GrandpaJustification<Block>, Error> where
+	) -> Result<CrfgJustification<Block>, Error> where
 		B: Backend<Block, Blake2Hasher>,
 		E: CallExecutor<Block, Blake2Hasher> + Send + Sync,
 		RA: Send + Sync,
@@ -89,20 +89,20 @@ impl<Block: BlockT<Hash=H256>> GrandpaJustification<Block> {
 			}
 		}
 
-		Ok(GrandpaJustification { round, commit, votes_ancestries })
+		Ok(CrfgJustification { round, commit, votes_ancestries })
 	}
 
-	/// Decode a GRANDPA justification and validate the commit and the votes'
+	/// Decode a CRFG justification and validate the commit and the votes'
 	/// ancestry proofs.
 	pub(crate) fn decode_and_verify(
 		encoded: Vec<u8>,
 		set_id: u64,
 		voters: &VoterSet<AuthorityId>,
-	) -> Result<GrandpaJustification<Block>, ClientError> where
+	) -> Result<CrfgJustification<Block>, ClientError> where
 		NumberFor<Block>: grandpa::BlockNumberOps,
 	{
-		GrandpaJustification::<Block>::decode(&mut &*encoded).ok_or_else(|| {
-			let msg = "failed to decode grandpa justification".to_string();
+		CrfgJustification::<Block>::decode(&mut &*encoded).ok_or_else(|| {
+			let msg = "failed to decode CRFG justification".to_string();
 			ClientErrorKind::BadJustification(msg).into()
 		}).and_then(|just| just.verify(set_id, voters).map(|_| just))
 	}
@@ -123,7 +123,7 @@ impl<Block: BlockT<Hash=H256>> GrandpaJustification<Block> {
 		) {
 			Ok(Some(_)) => {},
 			_ => {
-				let msg = "invalid commit in grandpa justification".to_string();
+				let msg = "invalid commit in CRFG justification".to_string();
 				return Err(ClientErrorKind::BadJustification(msg).into());
 			}
 		}
@@ -138,7 +138,7 @@ impl<Block: BlockT<Hash=H256>> GrandpaJustification<Block> {
 				set_id,
 			) {
 				return Err(ClientErrorKind::BadJustification(
-					"invalid signature for precommit in grandpa justification".to_string()).into());
+					"invalid signature for precommit in CRFG justification".to_string()).into());
 			}
 
 			if self.commit.target_hash == signed.precommit.target_hash {
@@ -155,7 +155,7 @@ impl<Block: BlockT<Hash=H256>> GrandpaJustification<Block> {
 				},
 				_ => {
 					return Err(ClientErrorKind::BadJustification(
-						"invalid precommit ancestry proof in grandpa justification".to_string()).into());
+						"invalid precommit ancestry proof in CRFG justification".to_string()).into());
 				},
 			}
 		}
@@ -167,7 +167,7 @@ impl<Block: BlockT<Hash=H256>> GrandpaJustification<Block> {
 
 		if visited_hashes != ancestry_hashes {
 			return Err(ClientErrorKind::BadJustification(
-				"invalid precommit ancestries in grandpa justification with unused headers".to_string()).into());
+				"invalid precommit ancestries in CRFG justification with unused headers".to_string()).into());
 		}
 
 		Ok(())

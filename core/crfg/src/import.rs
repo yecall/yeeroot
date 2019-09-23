@@ -29,7 +29,7 @@ use consensus_common::{
 	BlockImport, Error as ConsensusError, ErrorKind as ConsensusErrorKind,
 	ImportBlock, ImportResult, JustificationImport, well_known_cache_keys,
 };
-use fg_primitives::GrandpaApi;
+use fg_primitives::CrfgApi;
 use runtime_primitives::Justification;
 use runtime_primitives::generic::BlockId;
 use runtime_primitives::traits::{
@@ -42,20 +42,20 @@ use crate::{Error, CommandOrError, NewAuthoritySet, VoterCommand};
 use crate::authorities::{AuthoritySet, SharedAuthoritySet, DelayKind, PendingChange};
 use crate::consensus_changes::SharedConsensusChanges;
 use crate::environment::{finalize_block, is_descendent_of};
-use crate::justification::GrandpaJustification;
+use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
 
-/// A block-import handler for GRANDPA.
+/// A block-import handler for CRFG.
 ///
 /// This scans each imported block for signals of changing authority set.
 /// If the block being imported enacts an authority set change then:
 /// - If the current authority set is still live: we import the block
 /// - Otherwise, the block must include a valid justification.
 ///
-/// When using GRANDPA, the block import worker should be using this block import
+/// When using CRFG, the block import worker should be using this block import
 /// object.
-pub struct GrandpaBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
+pub struct CrfgBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 	inner: Arc<Client<B, E, Block, RA>>,
 	authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
 	send_voter_commands: mpsc::UnboundedSender<VoterCommand<Block::Hash, NumberFor<Block>>>,
@@ -64,7 +64,7 @@ pub struct GrandpaBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 }
 
 impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
-	for GrandpaBlockImport<B, E, Block, RA, PRA> where
+	for CrfgBlockImport<B, E, Block, RA, PRA> where
 		NumberFor<Block>: grandpa::BlockNumberOps,
 		B: Backend<Block, Blake2Hasher> + 'static,
 		E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
@@ -72,7 +72,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 		DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
 		RA: Send + Sync,
 		PRA: ProvideRuntimeApi,
-		PRA::Api: GrandpaApi<Block>,
+		PRA::Api: CrfgApi<Block>,
 {
 	type Error = ConsensusError;
 
@@ -158,7 +158,7 @@ impl<'a, Block: 'a + BlockT> Drop for PendingSetChanges<'a, Block> {
 	}
 }
 
-impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA, PRA> where
+impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, PRA> where
 	NumberFor<Block>: grandpa::BlockNumberOps,
 	B: Backend<Block, Blake2Hasher> + 'static,
 	E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
@@ -166,7 +166,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 	DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
 	RA: Send + Sync,
 	PRA: ProvideRuntimeApi,
-	PRA::Api: GrandpaApi<Block>,
+	PRA::Api: CrfgApi<Block>,
 {
 	// check for a new authority set change.
 	fn check_new_change(&self, header: &Block::Header, hash: Block::Hash)
@@ -179,13 +179,13 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 
 		// check for forced change.
 		{
-			let maybe_change = api.grandpa_forced_change(
+			let maybe_change = api.crfg_forced_change(
 				&at,
 				digest,
 			);
 
 			match maybe_change {
-				Err(e) => match api.has_api_with::<GrandpaApi<Block>, _>(&at, |v| v >= 2) {
+				Err(e) => match api.has_api_with::<CrfgApi<Block>, _>(&at, |v| v >= 2) {
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 					Ok(true) => {
 						// API version is high enough to support forced changes
@@ -209,7 +209,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 
 		// check normal scheduled change.
 		{
-			let maybe_change = api.grandpa_pending_change(
+			let maybe_change = api.crfg_pending_change(
 				&at,
 				digest,
 			);
@@ -376,7 +376,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 }
 
 impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
-	for GrandpaBlockImport<B, E, Block, RA, PRA> where
+	for CrfgBlockImport<B, E, Block, RA, PRA> where
 		NumberFor<Block>: grandpa::BlockNumberOps,
 		B: Backend<Block, Blake2Hasher> + 'static,
 		E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
@@ -384,7 +384,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
 		RA: Send + Sync,
 		PRA: ProvideRuntimeApi,
-		PRA::Api: GrandpaApi<Block>,
+		PRA::Api: CrfgApi<Block>,
 {
 	type Error = ConsensusError;
 
@@ -441,7 +441,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				// NOTE: when we do a force change we are "discrediting" the old set so we
 				// ignore any justifications from them. this block may contain a justification
 				// which should be checked and imported below against the new authority
-				// triggered by this forced change. the new grandpa voter will start at the
+				// triggered by this forced change. the new crfg voter will start at the
 				// last median finalized block (which is before the block that enacts the
 				// change), full nodes syncing the chain will not be able to successfully
 				// import justifications for those blocks since their local authority set view
@@ -509,15 +509,15 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 	}
 }
 
-impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA, PRA> {
+impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, PRA> {
 	pub(crate) fn new(
 		inner: Arc<Client<B, E, Block, RA>>,
 		authority_set: SharedAuthoritySet<Block::Hash, NumberFor<Block>>,
 		send_voter_commands: mpsc::UnboundedSender<VoterCommand<Block::Hash, NumberFor<Block>>>,
 		consensus_changes: SharedConsensusChanges<Block::Hash, NumberFor<Block>>,
 		api: Arc<PRA>,
-	) -> GrandpaBlockImport<B, E, Block, RA, PRA> {
-		GrandpaBlockImport {
+	) -> CrfgBlockImport<B, E, Block, RA, PRA> {
+		CrfgBlockImport {
 			inner,
 			authority_set,
 			send_voter_commands,
@@ -527,7 +527,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 	}
 }
 
-impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA, PRA>
+impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, PRA>
 	where
 		NumberFor<Block>: grandpa::BlockNumberOps,
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -546,7 +546,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 		justification: Justification,
 		enacts_change: bool,
 	) -> Result<(), ConsensusError> {
-		let justification = GrandpaJustification::decode_and_verify(
+		let justification = CrfgJustification::decode_and_verify(
 			justification,
 			self.authority_set.set_id(),
 			&self.authority_set.current_authorities(),
@@ -578,7 +578,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> GrandpaBlockImport<B, E, Block, RA
 			},
 			Err(CommandOrError::Error(e)) => {
 				return Err(match e {
-					Error::Grandpa(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
 					Error::Network(error) => ConsensusErrorKind::ClientImport(error),
 					Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
 					Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),

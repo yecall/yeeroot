@@ -239,7 +239,7 @@ where
 	/// Returns `Ok((median, new_set))` when a forced change has occurred. The
 	/// median represents the median last finalized block at the time the change
 	/// was signaled, and it should be used as the canon block when starting the
-	/// new grandpa voter. Only alters the internal state in this case.
+	/// new crfg voter. Only alters the internal state in this case.
 	///
 	/// These transitions are always forced and do not lead to justifications
 	/// which light clients can follow.

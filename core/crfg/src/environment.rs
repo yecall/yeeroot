@@ -43,7 +43,7 @@ use crate::{
 
 use crate::authorities::SharedAuthoritySet;
 use crate::consensus_changes::SharedConsensusChanges;
-use crate::justification::GrandpaJustification;
+use crate::justification::CrfgJustification;
 use crate::until_imported::UntilVoteTargetImported;
 
 use ed25519::Public as AuthorityId;
@@ -75,7 +75,7 @@ impl<H: Clone, N: Clone> LastCompletedRound<H, N> {
 	}
 }
 
-/// The environment we run GRANDPA in.
+/// The environment we run CRFG in.
 pub(crate) struct Environment<B, E, Block: BlockT, N: Network<Block>, RA> {
 	pub(crate) inner: Arc<Client<B, E, Block, RA>>,
 	pub(crate) voters: Arc<VoterSet<AuthorityId>>,
@@ -346,7 +346,7 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 }
 
 pub(crate) enum JustificationOrCommit<Block: BlockT> {
-	Justification(GrandpaJustification<Block>),
+	Justification(CrfgJustification<Block>),
 	Commit((u64, Commit<Block>)),
 }
 
@@ -356,8 +356,8 @@ impl<Block: BlockT> From<(u64, Commit<Block>)> for JustificationOrCommit<Block> 
 	}
 }
 
-impl<Block: BlockT> From<GrandpaJustification<Block>> for JustificationOrCommit<Block> {
-	fn from(justification: GrandpaJustification<Block>) -> JustificationOrCommit<Block> {
+impl<Block: BlockT> From<CrfgJustification<Block>> for JustificationOrCommit<Block> {
+	fn from(justification: CrfgJustification<Block>) -> JustificationOrCommit<Block> {
 		JustificationOrCommit::Justification(justification)
 	}
 }
@@ -449,7 +449,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 				}
 
 				if justification_required {
-					let justification = GrandpaJustification::from_commit(
+					let justification = CrfgJustification::from_commit(
 						client,
 						round_number,
 						commit,
@@ -479,9 +479,9 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 			let (new_id, set_ref) = authority_set.current();
 
 			if set_ref.len() > 16 {
-				info!("Applying GRANDPA set change to new set with {} authorities", set_ref.len());
+				info!("Applying CRFG set change to new set with {} authorities", set_ref.len());
 			} else {
-				info!("Applying GRANDPA set change to new set {:?}", set_ref);
+				info!("Applying CRFG set change to new set {:?}", set_ref);
 			}
 
 			telemetry!(CONSENSUS_INFO; "afg.generating_new_authority_set";
