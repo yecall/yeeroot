@@ -62,7 +62,6 @@ pub type Log<T> = RawLog<
 >;
 
 /// Logs which can be scanned by CRFG for authorities change events.
-//pub trait CrfgChangeSignal<N> {
 pub trait CrfgChangeSignal<N> {
 	/// Try to cast the log entry as a contained signal.
 	fn as_signal(&self) -> Option<ScheduledChange<N>>;
@@ -101,7 +100,6 @@ impl<N: Clone, SessionKey> RawLog<N, SessionKey> {
 	}
 }
 
-//impl<N, SessionKey> CrfgChangeSignal<N> for RawLog<N, SessionKey>
 impl<N, SessionKey> CrfgChangeSignal<N> for RawLog<N, SessionKey>
 	where N: Clone, SessionKey: Clone + Into<AuthorityId>,
 {
@@ -186,9 +184,8 @@ decl_event!(
 );
 
 decl_storage! {
-	//trait Store for Module<T: Trait> as CrfgFinality {
 	trait Store for Module<T: Trait> as CrfgFinality {
-// Pending change: (signaled at, scheduled change).
+		// Pending change: (signaled at, scheduled change).
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
 		// next block number where we can force a change.
 		NextForced get(next_forced): Option<T::BlockNumber>;
@@ -317,7 +314,6 @@ impl<T: Trait> Module<T> where AuthorityId: core::convert::From<<T as Trait>::Se
 	pub fn scrape_digest_change(log: &Log<T>)
 		-> Option<ScheduledChange<T::BlockNumber>>
 	{
-		//<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_signal(log)
 		<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_signal(log)
 	}
 
@@ -325,7 +321,6 @@ impl<T: Trait> Module<T> where AuthorityId: core::convert::From<<T as Trait>::Se
 	pub fn scrape_digest_forced_change(log: &Log<T>)
 		-> Option<(T::BlockNumber, ScheduledChange<T::BlockNumber>)>
 	{
-		//<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_forced_signal(log)
 		<Log<T> as CrfgChangeSignal<T::BlockNumber>>::as_forced_signal(log)
 	}
 }

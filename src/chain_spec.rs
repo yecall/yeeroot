@@ -156,7 +156,6 @@ fn testnet_template_genesis(
 ) -> GenesisConfig {
 	let initial_authorities = vec![
 			get_authority_keys_from_seed("Alice"),
-			//get_authority_keys_from_seed("Bob"),
 		];
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {

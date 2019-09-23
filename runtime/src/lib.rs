@@ -15,16 +15,11 @@ use runtime_primitives::{
 	ApplyResult, transaction_validity::TransactionValidity, generic, create_runtime_str,
 	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, DigestFor, StaticLookup, Verify}
 };
-//use runtime_primitives::traits::{
-//	BlakeTwo256, Block as BlockT, DigestFor, NumberFor, StaticLookup, AuthorityIdFor, Convert
-//};
 use crfg::fg_primitives::{self, ScheduledChange};
-//pub use staking::StakerStatus;
 use client::{
 	block_builder::api::{CheckInherentsResult, InherentData, self as block_builder_api},
 	runtime_api, impl_runtime_apis
 };
-//pub use crfg::Call as CrfgCall;
 use version::RuntimeVersion;
 #[cfg(feature = "std")]
 use version::NativeVersion;
@@ -209,21 +204,6 @@ impl finality_tracker::Trait for Runtime {
 	type OnFinalizationStalled = crfg::SyncedAuthorities<Runtime>;
 }
 
-//impl session::Trait for Runtime {
-//	type ConvertAccountIdToSessionKey = ();
-//	type OnSessionChange = (Staking, crfg::SyncedAuthorities<Runtime>);
-//	type Event = Event;
-//}
-
-//impl staking::Trait for Runtime {
-//	type Currency = balances::Module<Self>;
-//	type CurrencyToVote = CurrencyToVoteHandler;
-//	type OnRewardMinted = Treasury;
-//	type Event = Event;
-//	type Slash = ();
-//	type Reward = ();
-//}
-
 impl sharding::Trait for Runtime {
     type ShardNum = u16;
     type Log = Log;
@@ -239,13 +219,11 @@ construct_runtime!(
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
 		Pow: pow::{Module, Storage, Config<T>},
-		//Session: session,
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>},
 		FinalityTracker: finality_tracker::{Module, Call, Inherent},
-		//Staking: staking::{default, OfflineWorker},
 	}
 );
 
