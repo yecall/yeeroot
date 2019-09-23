@@ -75,5 +75,9 @@ pub fn run(c: Config, interval: u64) {
         .spawn(move || gateway.poll_job_template())
         .expect("Start gateway failed!");
 
-    miner.run();
+    thread::Builder::new()
+        .name("miner".to_string())
+        .spawn(move || miner.run())
+        .expect("Start miner failed!");
+
 }
