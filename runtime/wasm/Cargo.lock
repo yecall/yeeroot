@@ -2139,23 +2139,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "srml-crfg"
-version = "1.0.0"
-dependencies = [
- "crfg-primitives 0.4.0",
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-finality-tracker 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-session 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
-]
-
-[[package]]
 name = "srml-finality-tracker"
 version = "1.0.0"
 source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#643d7d7bc8c3a22a3086c4037944b90efc095546"
@@ -3249,7 +3232,6 @@ dependencies = [
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-version 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-crfg 1.0.0",
  "srml-finality-tracker 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-indices 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -3263,6 +3245,7 @@ dependencies = [
  "yee-consensus-pow-primitives 0.1.0",
  "yee-sharding-primitives 0.1.0",
  "yee-srml-balances 0.4.0",
+ "yee-srml-crfg 1.0.0",
  "yee-srml-executive 0.4.0",
  "yee-srml-sharding 0.1.0",
 ]
@@ -3300,6 +3283,23 @@ dependencies = [
  "substrate-keyring 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-sharding-primitives 0.1.0",
  "yee-srml-sharding 0.1.0",
+]
+
+[[package]]
+name = "yee-srml-crfg"
+version = "1.0.0"
+dependencies = [
+ "crfg-primitives 0.4.0",
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-finality-tracker 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-session 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
 ]
 
 [[package]]
