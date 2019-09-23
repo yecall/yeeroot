@@ -141,7 +141,7 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
                 let mut number: u64 = info.best_number.into();
                 if number > MAX_BLOCK_INTERVAL {
-                    if let Some(chain) = foreign_chains.get_shard_component(shard_num as u32) {
+                    if let Some(chain) = foreign_chains.get_shard_component(shard_num) {
                         number -= MAX_BLOCK_INTERVAL;
                         let block_id = BlockId::number(number.into());
                         let spv_header = chain.client().header(&block_id).unwrap().unwrap();

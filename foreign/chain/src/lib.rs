@@ -44,13 +44,13 @@ use {
 };
 
 pub trait ForeignChainConfig {
-    fn get_shard_num(&self) -> u32;
-    fn set_shard_num(&mut self, shard: u32);
+    fn get_shard_num(&self) -> u16;
+    fn set_shard_num(&mut self, shard: u16);
 }
 
 pub struct ForeignChain<F: ServiceFactory, C> {
     _phantom: PhantomData<(F, C)>,
-    components: HashMap<u32, LightComponents<F>>,
+    components: HashMap<u16, LightComponents<F>>,
 }
 
 impl<F, C> ForeignChain<F, C> where
@@ -79,7 +79,7 @@ impl<F, C> ForeignChain<F, C> where
         );
 
         let mut components = HashMap::new();
-        for i in 0_u32..shard_count {
+        for i in 0_u16..shard_count {
             if i == curr_shard {
                 continue;
             }
@@ -88,8 +88,9 @@ impl<F, C> ForeignChain<F, C> where
             shard_config.keystore_path = format!("{}-{}", config.keystore_path, i);
             shard_config.database_path = format!("{}-{}", config.database_path, i);
             shard_config.custom.set_shard_num(i);
-            let shard_component = LightComponents::new_foreign(
-                shard_config, network_provider.clone(), i, task_executor.clone(),
+            let network_id = i as u32;
+            let shard_component = LightComponents::new_from_provider(
+                shard_config, network_provider.clone(), network_id, task_executor.clone(),
             )?;
             components.insert(i, shard_component);
         }
@@ -100,7 +101,7 @@ impl<F, C> ForeignChain<F, C> where
         })
     }
 
-    pub fn get_shard_component(&self, shard: u32) -> Option<&LightComponents<F>> {
+    pub fn get_shard_component(&self, shard: u16) -> Option<&LightComponents<F>> {
         self.components.get(&shard)
     }
 }

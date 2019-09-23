@@ -23,7 +23,7 @@ use {
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
-        ForeignNetParams, FactoryBlock, NetworkProvider, ServiceFactory,
+        NetworkProviderParams, FactoryBlock, NetworkProvider, ServiceFactory,
     },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
@@ -96,12 +96,12 @@ impl Clone for NodeConfig {
 }
 
 impl ForeignChainConfig for NodeConfig {
-    fn get_shard_num(&self) -> u32 {
-        self.shard_num as u32
+    fn get_shard_num(&self) -> u16 {
+        self.shard_num
     }
 
-    fn set_shard_num(&mut self, shard: u32) {
-        self.shard_num = shard as u16;
+    fn set_shard_num(&mut self, shard: u16) {
+        self.shard_num = shard;
     }
 }
 
@@ -127,14 +127,14 @@ impl<F, EH> NetworkProvider<F, EH> for NetworkWrapper<F, EH> where
     F: ServiceFactory,
     EH: network::service::ExHashT,
 {
-    fn get_shard_network(
+    fn provide_network(
         &self,
-        shard_num: u32,
-        params: ForeignNetParams<F, EH>,
+        network_id: u32,
+        params: NetworkProviderParams<F, EH>,
         protocol_id: network::ProtocolId,
         import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
     ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
-        self.inner.get_shard_network(shard_num, params, protocol_id, import_queue)
+        self.inner.provide_network(network_id, params, protocol_id, import_queue)
     }
 }
 

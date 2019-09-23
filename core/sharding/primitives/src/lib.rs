@@ -37,10 +37,10 @@ pub trait ShardingInfo<N> {
 decl_runtime_apis! {
     pub trait ShardingAPI {
         /// get total shard number in genesis block
-        fn get_genesis_shard_count() -> u32;
+        fn get_genesis_shard_count() -> u16;
         /// get shard number for current chain
-        fn get_curr_shard() -> Option<u32>;
+        fn get_curr_shard() -> Option<u16>;
         /// get total shard number
-        fn get_shard_count() -> u32;
+        fn get_shard_count() -> u16;
     }
 }

@@ -135,7 +135,7 @@ impl<B, C, E, AuthorityId, I> DefaultJobManager<B, C, E, AuthorityId, I> where
 
 impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AuthorityId, I>
 	where B: Block,
-	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
+	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
 	      C: ChainHead<B> + Send + Sync + 'static,
 	      C: HeaderBackend<B> + ProvideRuntimeApi,
 	      <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,

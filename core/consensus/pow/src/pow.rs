@@ -103,7 +103,7 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
     B: Block,
     AuthorityId: Decode + Encode + Clone,
     DigestFor<B>: Digest,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
 {
     match seal.work_proof{
         WorkProof::Unknown => Err(format!("invalid work proof")),

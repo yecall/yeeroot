@@ -50,7 +50,7 @@ pub type Log<T> = RawLog<<T as Trait>::ShardNum>;
 
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"YeeShard";
 
-pub type InherentType = ShardInfo<u32>;
+pub type InherentType = ShardInfo<u16>;
 
 #[derive(Clone, PartialEq, Eq)]
 #[derive(Decode, Encode)]
@@ -78,12 +78,12 @@ impl YeeShardInherentData for InherentData {
 
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
-    shard_info: ShardInfo<u32>,
+    shard_info: ShardInfo<u16>,
 }
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
-    pub fn new(num: u32, count: u32) -> Self {
+    pub fn new(num: u16, count: u16) -> Self {
         Self {
             shard_info: ShardInfo { num, count },
         }
