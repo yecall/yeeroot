@@ -225,7 +225,7 @@ impl finality_tracker::Trait for Runtime {
 //}
 
 impl sharding::Trait for Runtime {
-    type ShardNum = u32;
+    type ShardNum = u16;
     type Log = Log;
 }
 
@@ -390,16 +390,16 @@ impl_runtime_apis! {
 	}
 
 	impl sharding_primitives::ShardingAPI<Block> for Runtime {
-        fn get_genesis_shard_count() -> u32 {
+        fn get_genesis_shard_count() -> u16 {
             Sharding::genesis_sharding_count()
         }
 
-        fn get_curr_shard() -> Option<u32> {
+        fn get_curr_shard() -> Option<u16> {
             Sharding::current_shard_info()
                 .map(|info| info.num.into())
         }
 
-        fn get_shard_count() -> u32 {
+        fn get_shard_count() -> u16 {
             Sharding::current_shard_info()
                 .map_or_else(|| Sharding::genesis_sharding_count(), |info| info.count.into())
         }

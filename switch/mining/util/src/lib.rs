@@ -15,32 +15,15 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-///! Primitives for Yee Sharding
-
-pub mod utils;
-
-use {
-    substrate_client::decl_runtime_apis,
+pub use parking_lot::{
+    self, Condvar, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard,
 };
+use std::time::Duration;
 
-pub trait ShardingInfo<N> {
-    /// get total shard number in genesis block
-    fn get_genesis_shard_count() -> N;
-    /// get shard number for current chain
-    fn get_curr_shard() -> Option<N>;
-    /// get total shard number
-    fn get_shard_count() -> N;
+const TRY_LOCK_TIMEOUT: Duration = Duration::from_secs(300);
+
+pub fn lock_or_panic<T>(data: &Mutex<T>) -> MutexGuard<T> {
+    data.try_lock_for(TRY_LOCK_TIMEOUT)
+        .expect("please check if reach a deadlock")
 }
 
-decl_runtime_apis! {
-    pub trait ShardingAPI {
-        /// get total shard number in genesis block
-        fn get_genesis_shard_count() -> u16;
-        /// get shard number for current chain
-        fn get_curr_shard() -> Option<u16>;
-        /// get total shard number
-        fn get_shard_count() -> u16;
-    }
-}

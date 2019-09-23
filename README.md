@@ -62,28 +62,43 @@ $ cargo build
 ```
 
 ## Usage
-for dev
 
-1. Start the nodes of the 4 shards
-    ```sh
-    $ ./yee --dev --dev-params --shard-num=0 --base-path=/tmp/yee/shard_0 --mine
-    $ ./yee --dev --dev-params --shard-num=1 --base-path=/tmp/yee/shard_1 --mine
-    $ ./yee --dev --dev-params --shard-num=2 --base-path=/tmp/yee/shard_2 --mine
-    $ ./yee --dev --dev-params --shard-num=3 --base-path=/tmp/yee/shard_3 --mine
-    ```
-    If you want to disable mining, you can remove `--mine`
+### Start
 
-1. Start switch
-    ```sh
-    $ ./yee switch --dev-params
-    ```
-    
-1. Start bootnodes router
+1. Start bootnodes router.
     ```sh
     $ ./yee bootnodes-router --dev-params
     ```
+    Bootnodes router provides the bootnodes for each shard.
+    
+    You can try getting the bootnodes by the following RPC: 
+    ```sh
+    $ curl -X POST --data '{"jsonrpc":"2.0","method":"bootnodes","params":[],"id":1}' localhost:50001 -H 'Content-Type: application/json'
+    ```
 
-1. Check if they work
+1. Start the nodes of the 4 shards
+    ```sh
+    $ ./yee --dev --dev-params --shard-num=0 --base-path=/tmp/yee/shard_0
+    $ ./yee --dev --dev-params --shard-num=1 --base-path=/tmp/yee/shard_1
+    $ ./yee --dev --dev-params --shard-num=2 --base-path=/tmp/yee/shard_2
+    $ ./yee --dev --dev-params --shard-num=3 --base-path=/tmp/yee/shard_3
+    ```
+    Since we start the node without `--mine`, it will not mine new blocks.
+
+
+1. Start switch
+    ```sh
+    $ ./yee switch --dev-params --mine
+    ```
+    Switch provides proxy rpc of all the 4 shards.
+    You can get the balance of a certain address of any shard by the following RPC: 
+    ```sh
+    $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
+    ```
+    
+    Switch can also work as a multi-miner. Since we start the switch with `--mine`, it will mine on the 4 shards.
+
+### Accounts
     
     Test accounts:
     
@@ -97,15 +112,9 @@ for dev
     Ferdie   5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL  0
     </pre>
   
-    You can get the balance of a certain address by the following RPC: 
-    ```sh
-    $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
-    ```
     
-    You can get the bootnodes by the following RPC: 
-    ```sh
-    $ curl -X POST --data '{"jsonrpc":"2.0","method":"bootnodes","params":[],"id":1}' localhost:50001 -H 'Content-Type: application/json'
-    ```
+    
+    
 
 ## Roadmap
 1. **[Done in [tetris_demo](https://github.com/yeeco/tetris_demo)]** PoC-1: Tetris consensus demo (2019-02)

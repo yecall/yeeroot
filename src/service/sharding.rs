@@ -61,7 +61,7 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
     FactoryBlock<F>: Block,
     <FactoryBlock<F> as Block>::Header: Header,
     DigestFor<FactoryBlock<F>>: DigestT<Item=DigestItem<<FactoryBlock<F> as Block>::Hash, AuthorityId, SealSignature>>,
-    DigestItemFor<FactoryBlock<F>>: DigestItemT<Hash=<FactoryBlock<F> as Block>::Hash> + ShardingDigestItem<u32>,
+    DigestItemFor<FactoryBlock<F>>: DigestItemT<Hash=<FactoryBlock<F> as Block>::Hash> + ShardingDigestItem<u16>,
     C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
     B: ClientBackend<FactoryBlock<F>, Blake2Hasher>,
@@ -72,7 +72,7 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
     let last_block_header = client.best_block_header()?;
     let last_block_id = BlockId::hash(last_block_header.hash());
 
-    let target_shard_num = node_config.shard_num as u32;
+    let target_shard_num = node_config.shard_num;
 
     let shard_info = last_block_header.digest().logs().iter().rev()
         .filter_map(ShardingDigestItem::as_sharding_info)
@@ -121,7 +121,7 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
 
 fn register_inherent_data_provider(
     inherent_data_providers: &InherentDataProviders,
-    shard_num: u32, shard_cnt: u32,
+    shard_num: u16, shard_cnt: u16,
 ) -> Result<(), consensus_common::Error> {
     consensus::register_inherent_data_provider(inherent_data_providers)?;
     if !inherent_data_providers.has_provider(&srml_sharding::INHERENT_IDENTIFIER) {

@@ -95,7 +95,7 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
     B: Block,
     DigestFor<B>: Digest,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u32>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
     AuthorityId: Decode + Encode + Clone + 'static,
 {

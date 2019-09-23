@@ -15,32 +15,13 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+extern crate heapsize;
+use self::heapsize::HeapSizeOf;
+use std::hash::Hash;
+use LruCache;
 
-///! Primitives for Yee Sharding
-
-pub mod utils;
-
-use {
-    substrate_client::decl_runtime_apis,
-};
-
-pub trait ShardingInfo<N> {
-    /// get total shard number in genesis block
-    fn get_genesis_shard_count() -> N;
-    /// get shard number for current chain
-    fn get_curr_shard() -> Option<N>;
-    /// get total shard number
-    fn get_shard_count() -> N;
-}
-
-decl_runtime_apis! {
-    pub trait ShardingAPI {
-        /// get total shard number in genesis block
-        fn get_genesis_shard_count() -> u16;
-        /// get shard number for current chain
-        fn get_curr_shard() -> Option<u16>;
-        /// get total shard number
-        fn get_shard_count() -> u16;
+impl<K: Eq + Hash + HeapSizeOf, V: HeapSizeOf> HeapSizeOf for LruCache<K, V> {
+    fn heap_size_of_children(&self) -> usize {
+        self.inner.heap_size_of_children()
     }
 }

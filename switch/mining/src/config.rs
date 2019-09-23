@@ -15,32 +15,27 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+use serde_derive::{Deserialize, Serialize};
 
-///! Primitives for Yee Sharding
-
-pub mod utils;
-
-use {
-    substrate_client::decl_runtime_apis,
-};
-
-pub trait ShardingInfo<N> {
-    /// get total shard number in genesis block
-    fn get_genesis_shard_count() -> N;
-    /// get shard number for current chain
-    fn get_curr_shard() -> Option<N>;
-    /// get total shard number
-    fn get_shard_count() -> N;
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MinerConfig {
+    pub client: ClientConfig,
+    pub workers: Vec<WorkerConfig>,
 }
 
-decl_runtime_apis! {
-    pub trait ShardingAPI {
-        /// get total shard number in genesis block
-        fn get_genesis_shard_count() -> u16;
-        /// get shard number for current chain
-        fn get_curr_shard() -> Option<u16>;
-        /// get total shard number
-        fn get_shard_count() -> u16;
-    }
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ClientConfig {
+    pub poll_interval: u64,
+    pub job_on_submit: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "worker_type")]
+pub struct WorkerConfig {
+    pub threads: usize,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NodeConfig {
+    pub shards: Vec<String>,
 }
