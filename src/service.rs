@@ -63,7 +63,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     /// crfg connection to import block
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
     pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
-	inherent_data_providers: InherentDataProviders,
+    inherent_data_providers: InherentDataProviders,
     pub coin_base: AccountId,
     pub shard_num: u16,
     pub foreign_port: Option<u16>,
@@ -153,34 +153,34 @@ construct_simple_protocol! {
 }
 
 construct_service_factory! {
-	struct Factory {
-		Block = Block,
-		RuntimeApi = RuntimeApi,
-		NetworkProtocol = NodeProtocol { |config| Ok(NodeProtocol::new()) },
-		RuntimeDispatch = Executor,
-		FullTransactionPoolApi = transaction_pool::ChainApi<client::Client<FullBackend<Self>, FullExecutor<Self>, Block, RuntimeApi>, Block>
-			{ |config, client| Ok(TransactionPool::new(config, transaction_pool::ChainApi::new(client))) },
-		LightTransactionPoolApi = transaction_pool::ChainApi<client::Client<LightBackend<Self>, LightExecutor<Self>, Block, RuntimeApi>, Block>
-			{ |config, client| Ok(TransactionPool::new(config, transaction_pool::ChainApi::new(client))) },
-		Genesis = GenesisConfig,
-		Configuration = NodeConfig<Self>,
-		FullService = FullComponents<Self>
-			{ |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
-				FullComponents::<Factory>::new(config, executor)
-			},
-		AuthoritySetup = {
-			|mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>| {
-				let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
-					.expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
+    struct Factory {
+        Block = Block,
+        RuntimeApi = RuntimeApi,
+        NetworkProtocol = NodeProtocol { |config| Ok(NodeProtocol::new()) },
+        RuntimeDispatch = Executor,
+        FullTransactionPoolApi = transaction_pool::ChainApi<client::Client<FullBackend<Self>, FullExecutor<Self>, Block, RuntimeApi>, Block>
+            { |config, client| Ok(TransactionPool::new(config, transaction_pool::ChainApi::new(client))) },
+        LightTransactionPoolApi = transaction_pool::ChainApi<client::Client<LightBackend<Self>, LightExecutor<Self>, Block, RuntimeApi>, Block>
+            { |config, client| Ok(TransactionPool::new(config, transaction_pool::ChainApi::new(client))) },
+        Genesis = GenesisConfig,
+        Configuration = NodeConfig<Self>,
+        FullService = FullComponents<Self>
+            { |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
+                FullComponents::<Factory>::new(config, executor)
+            },
+        AuthoritySetup = {
+            |mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>| {
+                let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
+                    .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
-				if let Some(ref key) = key {
-					info!("Using authority key {}", key.public());
-					let proposer = Arc::new(ProposerFactory {
-						client: service.client(),
-						transaction_pool: service.transaction_pool(),
-						inherents_pool: service.inherents_pool(),
-					});
-					let client = service.client();
+                if let Some(ref key) = key {
+                    info!("Using authority key {}", key.public());
+                    let proposer = Arc::new(ProposerFactory {
+                        client: service.client(),
+                        transaction_pool: service.transaction_pool(),
+                        inherents_pool: service.inherents_pool(),
+                    });
+                    let client = service.client();
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                     key.clone(),
                         client.clone(),
@@ -225,26 +225,26 @@ construct_service_factory! {
                     service.transaction_pool()
                 ).map_err(|e| format!("{:?}", e))?;
 
-				let local_key = if service.config.disable_grandpa {
-					None
-				} else {
-					key.clone()
-				};
+                let local_key = if service.config.disable_grandpa {
+                    None
+                } else {
+                    key.clone()
+                };
 
-				info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public());
-				executor.spawn(crfg::run_crfg(
-					crfg::Config {
-						local_key,
-						// FIXME #1578 make this available through chainspec
-						gossip_duration: Duration::from_millis(333),
-						justification_period: 4096,
-						name: Some(service.config.name.clone())
-					},
-					link_half,
-					crfg::NetworkBridge::new(service.network()),
-					service.config.custom.inherent_data_providers.clone(),
-					service.on_exit(),
-				)?);
+                info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public());
+                executor.spawn(crfg::run_crfg(
+                    crfg::Config {
+                        local_key,
+                        // FIXME #1578 make this available through chainspec
+                        gossip_duration: Duration::from_millis(333),
+                        justification_period: 4096,
+                        name: Some(service.config.name.clone())
+                    },
+                    link_half,
+                    crfg::NetworkBridge::new(service.network()),
+                    service.config.custom.inherent_data_providers.clone(),
+                    service.on_exit(),
+                )?);
 
                 Ok(service)
             }
@@ -254,17 +254,17 @@ construct_service_factory! {
         FullImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
                     prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-				    let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
+                    let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
                         client.clone(), client.clone()
                     )?;
 
-				    let block_import = Arc::new(block_import);
-				    let justification_import = block_import.clone();
-				    config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
+                    let block_import = Arc::new(block_import);
+                    let justification_import = block_import.clone();
+                    config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
-					import_queue::<Self::Block, _, <Pair as PairT>::Public>(
-				    	block_import,
-				    	Some(justification_import),
+                    import_queue::<Self::Block, _, <Pair as PairT>::Public>(
+                        block_import,
+                        Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
                     ).map_err(Into::into)

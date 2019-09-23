@@ -8,7 +8,7 @@ use {
 };
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
-	IndicesConfig,CrfgConfig,
+	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
 };
 use hex_literal::{hex, hex_impl};
