@@ -58,7 +58,7 @@ pub struct YeeCliConfig {
 impl_augment_clap!(YeeCliConfig);
 
 pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
-where F: ServiceFactory<Configuration=NodeConfig>{
+where F: ServiceFactory<Configuration=NodeConfig<F>>{
 
     if config.roles == Roles::AUTHORITY{
         let coin_base = custom_args.coin_base.clone().ok_or(error::ErrorKind::Input("Coin base not found".to_string().into()))?;

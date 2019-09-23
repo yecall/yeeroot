@@ -13,8 +13,9 @@ use primitives::bytes;
 use primitives::{ed25519, sr25519, OpaqueMetadata};
 use runtime_primitives::{
 	ApplyResult, transaction_validity::TransactionValidity, generic, create_runtime_str,
-	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, StaticLookup, Verify}
+	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, DigestFor, StaticLookup, Verify}
 };
+use crfg::fg_primitives::{self, ScheduledChange};
 use client::{
 	block_builder::api::{CheckInherentsResult, InherentData, self as block_builder_api},
 	runtime_api, impl_runtime_apis
@@ -193,6 +194,16 @@ impl balances::Trait for Runtime {
     type Sharding = sharding::Module<Runtime>;
 }
 
+impl crfg::Trait for Runtime {
+	type SessionKey = AuthorityId;
+	type Log = Log;
+	type Event = Event;
+}
+
+impl finality_tracker::Trait for Runtime {
+	type OnFinalizationStalled = crfg::SyncedAuthorities<Runtime>;
+}
+
 impl sharding::Trait for Runtime {
     type ShardNum = u16;
     type Log = Log;
@@ -211,6 +222,8 @@ construct_runtime!(
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
+		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+		FinalityTracker: finality_tracker::{Module, Call, Inherent},
 	}
 );
 
@@ -317,6 +330,40 @@ impl_runtime_apis! {
 	impl consensus_authorities::AuthoritiesApi<Block> for Runtime {
 		fn authorities() -> Vec<AuthorityId> {
 			Consensus::authorities()
+		}
+	}
+
+	impl fg_primitives::CrfgApi<Block> for Runtime {
+		fn crfg_pending_change(digest: &DigestFor<Block>)
+			-> Option<ScheduledChange<NumberFor<Block>>>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::crfg(crfg_signal)) => Some(crfg_signal),
+				_ => None
+			}) {
+				if let Some(change) = Crfg::scrape_digest_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn crfg_forced_change(digest: &DigestFor<Block>)
+			-> Option<(NumberFor<Block>, ScheduledChange<NumberFor<Block>>)>
+		{
+			for log in digest.logs.iter().filter_map(|l| match l {
+				Log(InternalLog::crfg(crfg_signal)) => Some(crfg_signal),
+				_ => None
+			}) {
+				if let Some(change) = Crfg::scrape_digest_forced_change(log) {
+					return Some(change);
+				}
+			}
+			None
+		}
+
+		fn crfg_authorities() -> Vec<(AuthorityId, u64)> {
+			Crfg::crfg_authorities()
 		}
 	}
 

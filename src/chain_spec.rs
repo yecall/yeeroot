@@ -2,13 +2,16 @@ use {
     primitives::{
         sr25519, Pair,
         crypto::Ss58Codec,
+		ed25519::Public as AuthorityId,
+		ed25519,
     },
 };
 use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
-	IndicesConfig,
+	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
 };
+use hex_literal::{hex, hex_impl};
 use substrate_service;
 
 // Note this is the URL for the telemetry server
@@ -34,6 +37,29 @@ fn account_key(s: &str) -> AccountId {
 	sr25519::Pair::from_string(&format!("//{}", s), None)
 		.expect("static values are valid; qed")
 		.public()
+}
+
+/// Helper function to generate AccountId from seed
+pub fn get_account_id_from_seed(seed: &str) -> AccountId {
+	sr25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+/// Helper function to generate AuthorityId from seed
+pub fn get_session_key_from_seed(seed: &str) -> AuthorityId {
+	ed25519::Pair::from_string(&format!("//{}", seed), None)
+		.expect("static values are valid; qed")
+		.public()
+}
+
+/// Helper function to generate stash, controller and session key from seed
+pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, AuthorityId) {
+	(
+		get_account_id_from_seed(&format!("{}//stash", seed)),
+		get_account_id_from_seed(seed),
+		get_session_key_from_seed(seed)
+	)
 }
 
 fn account_addr(s: &str) -> AccountId {
@@ -128,6 +154,9 @@ fn testnet_template_genesis(
     genesis_difficulty: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
+	let initial_authorities = vec![
+			get_authority_keys_from_seed("Alice"),
+		];
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,
@@ -157,5 +186,8 @@ fn testnet_template_genesis(
         sharding: Some(ShardingConfig {
             genesis_sharding_count: 4,
         }),
+		crfg: Some(CrfgConfig {
+			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+		}),
 	}
 }
