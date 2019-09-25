@@ -117,13 +117,19 @@ $ cargo build
     
 
 ## Roadmap
-1. **[Done in [tetris_demo](https://github.com/yeeco/tetris_demo)]** PoC-1: Tetris consensus demo (2019-02)
-2. **[Done in [gyee](https://github.com/yeeco/gyee)]** PoC-2: Transfer feature based on Tetris (2019-05)
+1. **[Done]** PoC-1: Tetris consensus demo (2019-02)
+
+     [tetris_demo](https://github.com/yeeco/tetris_demo)
+2. **[Done]** PoC-2: Transfer feature based on Tetris (2019-05)
+
+     [gyee](https://github.com/yeeco/gyee)
 1. **[Done]** PoC-3: PoW consensus, static sharding (2019-07)
     
     [Release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/poc3-release-notes.md)
-1. **[In progress]** PoC-4: Multi-mining, cross-shard transactions (2019-09)
-1. PoC-5: Dynamic sharding (2019-11)
+1. **[Done]** PoC-4: Multi-mining, cross-shard transactions (2019-09)
+
+    [Release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/poc4-release-notes.md)
+1. **[In progress]** PoC-5: Dynamic sharding (2019-11)
 1. PoC-6: Cross chain (interoperate with branch chain) (2019-12)
 1. PoC-7: Smart contract (on branch chain) (2020-01)
 1. Testnet (2020-03)
