@@ -37,7 +37,7 @@ use parity_codec as codec;
 use codec::{Encode, Decode};
 use fg_primitives::ScheduledChange;
 use srml_support::{Parameter, decl_event, decl_storage, decl_module};
-use srml_support::dispatch::Result;
+use srml_support::dispatch;
 use srml_support::storage::StorageValue;
 use srml_support::storage::unhashed::StorageVec;
 use primitives::traits::CurrentHeight;
@@ -46,8 +46,70 @@ use system::ensure_signed;
 use primitives::traits::MaybeSerializeDebug;
 use ed25519::Public as AuthorityId;
 
+use inherents::{
+	RuntimeString, InherentIdentifier, ProvideInherent,
+	InherentData, MakeFatalError,
+};
+
 mod mock;
 mod tests;
+
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"CrfgAuth";
+
+pub type InherentType = AuthoritiesInfo<AuthorityId>;
+
+#[derive(Clone, PartialEq, Eq)]
+#[derive(Decode, Encode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize))]
+pub struct AuthoritiesInfo<A> {
+	pub current_authority: A,
+	pub last_authority_set: Vec<A>,
+}
+
+pub trait CrfgInherentData {
+	fn crfg_inherent_data(&self) -> Result<InherentType, RuntimeString>;
+	fn crfg_replace_inherent_data(&mut self, new: InherentType);
+}
+
+impl CrfgInherentData for InherentData {
+	fn crfg_inherent_data(&self) -> Result<InherentType, RuntimeString> {
+		self.get_data(&INHERENT_IDENTIFIER)
+			.and_then(|r| r.ok_or_else(|| "Crfg inherent data not found".into()))
+	}
+
+	fn crfg_replace_inherent_data(&mut self, new: InherentType) {
+		self.replace_data(INHERENT_IDENTIFIER, &new);
+	}
+}
+
+#[cfg(feature = "std")]
+pub struct InherentDataProvider {
+	authorities_info: AuthoritiesInfo<AuthorityId>,
+}
+
+#[cfg(feature = "std")]
+impl InherentDataProvider {
+	pub fn new(current_authority: AuthorityId, last_authority_set: Vec<AuthorityId>) -> Self {
+		Self {
+			authorities_info: AuthoritiesInfo { current_authority, last_authority_set },
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl inherents::ProvideInherentData for InherentDataProvider {
+	fn inherent_identifier(&self) -> &'static [u8; 8] {
+		&INHERENT_IDENTIFIER
+	}
+
+	fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), RuntimeString> {
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self.authorities_info)
+	}
+
+	fn error_to_string(&self, error: &[u8]) -> Option<String> {
+		RuntimeString::decode(&mut &error[..]).map(Into::into)
+	}
+}
 
 struct AuthorityStorageVec<S: codec::Codec + Default>(rstd::marker::PhantomData<S>);
 impl<S: codec::Codec + Default> StorageVec for AuthorityStorageVec<S> {
@@ -215,6 +277,9 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
+        fn set_authorities_info(origin, info: AuthoritiesInfo<AuthorityId>) {
+        }
+
 		/// Report some misbehavior.
 		fn report_misbehavior(origin, _report: Vec<u8>) {
 			ensure_signed(origin)?;
@@ -274,7 +339,7 @@ impl<T: Trait> Module<T> {
 		next_authorities: Vec<(T::SessionKey, u64)>,
 		in_blocks: T::BlockNumber,
 		forced: Option<T::BlockNumber>,
-	) -> Result {
+	) -> dispatch::Result {
 		use primitives::traits::As;
 
 		if Self::pending_change().is_none() {
@@ -379,4 +444,27 @@ impl<T> finality_tracker::OnFinalizationStalled<T::BlockNumber> for SyncedAuthor
 		// schedule a change for `further_wait` blocks.
 		let _ = <Module<T>>::schedule_change(next_authorities, further_wait, Some(median));
 	}
+}
+
+impl<T: Trait> ProvideInherent for Module<T> {
+	type Call = Call<T>;
+	type Error = MakeFatalError<RuntimeString>;
+	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
+
+	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+		let data = extract_inherent_data(data)
+			.expect("Crfg inherent data must exist");
+		Some(Call::set_authorities_info(data))
+	}
+
+	fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
+		Ok(())
+	}
+}
+
+fn extract_inherent_data(data: &InherentData) -> Result<InherentType, RuntimeString>
+{
+	data.get_data::<InherentType>(&INHERENT_IDENTIFIER)
+		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
+		.ok_or_else(|| "Authorities inherent data is not provided.".into())
 }

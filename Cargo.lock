@@ -5298,6 +5298,7 @@ dependencies = [
  "yee-runtime 1.0.0",
  "yee-sharding 0.1.0",
  "yee-sharding-primitives 0.1.0",
+ "yee-srml-crfg 1.0.0",
  "yee-srml-sharding 0.1.0",
  "yee-switch 0.1.0",
 ]
@@ -5710,6 +5711,7 @@ dependencies = [
  "srml-session 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-inherents 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
 ]
 

@@ -222,7 +222,7 @@ construct_runtime!(
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
-		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>},
+		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
 		FinalityTracker: finality_tracker::{Module, Call, Inherent},
 	}
 );
