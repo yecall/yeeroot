@@ -814,9 +814,9 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 
 	register_finality_tracker_inherent_data_provider(client.clone(), &inherent_data_providers)?;
 
-	//TODO：get locals in a more robust way
-	let locals = config.clone().local_key.unwrap().public();
-	register_crfg_inherent_data_provider( &inherent_data_providers, locals)?;
+	//TODO：get local_authority in a more robust way
+	let local_authority = config.clone().local_key.unwrap().public();
+	register_crfg_inherent_data_provider( &inherent_data_providers, local_authority)?;
 
 
 	let voters = authority_set.current_authorities();

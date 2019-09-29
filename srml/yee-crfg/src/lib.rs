@@ -54,19 +54,19 @@ use inherents::{
 mod mock;
 mod tests;
 
-pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"CrfgAuth";
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
 pub type InherentType = AuthorityId;
 
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
-	authorities_info: AuthorityId,
+	local_key: AuthorityId,
 }
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
 	pub fn new(local_key: AuthorityId) -> Self {
 		Self {
-			authorities_info: local_key,
+			local_key: local_key,
 		}
 	}
 }
@@ -78,7 +78,7 @@ impl inherents::ProvideInherentData for InherentDataProvider {
 	}
 
 	fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), RuntimeString> {
-		inherent_data.put_data(INHERENT_IDENTIFIER, &self.authorities_info)
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self.local_key)
 	}
 
 	fn error_to_string(&self, error: &[u8]) -> Option<String> {
