@@ -5388,6 +5388,7 @@ dependencies = [
  "substrate-telemetry 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-test-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yee-srml-crfg 1.0.0",
 ]
 
 [[package]]

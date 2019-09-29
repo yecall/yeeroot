@@ -66,7 +66,9 @@ use runtime_primitives::traits::{
 	DigestItemFor, DigestItem,
 };
 use fg_primitives::CrfgApi;
-use inherents::InherentDataProviders;
+use inherents::{
+	InherentDataProviders, RuntimeString,
+};
 use runtime_primitives::generic::BlockId;
 use substrate_primitives::{ed25519, H256, Blake2Hasher, Pair};
 use substrate_telemetry::{telemetry, CONSENSUS_TRACE, CONSENSUS_DEBUG, CONSENSUS_WARN, CONSENSUS_INFO};
@@ -812,6 +814,11 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 
 	register_finality_tracker_inherent_data_provider(client.clone(), &inherent_data_providers)?;
 
+	//TODO：get locals in a more robust way
+	let locals = config.clone().local_key.unwrap().public();
+	register_crfg_inherent_data_provider( &inherent_data_providers, locals)?;
+
+
 	let voters = authority_set.current_authorities();
 
 	let initial_environment = Arc::new(Environment {
@@ -970,4 +977,21 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		});
 
 	Ok(voter_work.select(on_exit).then(|_| Ok(())))
+}
+
+pub fn register_crfg_inherent_data_provider(
+	inherent_data_providers: &InherentDataProviders,
+	key: AuthorityId,
+) -> Result<(), consensus_common::Error> {
+	//consensus::register_inherent_data_provider(inherent_data_providers)?;
+	if !inherent_data_providers.has_provider(&srml_crfg::INHERENT_IDENTIFIER) {
+		inherent_data_providers.register_provider(srml_crfg::InherentDataProvider::new(key))
+			.map_err(inherent_to_common_error)
+	} else {
+		Ok(())
+	}
+}
+
+pub fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
+	consensus_common::ErrorKind::InherentData(err.into()).into()
 }

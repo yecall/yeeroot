@@ -23,6 +23,7 @@ service = {package = "substrate-service", git = "https://github.com/yeeco/substr
 srml-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 fg_primitives = { package = "crfg-primitives", path = "./primitives" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", features = ["derive-codec"] }
+srml-crfg = { package = "yee-srml-crfg", path = "../../srml/yee-crfg" }
 
 [dev-dependencies]
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

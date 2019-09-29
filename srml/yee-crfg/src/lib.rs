@@ -55,43 +55,18 @@ mod mock;
 mod tests;
 
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"CrfgAuth";
-
-pub type InherentType = AuthoritiesInfo<AuthorityId>;
-
-#[derive(Clone, PartialEq, Eq)]
-#[derive(Decode, Encode)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize))]
-pub struct AuthoritiesInfo<A> {
-	pub current_authority: A,
-	pub last_authority_set: Vec<A>,
-}
-
-pub trait CrfgInherentData {
-	fn crfg_inherent_data(&self) -> Result<InherentType, RuntimeString>;
-	fn crfg_replace_inherent_data(&mut self, new: InherentType);
-}
-
-impl CrfgInherentData for InherentData {
-	fn crfg_inherent_data(&self) -> Result<InherentType, RuntimeString> {
-		self.get_data(&INHERENT_IDENTIFIER)
-			.and_then(|r| r.ok_or_else(|| "Crfg inherent data not found".into()))
-	}
-
-	fn crfg_replace_inherent_data(&mut self, new: InherentType) {
-		self.replace_data(INHERENT_IDENTIFIER, &new);
-	}
-}
+pub type InherentType = AuthorityId;
 
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
-	authorities_info: AuthoritiesInfo<AuthorityId>,
+	authorities_info: AuthorityId,
 }
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
-	pub fn new(current_authority: AuthorityId, last_authority_set: Vec<AuthorityId>) -> Self {
+	pub fn new(local_key: AuthorityId) -> Self {
 		Self {
-			authorities_info: AuthoritiesInfo { current_authority, last_authority_set },
+			authorities_info: local_key,
 		}
 	}
 }
@@ -277,7 +252,20 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-        fn set_authorities_info(origin, info: AuthoritiesInfo<AuthorityId>) {
+        fn set_authorities(origin, info: AuthorityId) {
+			//use primitives::traits::Zero;
+			//ensure_signed(origin)?;
+
+			//Self::deposit_log(RawLog::AuthoritiesChangeSignal(
+			//	Zero::zero(),
+			//	next_authorities.clone()
+			//));
+
+			//Self::deposit_event(
+			//	RawEvent::NewAuthorities(next_authorities.clone())
+			//);
+
+			//<AuthorityStorageVec<T::SessionKey>>::set_items(next_authorities);
         }
 
 		/// Report some misbehavior.
@@ -450,11 +438,11 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	type Call = Call<T>;
 	type Error = MakeFatalError<RuntimeString>;
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
-
+	//shoud confirm: whether this func will be executed when block is synced from peer node
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 		let data = extract_inherent_data(data)
 			.expect("Crfg inherent data must exist");
-		Some(Call::set_authorities_info(data))
+		Some(Call::set_authorities(data))//update authority
 	}
 
 	fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
