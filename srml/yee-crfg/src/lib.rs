@@ -55,7 +55,7 @@ mod mock;
 mod tests;
 
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
-pub type InherentType = AuthorityId;
+//pub type InherentType = AuthorityId;
 
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
@@ -252,20 +252,28 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-        fn set_authorities(origin, info: AuthorityId) {
-			//use primitives::traits::Zero;
+        fn update_authorities(origin, info: <T as Trait>::SessionKey){//replace schedule_change function
+			use primitives::traits::{Zero, As};
 			//ensure_signed(origin)?;
 
-			//Self::deposit_log(RawLog::AuthoritiesChangeSignal(
-			//	Zero::zero(),
-			//	next_authorities.clone()
-			//));
+			let scheduled_at = system::ChainContext::<T>::default().current_height();
+			if Self::next_forced().map_or(false, |next| next > scheduled_at) {
+				return Err("Cannot signal forced change so soon after last.");
+			}
 
-			//Self::deposit_event(
-			//	RawEvent::NewAuthorities(next_authorities.clone())
-			//);
+			let forced = scheduled_at + T::BlockNumber::sa(2);
+			<NextForced<T>>::put(forced);
 
-			//<AuthorityStorageVec<T::SessionKey>>::set_items(next_authorities);
+			let mut authorities = <Module<T>>::crfg_authorities();
+
+			authorities.remove(0);
+			authorities.push((info, 1));//convert、pop front and push back
+			<PendingChange<T>>::put(StoredPendingChange {
+				delay: Zero::zero(),
+				scheduled_at,
+				next_authorities: authorities,
+				forced: Some(forced),
+			});
         }
 
 		/// Report some misbehavior.
@@ -440,9 +448,16 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 	//shoud confirm: whether this func will be executed when block is synced from peer node
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-		let data = extract_inherent_data(data)
-			.expect("Crfg inherent data must exist");
-		Some(Call::set_authorities(data))//update authority
+		//let data = extract_inherent_data(data)
+		//	.expect("Crfg inherent data must exist");
+
+		//let data = data.get_data::<<T as Trait>::SessionKey>(&INHERENT_IDENTIFIER)
+		//	.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
+		//	.ok_or_else(|| "Authorities inherent data is not provided.".into());
+		let data = data.get_data::<<T as Trait>::SessionKey>(&INHERENT_IDENTIFIER);
+
+		let key = data.expect("Crfg inherent data must exist");
+		Some(Call::update_authorities(key.unwrap()))
 	}
 
 	fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
@@ -450,9 +465,9 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	}
 }
 
-fn extract_inherent_data(data: &InherentData) -> Result<InherentType, RuntimeString>
-{
-	data.get_data::<InherentType>(&INHERENT_IDENTIFIER)
-		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
-		.ok_or_else(|| "Authorities inherent data is not provided.".into())
-}
+//fn extract_inherent_data<SessionKey>(data: &InherentData) -> Result<SessionKey, RuntimeString>
+//{
+//	data.get_data::<SessionKey>(&INHERENT_IDENTIFIER)
+//		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
+//		.ok_or_else(|| "Authorities inherent data is not provided.".into())
+//}

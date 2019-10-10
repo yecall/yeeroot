@@ -48,10 +48,8 @@ pub const AUTHORITIES_CALL: &str = "crfg_authorities";
 /// Well-known storage keys for CRFG.
 pub mod well_known_keys {
 	/// The key for the authorities and weights vector in storage.
-	//pub const AUTHORITY_PREFIX: &[u8] = b":crfg:auth:";
 	pub const AUTHORITY_PREFIX: &[u8] = b":crfg:auth:";
 	/// The key for the authorities count.
-	//pub const AUTHORITY_COUNT: &[u8] = b":crfg:auth:len";
 	pub const AUTHORITY_COUNT: &[u8] = b":crfg:auth:len";
 }
 
