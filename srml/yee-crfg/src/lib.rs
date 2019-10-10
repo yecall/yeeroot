@@ -448,16 +448,14 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 	//shoud confirm: whether this func will be executed when block is synced from peer node
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-		//let data = extract_inherent_data(data)
-		//	.expect("Crfg inherent data must exist");
+		let data = extract_inherent_data(data)
+			.expect("Crfg inherent data must exist");
 
 		//let data = data.get_data::<<T as Trait>::SessionKey>(&INHERENT_IDENTIFIER)
-		//	.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
-		//	.ok_or_else(|| "Authorities inherent data is not provided.".into());
-		let data = data.get_data::<<T as Trait>::SessionKey>(&INHERENT_IDENTIFIER);
+		//	.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?;
 
-		let key = data.expect("Crfg inherent data must exist");
-		Some(Call::update_authorities(key.unwrap()))
+		//let key = data.expect("Crfg inherent data must exist");
+		Some(Call::update_authorities(data))
 	}
 
 	fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
@@ -465,9 +463,10 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	}
 }
 
-//fn extract_inherent_data<SessionKey>(data: &InherentData) -> Result<SessionKey, RuntimeString>
-//{
-//	data.get_data::<SessionKey>(&INHERENT_IDENTIFIER)
-//		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
-//		.ok_or_else(|| "Authorities inherent data is not provided.".into())
-//}
+fn extract_inherent_data<SessionKey>(data: &InherentData) -> Result<SessionKey, RuntimeString>
+	where SessionKey: Decode
+{
+	data.get_data::<SessionKey>(&INHERENT_IDENTIFIER)
+		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
+		.ok_or_else(|| "Authorities inherent data is not provided.".into())
+}
