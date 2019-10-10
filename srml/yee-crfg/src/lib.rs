@@ -451,10 +451,6 @@ impl<T: Trait> ProvideInherent for Module<T> {
 		let data = extract_inherent_data(data)
 			.expect("Crfg inherent data must exist");
 
-		//let data = data.get_data::<<T as Trait>::SessionKey>(&INHERENT_IDENTIFIER)
-		//	.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?;
-
-		//let key = data.expect("Crfg inherent data must exist");
 		Some(Call::update_authorities(data))
 	}
 
