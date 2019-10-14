@@ -168,6 +168,24 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	PRA: ProvideRuntimeApi,
 	PRA::Api: CrfgApi<Block>,
 {
+    fn aggregate_authorities(authorities: &Vec<(AuthorityId, u64)>) -> Vec<(AuthorityId, u64)> {
+		let mut polymer: Vec<(AuthorityId, u64)> = Vec::new();
+
+		for author in authorities {
+			match polymer.iter().position(|x| x.0 == author.0){
+				Some(pos) => {
+					let reappear = polymer.get_mut(pos);
+					reappear.unwrap().1 += 1;
+				},
+				None => {
+					polymer.push((author.0.clone(), author.1));
+				}
+			}
+		}
+
+		polymer
+	}
+
 	// check for a new authority set change.
 	fn check_new_change(&self, header: &Block::Header, hash: Block::Hash)
 		-> Result<Option<PendingChange<Block::Hash, NumberFor<Block>>>, ConsensusError>
@@ -198,7 +216,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				},
 				Ok(None) => {},
 				Ok(Some((median_last_finalized, change))) => return Ok(Some(PendingChange {
-					next_authorities: change.next_authorities,
+					next_authorities: Self::aggregate_authorities(&change.next_authorities),
 					delay: change.delay,
 					canon_height: *header.number(),
 					canon_hash: hash,
@@ -216,13 +234,16 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 			match maybe_change {
 				Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				Ok(Some(change)) => Ok(Some(PendingChange {
-					next_authorities: change.next_authorities,
-					delay: change.delay,
-					canon_height: *header.number(),
-					canon_hash: hash,
-					delay_kind: DelayKind::Finalized,
-				})),
+				Ok(Some(change)) => {
+
+					Ok(Some(PendingChange {
+						next_authorities: Self::aggregate_authorities(&change.next_authorities),
+						delay: change.delay,
+						canon_height: *header.number(),
+						canon_hash: hash,
+						delay_kind: DelayKind::Finalized,
+					}))
+				}
 				Ok(None) => Ok(None),
 			}
 		}

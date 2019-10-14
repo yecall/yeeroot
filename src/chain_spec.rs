@@ -13,6 +13,7 @@ use yee_runtime::{
 };
 use hex_literal::{hex, hex_impl};
 use substrate_service;
+use log::{warn, debug};
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -156,8 +157,12 @@ fn testnet_template_genesis(
 ) -> GenesisConfig {
 	let initial_authorities = vec![
 			get_authority_keys_from_seed("Alice"),
-			get_authority_keys_from_seed("Bob"),
+			//get_authority_keys_from_seed("Bob"),
 		];
+    let authors: Vec<AuthorityId> = initial_authorities.iter().map(|x| (x.2.clone())).collect();
+	//debug!("INIT AUTHORS:{:#?},\n AUTHOR0:{},\n AUTHOR1:{}", authors, authors[0], authors[1]);
+	debug!("INIT AUTHORS:{:#?}", authors);
+
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,

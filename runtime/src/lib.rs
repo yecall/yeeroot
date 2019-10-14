@@ -200,9 +200,9 @@ impl crfg::Trait for Runtime {
 	type Event = Event;
 }
 
-impl finality_tracker::Trait for Runtime {
-	type OnFinalizationStalled = crfg::SyncedAuthorities<Runtime>;
-}
+//impl finality_tracker::Trait for Runtime {
+//	type OnFinalizationStalled = crfg::SyncedAuthorities<Runtime>;
+//}
 
 impl sharding::Trait for Runtime {
     type ShardNum = u16;
@@ -223,7 +223,7 @@ construct_runtime!(
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
-		FinalityTracker: finality_tracker::{Module, Call, Inherent},
+		//FinalityTracker: finality_tracker::{Module, Call, Inherent},
 	}
 );
 
