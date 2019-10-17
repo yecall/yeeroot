@@ -180,6 +180,12 @@ construct_service_factory! {
                         transaction_pool: service.transaction_pool(),
                         inherents_pool: service.inherents_pool(),
                     });
+
+	                crfg::register_crfg_inherent_data_provider(
+                        &service.config.custom.inherent_data_providers.clone(),
+	                    key.clone().public()
+	                )?;
+
                     let client = service.client();
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                     key.clone(),
