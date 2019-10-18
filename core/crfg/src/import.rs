@@ -215,13 +215,17 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 					},
 				},
 				Ok(None) => {},
-				Ok(Some((median_last_finalized, change))) => return Ok(Some(PendingChange {
-					next_authorities: Self::aggregate_authorities(&change.next_authorities),
-					delay: change.delay,
-					canon_height: *header.number(),
-					canon_hash: hash,
-					delay_kind: DelayKind::Best { median_last_finalized },
-				})),
+				Ok(Some((median_last_finalized, change))) => return {
+					let authors = Self::aggregate_authorities(&change.next_authorities);
+					info!("Pending authority list with weight: {:?}", authors);
+					Ok(Some(PendingChange {
+						next_authorities: authors,
+						delay: change.delay,
+						canon_height: *header.number(),
+						canon_hash: hash,
+						delay_kind: DelayKind::Best { median_last_finalized },
+					}))
+				},
 			}
 		}
 
@@ -235,9 +239,10 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			match maybe_change {
 				Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 				Ok(Some(change)) => {
-
+					let authors = Self::aggregate_authorities(&change.next_authorities);
+					info!("Pending authority list with weight: {:?}", authors);
 					Ok(Some(PendingChange {
-						next_authorities: Self::aggregate_authorities(&change.next_authorities),
+						next_authorities: authors,
 						delay: change.delay,
 						canon_height: *header.number(),
 						canon_hash: hash,

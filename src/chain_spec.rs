@@ -156,12 +156,11 @@ fn testnet_template_genesis(
     target_block_time: u64,
 ) -> GenesisConfig {
 	let initial_authorities = vec![
-			get_authority_keys_from_seed("Alice"),
-			//get_authority_keys_from_seed("Bob"),
+			get_authority_keys_from_seed("Bob"),
+			//get_authority_keys_from_seed("Dave"),
 		];
-    let authors: Vec<AuthorityId> = initial_authorities.iter().map(|x| (x.2.clone())).collect();
-	//debug!("INIT AUTHORS:{:#?},\n AUTHOR0:{},\n AUTHOR1:{}", authors, authors[0], authors[1]);
-	debug!("INIT AUTHORS:{:#?}", authors);
+    let authors: Vec<(AuthorityId, u64)> = initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect();
+	debug!("Authorities initial list with weight:{:#?}", authors);
 
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
@@ -193,7 +192,7 @@ fn testnet_template_genesis(
             genesis_sharding_count: 4,
         }),
 		crfg: Some(CrfgConfig {
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+			authorities: authors,
 		}),
 	}
 }

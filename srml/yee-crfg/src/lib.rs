@@ -322,53 +322,6 @@ impl<T: Trait> Module<T> {
 		<AuthorityStorageVec<T::SessionKey>>::items()
 	}
 
-	/// Schedule a change in the authorities.
-	///
-	/// The change will be applied at the end of execution of the block
-	/// `in_blocks` after the current block. This value may be 0, in which
-	/// case the change is applied at the end of the current block.
-	///
-	/// If the `forced` parameter is defined, this indicates that the current
-	/// set has been synchronously determined to be offline and that after
-	/// `in_blocks` the given change should be applied. The given block number
-	/// indicates the median last finalized block number and it should be used
-	/// as the canon block when starting the new crfg voter.
-	///
-	/// No change should be signaled while any change is pending. Returns
-	/// an error if a change is already pending.
-	//pub fn schedule_change(
-	//	next_authorities: Vec<(T::SessionKey, u64)>,
-	//	in_blocks: T::BlockNumber,
-	//	forced: Option<T::BlockNumber>,
-	//) -> dispatch::Result {
-	//	use primitives::traits::As;
-
-	//	if Self::pending_change().is_none() {
-	//		let scheduled_at = system::ChainContext::<T>::default().current_height();
-
-	//		if let Some(_) = forced {
-	//			if Self::next_forced().map_or(false, |next| next > scheduled_at) {
-	//				return Err("Cannot signal forced change so soon after last.");
-	//			}
-
-	//			// only allow the next forced change when twice the window has passed since
-	//			// this one.
-	//			<NextForced<T>>::put(scheduled_at + in_blocks * T::BlockNumber::sa(2));
-	//		}
-
-	//		<PendingChange<T>>::put(StoredPendingChange {
-	//			delay: in_blocks,
-	//			scheduled_at,
-	//			next_authorities,
-	//			forced,
-	//		});
-
-	//		Ok(())
-	//	} else {
-	//		Err("Attempt to signal CRFG change with one already pending.")
-	//	}
-	//}
-
 	/// Deposit one of this module's logs.
 	fn deposit_log(log: Log<T>) {
 		<system::Module<T>>::deposit_log(<T as Trait>::Log::from(log).into());
@@ -404,48 +357,6 @@ impl<T> Default for SyncedAuthorities<T> {
 		SyncedAuthorities(::rstd::marker::PhantomData)
 	}
 }
-
-//impl<X, T> session::OnSessionChange<X> for SyncedAuthorities<T> where
-//	T: Trait + consensus::Trait<SessionKey=<T as Trait>::SessionKey>,
-//	<T as consensus::Trait>::Log: From<consensus::RawLog<<T as Trait>::SessionKey>>
-//{
-//	fn on_session_change(_: X, _: bool) {
-//		use primitives::traits::Zero;
-//
-//		let next_authorities = <consensus::Module<T>>::authorities()
-//			.into_iter()
-//			.map(|key| (key, 1)) // evenly-weighted.
-//			.collect::<Vec<(<T as Trait>::SessionKey, u64)>>();
-//
-//		// instant changes
-//		let last_authorities = <Module<T>>::crfg_authorities();
-//		if next_authorities != last_authorities {
-//			let _ = <Module<T>>::schedule_change(next_authorities, Zero::zero(), None);
-//		}
-//	}
-//}
-//
-//impl<T> finality_tracker::OnFinalizationStalled<T::BlockNumber> for SyncedAuthorities<T> where
-//	T: Trait + consensus::Trait<SessionKey=<T as Trait>::SessionKey>,
-//	<T as consensus::Trait>::Log: From<consensus::RawLog<<T as Trait>::SessionKey>>,
-//	T: finality_tracker::Trait,
-//{
-//	fn on_stalled(further_wait: T::BlockNumber) {
-//		// when we record old authority sets, we can use `finality_tracker::median`
-//		// to figure out _who_ failed. until then, we can't meaningfully guard
-//		// against `next == last` the way that normal session changes do.
-//
-//		let next_authorities = <consensus::Module<T>>::authorities()
-//			.into_iter()
-//			.map(|key| (key, 1)) // evenly-weighted.
-//			.collect::<Vec<(<T as Trait>::SessionKey, u64)>>();
-//
-//		let median = <finality_tracker::Module<T>>::median();
-//
-//		// schedule a change for `further_wait` blocks.
-//		let _ = <Module<T>>::schedule_change(next_authorities, further_wait, Some(median));
-//	}
-//}
 
 impl<T: Trait> ProvideInherent for Module<T> {
 	type Call = Call<T>;
