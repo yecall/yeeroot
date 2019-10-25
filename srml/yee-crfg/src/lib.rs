@@ -272,9 +272,10 @@ decl_module! {
 			}
 			authorities.push((info, 1));
 
-			//println!("SRML AUTHORS afger push:{:?}", authorities);
+			println!("SRML AUTHORS UPDATE:{:?}", authorities);
+			let delay = T::BlockNumber::sa(6);
 			<PendingChange<T>>::put(StoredPendingChange {
-				delay: Zero::zero(),
+				delay,
 				scheduled_at,
 				next_authorities: authorities,
 				forced: Some(forced),
