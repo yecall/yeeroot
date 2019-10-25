@@ -146,7 +146,7 @@ pub fn start_relay_transfer<F, C, A>(
                         let block_id = BlockId::number(number.into());
                         let spv_header = chain.client().header(&block_id).unwrap().unwrap();
                         let tag = (Compact(shard_num), Compact(number), spv_header.hash().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec()).encode();
-                        info!(target: "foreign-relay", "best block info reached. tag: {:?}", tag);
+                        info!(target: "foreign-relay", "best block info reached. tag: {}", HexDisplay::from(&tag));
                         pool.import_provides(once(tag));
                     } else {
                         error!(target: "foreign-relay", "Get shard component({:?}) failed!", shard_num);

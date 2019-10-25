@@ -26,12 +26,13 @@ use crate::util::LruHashSet;
 use crate::chain::Client;
 use crate::error;
 use network_libp2p::{PeerId, Severity};
-use runtime_primitives::{generic::BlockId, ConsensusEngineId};
+use runtime_primitives::{generic::BlockId, ConsensusEngineId, Proof, traits::BlakeTwo256};
 use log::{trace, debug};
 use std::{cmp, num::NonZeroUsize, thread, time};
 use std::collections::{BTreeMap, HashMap};
 use substrate_network::{SyncStatus, OnDemandService};
 use parking_lot::RwLock;
+use merkle_light::merkle::MerkleTree;
 
 const REQUEST_TIMEOUT_SEC: u64 = 40;
 /// Interval at which we perform time based maintenance
@@ -54,13 +55,13 @@ const MAX_BLOCK_DATA_RESPONSE: u32 = 128;
 const LIGHT_MAXIMAL_BLOCKS_DIFFERENCE: u64 = 8192;
 
 pub struct VProtocol<B: BlockT, H: ExHashT> {
-
     network_chan: NetworkChan<B>,
     config: ProtocolConfig,
     genesis_hash: B::Hash,
     context_data: ContextData<B, H>,
     handshaking_peers: HashMap<PeerId, HandshakingPeer>,
     connected_peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>>,
+    protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>,
 }
 
 /// A peer from whom we have received a Status message.
@@ -182,9 +183,10 @@ impl<'a, B: BlockT + 'a, H: ExHashT + 'a> Context<B> for ProtocolContext<'a, B, 
 
 /// Data necessary to create a context.
 struct ContextData<B: BlockT, H: ExHashT> {
-    // All connected peers
+    /// All connected peers
     peers: HashMap<PeerId, Peer<B, H>>,
     pub chain: Arc<Client<B>>,
+    /// self full node sharding number.
     shard_num: u16,
 }
 
@@ -194,6 +196,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         network_chan: NetworkChan<B>,
         chain: Arc<Client<B>>,
         shard_num: u16,
+        protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>
     ) -> error::Result<Self>{
         let config = ProtocolConfig{
             roles : Roles::LIGHT,
@@ -211,6 +214,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             },
             handshaking_peers: HashMap::new(),
             connected_peers: peers,
+            protocol_context_data,
         })
     }
 
@@ -230,19 +234,9 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             self.connected_peers.write().remove(&peer);
             self.context_data.peers.remove(&peer).is_some()
         };
-        /*
-        if removed {
-            let mut context = ProtocolContext::new(&mut self.context_data, &self.network_chan);
-            self.consensus_gossip.peer_disconnected(&mut context, peer.clone());
-            self.sync.peer_disconnected(&mut context, peer.clone());
-            self.specialization.on_disconnect(&mut context, peer.clone());
-            self.on_demand.as_ref().map(|s| s.on_disconnect(peer));
-        }
-        */
     }
 
     pub fn on_vmessage(&mut self, who: PeerId, vmessage: Message<B>) {
-
         match vmessage {
             GenericMessage::Status(s) => self.on_status_message(who, s),
             GenericMessage::BlockRequest(r) => self.on_block_request(who, r),
@@ -250,26 +244,10 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 debug!(target: "sync-foreign", "VProtocol: other: {:?}", other);
             },
         }
-
     }
 
     pub fn on_block_imported(&mut self, hash: B::Hash, header: &B::Header) {
-        /*
-        self.sync.update_chain_info(header);
-        self.specialization.on_block_imported(
-            &mut ProtocolContext::new(&mut self.context_data, &self.network_chan),
-            hash.clone(),
-            header,
-        );
-
-        // blocks are not announced by light clients
-        if self.config.roles & Roles::LIGHT == Roles::LIGHT {
-            return;
-        }
-        */
-
         // send out block announcements
-
         let message = GenericMessage::BlockAnnounce(message::BlockAnnounce { header: header.clone() });
 
         for (who, ref mut peer) in self.context_data.peers.iter_mut() {
@@ -365,18 +343,6 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
 
             debug!(target: "sync-foreign", "VProtocol: Connected {}", who);
         }
-
-        /*
-        let mut context = ProtocolContext::new(&mut self.context_data, &self.network_chan);
-
-        self.on_demand
-            .as_ref()
-            .map(|s| s.on_connect(who.clone(), status.roles, status.best_number));s
-        self.sync.new_peer(&mut context, who.clone());
-        self.consensus_gossip
-            .new_peer(&mut context, who.clone(), status.roles);
-        self.specialization.on_connect(&mut context, who, status);
-        */
     }
 
     fn on_block_request(&mut self, peer: PeerId, request: message::BlockRequest<B>) {
@@ -397,6 +363,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         let get_justification = request
             .fields
             .contains(message::BlockAttributes::JUSTIFICATION);
+        let get_proof = request.fields.contains(message::BlockAttributes::PROOF);
         while let Some(header) = self.context_data.chain.header(&id).unwrap_or(None) {
             if blocks.len() >= max {
                 break;
@@ -406,6 +373,13 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let parent_hash = header.parent_hash().clone();
             let justification = if get_justification {
                 self.context_data.chain.justification(&BlockId::Hash(hash)).unwrap_or(None)
+            } else {
+                None
+            };
+            let proof = if get_proof {
+                self.protocol_context_data.read().peers.get(&peer).map(|p|{
+                    self.get_proof_by_shard_num(hash, p.info.shard_num)
+                }).unwrap_or(None)
             } else {
                 None
             };
@@ -423,6 +397,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 receipt: None,
                 message_queue: None,
                 justification,
+                proof,
             };
             blocks.push(block_data);
             match request.direction {
@@ -437,10 +412,24 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         }
         let response = message::generic::BlockResponse {
             id: request.id,
-            blocks: blocks,
+            blocks,
         };
         trace!(target: "sync-foreign", "VProtocol: Sending BlockResponse with {} blocks", response.blocks.len());
         self.send_message(peer, GenericMessage::BlockResponse(response))
+    }
+
+    /// Get proof by shard num.
+    fn get_proof_by_shard_num(&self, hash: B::Hash, shard_num: u16) -> Option<Proof> {
+        let id = BlockId::Hash(hash);
+        let total_proof = self.context_data.chain.proof(&id).unwrap_or(None);
+        if let Some(proof) = total_proof {
+            let bytes = proof.as_slice();
+            let tree = MerkleTree::<yee_merkle::ProofHash<BlakeTwo256>, yee_merkle::ProofAlgorithm<BlakeTwo256>>::from_bytes(bytes);
+
+            None
+        }else{
+            None
+        }
     }
 
     /// Send Status message

@@ -23,7 +23,7 @@ use client::ImportNotifications;
 use consensus::{BlockImport, Error as ConsensusError};
 use runtime_primitives::traits::{Block as BlockT, Header as HeaderT};
 use runtime_primitives::generic::{BlockId};
-use runtime_primitives::Justification;
+use runtime_primitives::{Justification, Proof};
 use primitives::{H256, Blake2Hasher, storage::StorageKey};
 use client::BlockchainEvents;
 
@@ -46,6 +46,9 @@ pub trait Client<Block: BlockT>: Send + Sync {
 
 	/// Get block justification.
 	fn justification(&self, id: &BlockId<Block>) -> Result<Option<Justification>, Error>;
+
+	/// Get block proof.
+	fn proof(&self, id: &BlockId<Block>) -> Result<Option<Proof>, Error>;
 
 	/// Get block header proof.
 	fn header_proof(&self, block_number: <Block::Header as HeaderT>::Number) -> Result<(Block::Header, Vec<Vec<u8>>), Error>;
@@ -101,6 +104,10 @@ impl<B, E, Block, RA> Client<Block> for SubstrateClient<B, E, Block, RA> where
 
 	fn justification(&self, id: &BlockId<Block>) -> Result<Option<Justification>, Error> {
 		(self as &SubstrateClient<B, E, Block, RA>).justification(id)
+	}
+
+	fn proof(&self, id: &BlockId<Block>) -> Result<Option<Proof>, Error> {
+		(self as &SubstrateClient<B, E, Block, RA>).proof(id)
 	}
 
 	fn header_proof(&self, block_number: <Block::Header as HeaderT>::Number) -> Result<(Block::Header, Vec<Vec<u8>>), Error> {

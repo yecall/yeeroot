@@ -26,7 +26,7 @@ use std::collections::HashMap;
 /// Network service configuration.
 #[derive(Clone)]
 pub struct NetworkConfiguration {
-	/// Shard num
+	/// self full node Shard num
 	pub shard_num: u16,
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
