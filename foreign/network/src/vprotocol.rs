@@ -164,19 +164,19 @@ impl<'a, B: BlockT + 'a, H: ExHashT + 'a> Context<B> for ProtocolContext<'a, B, 
 
     fn send_block_request(&mut self, who: PeerId, request: BlockRequestMessage<B>) {
         send_message(&mut self.context_data.peers, &self.network_chan, who,
-                     GenericMessage::BlockRequest(request), self.context_data.shard_num
+                     GenericMessage::BlockRequest(request), self.context_data.shard_num,
         )
     }
 
     fn send_consensus(&mut self, who: PeerId, consensus: ConsensusMessage) {
         send_message(&mut self.context_data.peers, &self.network_chan, who,
-                     GenericMessage::Consensus(consensus), self.context_data.shard_num
+                     GenericMessage::Consensus(consensus), self.context_data.shard_num,
         )
     }
 
     fn send_chain_specific(&mut self, who: PeerId, message: Vec<u8>) {
         send_message(&mut self.context_data.peers, &self.network_chan, who,
-                     GenericMessage::ChainSpecific(message), self.context_data.shard_num
+                     GenericMessage::ChainSpecific(message), self.context_data.shard_num,
         )
     }
 }
@@ -191,19 +191,18 @@ struct ContextData<B: BlockT, H: ExHashT> {
 }
 
 impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
-
     pub fn new(
         network_chan: NetworkChan<B>,
         chain: Arc<Client<B>>,
         shard_num: u16,
-        protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>
-    ) -> error::Result<Self>{
-        let config = ProtocolConfig{
-            roles : Roles::LIGHT,
+        protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>,
+    ) -> error::Result<Self> {
+        let config = ProtocolConfig {
+            roles: Roles::LIGHT,
         };
         let info = chain.info()?;
         let peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>> = Arc::new(Default::default());
-        Ok(Self{
+        Ok(Self {
             network_chan,
             config,
             genesis_hash: info.chain.genesis_hash,
@@ -242,7 +241,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             GenericMessage::BlockRequest(r) => self.on_block_request(who, r),
             other => {
                 debug!(target: "sync-foreign", "VProtocol: other: {:?}", other);
-            },
+            }
         }
     }
 
@@ -318,17 +317,17 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                         protocol_version: status.version,
                         roles: status.roles,
                         best_hash: status.best_hash,
-                        best_number: status.best_number
+                        best_number: status.best_number,
                     };
                     self.connected_peers
                         .write()
                         .insert(who.clone(), ConnectedPeer { peer_info: peer_info.clone() });
                     peer_info
-                },
+                }
                 None => {
                     debug!(target: "sync-foreign", "VProtocol: Received status from previously unconnected node {}", who);
                     return;
-                },
+                }
             };
 
             let peer = Peer {
@@ -377,7 +376,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 None
             };
             let proof = if get_proof {
-                self.protocol_context_data.read().peers.get(&peer).map(|p|{
+                self.protocol_context_data.read().peers.get(&peer).map(|p| {
                     self.get_proof_by_shard_num(hash, p.info.shard_num)
                 }).unwrap_or(None)
             } else {
@@ -424,12 +423,12 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         let total_proof = self.context_data.chain.proof(&id).unwrap_or(None);
         if let Some(proof) = total_proof {
             let bytes = proof.as_slice();
-            let tree = MerkleTree::<yee_merkle::ProofHash<BlakeTwo256>, yee_merkle::ProofAlgorithm<BlakeTwo256>>::from_bytes(bytes);
-
-            None
-        }else{
-            None
+            let tree = yee_merkle::MultiLayerProof::from_bytes(bytes);
+            if let Ok(ml) = tree {
+               return Some(ml.gen_proof(shard_num).into_bytes())
+            }
         }
+        None
     }
 
     /// Send Status message
@@ -454,7 +453,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             &self.network_chan,
             who,
             message,
-            self.context_data.shard_num
+            self.context_data.shard_num,
         );
     }
 }
