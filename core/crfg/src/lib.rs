@@ -84,6 +84,7 @@ use network::consensus_gossip as network_gossip;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
+use runtime_primitives::traits::As;
 
 pub use fg_primitives::ScheduledChange;
 
@@ -115,6 +116,7 @@ mod tests;
 
 const CRFG_ENGINE_ID: runtime_primitives::ConsensusEngineId = [b'a', b'f', b'g', b'1'];
 const MESSAGE_ROUND_TOLERANCE: u64 = 2;
+const CRFG_VOTE_DELAY_BEST: u64 = 6;
 
 /// A CRFG message for a substrate chain.
 pub type Message<Block> = grandpa::Message<<Block as BlockT>::Hash, NumberFor<Block>>;
@@ -830,7 +832,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	let initial_state = (initial_environment, set_state, voter_commands_rx.into_future());
 	let voter_work = future::loop_fn(initial_state, move |params| {
 		let (env, set_state, voter_commands_rx) = params;
-		debug!(target: "afg", "{}: Starting new voter with set ID {}", config.name(), env.set_id);
+		debug!(target: "afg", "{}: Starting new voter with set ID {}, new voter set: {:#?}", config.name(), env.set_id, env.voters);
 		telemetry!(CONSENSUS_DEBUG; "afg.starting_new_voter";
 			"name" => ?config.name(), "set_id" => ?env.set_id
 		);
@@ -868,10 +870,24 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 			}
 			VoterSetState::Paused(_, _) => None,
 		};
-
+		//TODO:应该就是在这里添加逻辑，控制投票流程，另外看看在environment中有没有机会
 		// needs to be combined with another future otherwise it can deadlock.
+		let chain_info = match client.info() {
+			Ok(i) => i,
+			//Err(e) => return Ok(Async::NotReady),
+			Err(e) => return future::Either::B(future::err(Error::Client(e))),
+		};
+
+		let distance = chain_info.chain.best_number - chain_info.chain.finalized_number;
 		let poll_voter = future::poll_fn(move || match maybe_voter {
-			Some(ref mut voter) => voter.poll(),
+			Some(ref mut voter) => {
+				if distance.as_() > CRFG_VOTE_DELAY_BEST {
+					voter.poll()
+				}
+				else{
+					Ok(Async::NotReady)
+				}
+			},
 			None => Ok(Async::NotReady),
 		});
 
