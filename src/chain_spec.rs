@@ -11,9 +11,8 @@ use yee_runtime::{
 	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
 };
-use hex_literal::{hex, hex_impl};
 use substrate_service;
-use log::{warn, debug};
+use log::debug;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
