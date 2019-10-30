@@ -142,11 +142,14 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
                 let mut seal = digest_item.clone();
                 seal.work_proof = proof;
 
+                let extrinsic_proof = None; // todo
+
                 if let Ok((post_digest, hash)) = check_proof(&header, &seal){
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,
                         header,
                         justification: None,
+                        proof: extrinsic_proof,
                         post_digests: vec![post_digest],
                         body: Some(body),
                         finalized: false,

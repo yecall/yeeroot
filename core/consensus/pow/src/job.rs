@@ -56,7 +56,7 @@ use log::info;
 use {
 	pow_primitives::{YeePOWApi, DifficultyType},
 };
-use crate::pow::check_proof;
+use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::ShardingDigestItem;
 
 #[derive(Clone)]
@@ -211,11 +211,12 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
 
 			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
-
+			let extrinsic_proof = gen_extrinsic_proof::<B>(&job.header, job.body.as_slice());
 			let import_block: ImportBlock<B> = ImportBlock {
 				origin: BlockOrigin::Own,
 				header: job.header,
 				justification: None,
+				proof: extrinsic_proof,
 				post_digests: vec![post_digest],
 				body: Some(job.body),
 				finalized: false,

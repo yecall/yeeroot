@@ -71,11 +71,13 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
         )?;
 
         // TODO: verify body
+        let proof = None;
 
         let import_block = ImportBlock {
             origin,
             header: pre_header,
             justification,
+            proof,
             post_digests: vec![seal],
             body,
             finalized: false,

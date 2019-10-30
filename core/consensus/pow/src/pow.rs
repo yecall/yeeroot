@@ -17,11 +17,13 @@
 
 //! POW work proof used in block header digest
 
+use std::collections::hash_map::HashMap;
 use runtime_primitives::{
     codec::{
         Decode, Encode,
     },
-    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT},
+    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT, BlakeTwo256},
+    Proof as ExtrinsicProof,
 };
 use {
     pow_primitives::DifficultyType,
@@ -33,6 +35,14 @@ use std::marker::PhantomData;
 use std::hash::Hasher;
 use merkle_light::hash::Algorithm;
 use merkle_light::proof::Proof;
+use merkle_light::merkle::MerkleTree;
+use yee_srml_executive::decode::RelayTransfer;
+use yee_runtime::{Call, BalancesCall, UncheckedExtrinsic};
+use yee_sharding_primitives::utils::shard_num_for;
+use primitives::{Blake2Hasher, H256};
+use hash_db::Hasher as BlakeHasher;
+use std::iter::FromIterator;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
@@ -191,6 +201,53 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             Ok((post_digest, hash))
         }
     }
+}
+
+/// Gen extrinsic proof for foreign chain.
+pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Option<ExtrinsicProof>
+    where
+        B: Block,
+        <<<B as Block>::Header as Header>::Digest as Digest>::Item: yee_sharding::ShardingDigestItem<u16>,
+{
+    let shard_info = header.digest().logs().iter().rev()
+        .filter_map(ShardingDigestItem::as_sharding_info)
+        .next();
+    let (shard_num, shard_count) = shard_info.expect("must exist");
+    let (shard_num, shard_count) = (shard_num as u16, shard_count as u16);
+
+    let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
+    for extrinsic in body {
+        let bytes = extrinsic.encode();
+        let mut bytes = bytes.as_slice();
+        if let Some(ex) = Decode::decode(&mut bytes) {
+            let ex: UncheckedExtrinsic = ex;
+            let hash = Blake2Hasher::hash(&mut bytes);
+            if let Call::Balances(BalancesCall::transfer(to, _)) = ex.function {
+                if let Some(num) = shard_num_for(&to, shard_count) {
+                    if num != shard_num {
+                        if let Some(list) = extrinsic_shard.get_mut(&num){
+                            list.push(hash);
+                        } else {
+                            extrinsic_shard.insert(num, vec![hash]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut layer1_merkles = Vec::new();
+    let mut layer2_leaves = vec![];
+    for i in 0..shard_count {
+        let exs = extrinsic_shard.get(&i).unwrap();
+        let tree = MerkleTree::new(exs);
+        layer2_leaves.push(tree.root());
+        layer1_merkles.push((i, Some(tree)));
+    }
+    let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
+    let multi_proof = MultiLayerProof::new(layer1_merkles, Some(layer2_tree), vec![]);
+
+    Some(multi_proof.into_bytes())
 }
 
 #[derive(Clone)]
