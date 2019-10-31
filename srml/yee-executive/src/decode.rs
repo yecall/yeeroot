@@ -4,20 +4,20 @@ use parity_codec::{Encode, Decode, Compact, Input};
 
 
 pub struct OriginTransfer<Address, Balance> {
-    sender: Address,
-    signature: Vec<u8>,
-    index: Compact<u64>,
-    era: Era,
-    dest: Address,
-    amount: Balance,
+    pub sender: Address,
+    pub signature: Vec<u8>,
+    pub index: Compact<u64>,
+    pub era: Era,
+    pub dest: Address,
+    pub amount: Balance,
 }
 
 pub struct RelayTransfer<Address, Balance, Hash> {
     pub transfer: OriginTransfer<Address, Balance>,
-    number: Compact<u64>,
-    hash: Hash,
-    parent: Hash,
-    proof: Vec<u8>,
+    pub number: Compact<u64>,
+    pub hash: Hash,
+    pub parent: Hash,
+    pub proof: Vec<u8>,
 }
 
 impl<Address, Balance> OriginTransfer<Address, Balance>

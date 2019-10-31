@@ -208,6 +208,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Opti
     where
         B: Block,
         <<<B as Block>::Header as Header>::Digest as Digest>::Item: yee_sharding::ShardingDigestItem<u16>,
+        <B as Block>::Hash: From<H256> + Ord,
 {
     let shard_info = header.digest().logs().iter().rev()
         .filter_map(ShardingDigestItem::as_sharding_info)
@@ -240,7 +241,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Opti
     let mut layer2_leaves = vec![];
     for i in 0..shard_count {
         let exs = extrinsic_shard.get(&i).unwrap();
-        let tree = MerkleTree::new(exs);
+        let tree = MerkleTree::from_iter(exs.clone());
         layer2_leaves.push(tree.root());
         layer1_merkles.push((i, Some(tree)));
     }
@@ -279,7 +280,7 @@ impl<H: HashT> Hasher for MiningAlgorithm<H> {
 
 pub type MiningHash<H> = <H as HashT>::Output;
 
-impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> {
+impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> where H::Output: Encode + Decode {
     #[inline]
     fn hash(&mut self) -> MiningHash<H> {
         H::hash(&self.0)
@@ -302,7 +303,7 @@ impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct OriginalMerkleProof<H: HashT>{
+pub struct OriginalMerkleProof<H: HashT> where H::Output: Encode + Decode {
     pub proof: Proof<MiningHash<H>>,
     pub num: u16,
     pub count: u16,
@@ -317,7 +318,7 @@ pub struct CompactMerkleProof<H: HashT> {
     pub count: u16,
 }
 
-impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H>{
+impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H> where H::Output: Encode + Decode {
     fn from(omp: OriginalMerkleProof<H>) -> Self{
         let lemma = omp.proof.lemma();
         let len = lemma.len();
@@ -344,6 +345,7 @@ impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H>{
 
 fn parse_original<H>(cmp: CompactMerkleProof<H>) -> Result<OriginalMerkleProof<H>, String> where
     H: HashT,
+    H::Output: Encode + Decode,
 {
     let num = cmp.num;
     let count = cmp.count;

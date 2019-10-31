@@ -107,7 +107,7 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
 
             let mut op = backend.begin_operation()?;
             backend.begin_state_operation(&mut op, last_block_id)?;
-            op.set_block_data(header, Some(vec![]), None, NewBlockState::Final)?;
+            op.set_block_data(header, Some(vec![]), None, None, NewBlockState::Final)?;
             backend.commit_operation(op)?;
 
             (target_shard_num, genesis_shard_cnt)

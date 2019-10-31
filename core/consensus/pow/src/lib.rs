@@ -57,6 +57,7 @@ pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
               MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::ShardingDigestItem;
+use primitives::H256;
 
 mod job;
 mod digest;
@@ -90,6 +91,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16>,
+    <B as Block>::Hash: From<H256> + Ord,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),

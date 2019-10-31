@@ -9,7 +9,7 @@ use merkle_light::{
 use parity_codec::{Encode, Decode};
 use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ProofAlgorithm<H: HashT>(Vec<u8>, PhantomData<H>);
 
 impl<H: HashT> ProofAlgorithm<H> {
@@ -60,7 +60,7 @@ impl<H: HashT> Algorithm<ProofHash<H>> for ProofAlgorithm<H> {
     }
 }
 
-#[derive(Default, Clone, Encode, Decode)]
+#[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct MultiLayerProof {
     layer2_merkle: Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>,
     layer2_proof: Vec<u8>,

@@ -32,7 +32,7 @@ use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 
-mod decode;
+pub mod decode;
 use decode::RelayTransfer;
 
 mod internal {

@@ -58,6 +58,7 @@ use {
 };
 use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::ShardingDigestItem;
+use primitives::H256;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -146,6 +147,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 	      <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
 	      AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 	      I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+          <B as Block>::Hash: From<H256> + Ord,
 {
 	type Job = DefaultJob<B, AuthorityId>;
 
