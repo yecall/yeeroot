@@ -190,7 +190,7 @@ construct_service_factory! {
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                     key.clone(),
                         client.clone(),
-                        client,
+                        block_import.clone(),
                         proposer,
                         service.network(),
                         service.on_exit(),

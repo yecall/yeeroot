@@ -423,6 +423,9 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		let hash = block.post_header().hash();
 		let number = block.header.number().clone();
 
+		debug!(target: "finality", "Import block \n number: {}, hash: {},\n origin: {:?}, is finalized: {}, fork choice: {:?},\n body: {:#?}",
+			   number, hash, block.origin, block.finalized, block.fork_choice, block.body);
+
 		// early exit if block already in chain, otherwise the check for
 		// authority changes will error when trying to re-import a change block
 		match self.inner.backend().blockchain().status(BlockId::Hash(hash)) {
