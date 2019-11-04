@@ -47,8 +47,9 @@ use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
 };
 use crate::job::{JobManager, DefaultJob};
-use crate::pow::check_proof;
+use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::ShardingDigestItem;
+use primitives::H256;
 
 pub trait PowWorker<JM: JobManager> {
     type Error: Debug + Send;
@@ -98,6 +99,7 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
     AuthorityId: Decode + Encode + Clone + 'static,
+    B::Hash: From<H256> + Ord,
 {
     type Error = consensus_common::Error;
     type OnJob = Box<dyn Future<Item=DefaultJob<B, AuthorityId>, Error=Self::Error> + Send>;
@@ -142,9 +144,8 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
                 let mut seal = digest_item.clone();
                 seal.work_proof = proof;
 
-                let extrinsic_proof = None; // todo
-
                 if let Ok((post_digest, hash)) = check_proof(&header, &seal){
+                    let extrinsic_proof = gen_extrinsic_proof::<B>(&header, &body.as_slice());
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,
                         header,

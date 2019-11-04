@@ -30,7 +30,7 @@ use {
 };
 use crate::CompatibleDigestItem;
 use yee_sharding::ShardingDigestItem;
-use log::debug;
+use log::{debug, info};
 use std::marker::PhantomData;
 use std::hash::Hasher;
 use merkle_light::hash::Algorithm;
@@ -222,14 +222,16 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Opti
         let mut bytes = bytes.as_slice();
         if let Some(ex) = Decode::decode(&mut bytes) {
             let ex: UncheckedExtrinsic = ex;
-            let hash = Blake2Hasher::hash(&mut bytes);
-            if let Call::Balances(BalancesCall::transfer(to, _)) = ex.function {
-                if let Some(num) = shard_num_for(&to, shard_count) {
-                    if num != shard_num {
-                        if let Some(list) = extrinsic_shard.get_mut(&num){
-                            list.push(hash);
-                        } else {
-                            extrinsic_shard.insert(num, vec![hash]);
+            if ex.signature.is_some() {
+                let hash = Blake2Hasher::hash(&mut bytes);
+                if let Call::Balances(BalancesCall::transfer(to, _)) = ex.function {
+                    if let Some(num) = shard_num_for(&to, shard_count) {
+                        if num != shard_num {
+                            if let Some(list) = extrinsic_shard.get_mut(&num) {
+                                list.push(hash);
+                            } else {
+                                extrinsic_shard.insert(num, vec![hash]);
+                            }
                         }
                     }
                 }
@@ -240,14 +242,20 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Opti
     let mut layer1_merkles = Vec::new();
     let mut layer2_leaves = vec![];
     for i in 0..shard_count {
-        let exs = extrinsic_shard.get(&i).unwrap();
-        let tree = MerkleTree::from_iter(exs.clone());
-        layer2_leaves.push(tree.root());
-        layer1_merkles.push((i, Some(tree)));
+        if extrinsic_shard.contains_key(&i){
+            let exs = extrinsic_shard.get(&i).unwrap();
+            let tree = MerkleTree::from_iter((*exs).clone());
+            layer2_leaves.push(tree.root());
+            layer1_merkles.push((i, Some(tree)));
+        } else {
+            let hash: H256 = Default::default();
+            layer2_leaves.push(hash);
+            layer1_merkles.push((i, None));
+        }
     }
     let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
     let multi_proof = MultiLayerProof::new(layer1_merkles, Some(layer2_tree), vec![]);
-
+    info!(target:"proof", "height:{}, proof: {:?}", header.number(), &multi_proof);
     Some(multi_proof.into_bytes())
 }
 
