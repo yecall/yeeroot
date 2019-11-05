@@ -11,3 +11,4 @@ bech32 = "0.7.1"
 
 [dev-dependencies]
 hex = "0.3.1"
+substrate_primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

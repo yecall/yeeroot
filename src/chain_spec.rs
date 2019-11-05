@@ -1,7 +1,6 @@
 use {
     primitives::{
         sr25519, Pair,
-        crypto::Ss58Codec,
 		ed25519::Public as AuthorityId,
 		ed25519,
     },
@@ -13,6 +12,7 @@ use yee_runtime::{
 };
 use hex_literal::{hex, hex_impl};
 use substrate_service;
+use yee_primitives::{Address, AddressCodec};
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -63,8 +63,9 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 }
 
 fn account_addr(s: &str) -> AccountId {
-    <AccountId as Ss58Codec>::from_string(s)
-        .expect("static values are valid; qed")
+
+	AccountId::from_address(&Address(s.to_string()))
+		.expect("static values are valid; qed").0
 }
 
 impl Alternative {
@@ -106,10 +107,10 @@ impl Alternative {
                 "POC Testnet",
                 "poc_testnet",
                 || poc_testnet_genesis(vec![
-                    account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
-                    account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
-                    account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
-                    account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
+                    account_addr("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6"),
+                    account_addr("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j"),
+                    account_addr("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3"),
+                    account_addr("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd"),
                 ]),
                 vec![],
                 None,

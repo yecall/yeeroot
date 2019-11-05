@@ -72,7 +72,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     sync_oracle: SO,
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
-    _coin_base: AccountId,
+    _coinbase: AccountId,
     job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, P::Public>>>>>>,
     _force_authoring: bool,
     mine: bool,

@@ -26,13 +26,13 @@ use crate::service::{NodeConfig};
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;
-use primitives::crypto::Ss58Codec;
+use yee_primitives::{AddressCodec, Address, Hrp};
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
-    /// Specify miner coin base for block authoring
-    #[structopt(long = "coin-base", value_name = "COIN_BASE")]
-    pub coin_base: Option<String>,
+    /// Specify miner coinbase for block authoring
+    #[structopt(long = "coinbase", value_name = "COINBASE")]
+    pub coinbase: Option<String>,
 
     /// Specify shard number
     #[structopt(long = "shard-num", value_name = "SHARD_NUM")]
@@ -60,12 +60,20 @@ impl_augment_clap!(YeeCliConfig);
 pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
 where F: ServiceFactory<Configuration=NodeConfig<F>>{
 
-    if config.roles == Roles::AUTHORITY{
-        let coin_base = custom_args.coin_base.clone().ok_or(error::ErrorKind::Input("Coin base not found".to_string().into()))?;
-        config.custom.coin_base = parse_coin_base(coin_base).map_err(|e| format!("Bad coin base address: {:?}", e))?;
-    }
+    config.custom.hrp = get_hrp(config.chain_spec.id());
 
     config.custom.shard_num = custom_args.shard_num;
+
+    if config.roles == Roles::AUTHORITY{
+        let coinbase = custom_args.coinbase.clone().ok_or(error::ErrorKind::Input("Coinbase not found".to_string()))?;
+        let (coinbase, hrp) = parse_coinbase(coinbase).map_err(|e| format!("Invalid coinbase: {:?}", e))?;
+
+        if config.custom.hrp != hrp{
+            return Err(error::ErrorKind::Input("Invalid coinbase hrp".to_string()).into());
+        }
+
+        config.custom.coinbase = coinbase;
+    }
 
     let bootnodes_routers = custom_args.bootnodes_routers.clone();
 
@@ -95,7 +103,7 @@ where F: ServiceFactory<Configuration=NodeConfig<F>>{
     config.custom.mine = custom_args.mine;
 
     info!("Custom params: ");
-    info!("  coin base: {}", config.custom.coin_base);
+    info!("  coinbase: {}", config.custom.coinbase.to_address(config.custom.hrp.clone()).expect("qed"));
     info!("  shard num: {}", config.custom.shard_num);
     info!("  bootnodes: {:?}", config.network.boot_nodes);
     info!("  foreign port: {:?}", config.custom.foreign_port);
@@ -122,8 +130,18 @@ fn get_native_bootnodes(bootnodes_router_conf: &BootnodesRouterConf, shard_num: 
     }
 }
 
-fn parse_coin_base(input: String) -> error::Result<AccountId> {
-    let coin_base = <AccountId as Ss58Codec>::from_string(&input)
-        .map_err(|e| format!("{:?}", e))?;
-    Ok(coin_base)
+fn parse_coinbase(input: String) -> error::Result<(AccountId, Hrp)> {
+
+    let address = Address(input);
+    let (coinbase, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e))?;
+
+    Ok((coinbase, hrp))
+}
+
+fn get_hrp(chain_spec_id: &str) -> Hrp{
+
+    match chain_spec_id{
+        "main" => Hrp::MAINNET,
+        _ => Hrp::TESTNET,
+    }
 }

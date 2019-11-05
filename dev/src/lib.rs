@@ -24,19 +24,19 @@ use network::NodeKeyConfig;
 use primitives::H256;
 use std::str::FromStr;
 
-/// shard_num => (coin_base, rpc_port, ws_port, port, node_key, foreign_port)
+/// shard_num => (coinbase, rpc_port, ws_port, port, node_key, foreign_port)
 const SHARD_CONF : [(u16, (&str, u16, u16, u16, &str, u16)); 4] = [
-    (0, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 9933, 9944, 30333, "0000000000000000000000000000000000000000000000000000000000000001", 30334)),
-    (1, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 19933, 19944, 31333, "0000000000000000000000000000000000000000000000000000000000000002", 31334)),
-    (2, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 29933, 29944, 32333, "0000000000000000000000000000000000000000000000000000000000000003", 32334)),
-    (3, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 39933, 39944, 33333, "0000000000000000000000000000000000000000000000000000000000000004", 33334)),
+    (0, ("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6", 9933, 9944, 30333, "0000000000000000000000000000000000000000000000000000000000000001", 30334)),
+    (1, ("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j", 19933, 19944, 31333, "0000000000000000000000000000000000000000000000000000000000000002", 31334)),
+    (2, ("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3", 29933, 29944, 32333, "0000000000000000000000000000000000000000000000000000000000000003", 32334)),
+    (3, ("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd", 39933, 39944, 33333, "0000000000000000000000000000000000000000000000000000000000000004", 33334)),
 ];
 
 const BOOTNODES_ROUTER : &str = "http://127.0.0.1:50001";
 
 pub struct RunParams{
     pub shard_num: u16,
-    pub coin_base: String,
+    pub coinbase: String,
     pub rpc_port: u16,
     pub ws_port: u16,
     pub port: u16,
@@ -65,7 +65,7 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
     let one = shard_conf_map.get(&shard_num);
     let one = one.ok_or(error::ErrorKind::Msg("Invalid shard num".to_string().into()))?;
 
-    let coin_base = one.0.to_string();
+    let coinbase = one.0.to_string();
     let rpc_port = one.1;
     let ws_port = one.2;
     let port = one.3;
@@ -78,7 +78,7 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
 
     Ok(RunParams{
         shard_num,
-        coin_base,
+        coinbase,
         rpc_port,
         ws_port,
         port,

@@ -24,6 +24,13 @@ pub enum Hrp {
 	TESTNET,
 }
 
+impl Default for Hrp{
+
+	fn default() -> Self{
+		Hrp::TESTNET
+	}
+}
+
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Address(pub String);
 
@@ -38,11 +45,7 @@ impl<T: AsMut<[u8]> + AsRef<[u8]> + Default> AddressCodec for T {
 	fn from_address(address: &Address) -> Result<(Self, Hrp), Error> {
 
 		let (hrp_str, buf) = bech32::decode(&address.0)?;
-		println!("{:?}", hrp_str);
-		println!("{:?}", buf);
 		let buf = Vec::from_base32(&buf)?;
-
-		println!("{:?}", buf);
 
 		let mut res = T::default();
 		res.as_mut().copy_from_slice(&buf);
@@ -101,6 +104,8 @@ mod tests {
 	use crate::AddressCodec;
 	use crate::Hrp;
 	use crate::Address;
+	use substrate_primitives::sr25519::Public;
+	use substrate_primitives::crypto::Ss58Codec;
 
 	#[test]
 	fn test_to_address() {
@@ -136,4 +141,36 @@ mod tests {
 
 
 	}
+
+	#[test]
+	fn test_ss58_to_address() {
+
+		let public = Public::from_string("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG").expect("qed");
+
+		let address = public.to_address(Hrp::TESTNET).expect("qed");
+
+		assert_eq!(Address("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6".to_string()), address);
+
+
+		let public = Public::from_string("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695").expect("qed");
+
+		let address = public.to_address(Hrp::TESTNET).expect("qed");
+
+		assert_eq!(Address("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j".to_string()), address);
+
+
+		let public = Public::from_string("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi").expect("qed");
+
+		let address = public.to_address(Hrp::TESTNET).expect("qed");
+
+		assert_eq!(Address("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3".to_string()), address);
+
+
+		let public = Public::from_string("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9").expect("qed");
+
+		let address = public.to_address(Hrp::TESTNET).expect("qed");
+
+		assert_eq!(Address("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd".to_string()), address);
+	}
+
 }
