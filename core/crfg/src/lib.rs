@@ -870,7 +870,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 			}
 			VoterSetState::Paused(_, _) => None,
 		};
-		//TODO:应该就是在这里添加逻辑，控制投票流程，另外看看在environment中有没有机会
+
 		// needs to be combined with another future otherwise it can deadlock.
 		let chain_info = match client.info() {
 			Ok(i) => i,
@@ -882,6 +882,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		let poll_voter = future::poll_fn(move || match maybe_voter {
 			Some(ref mut voter) => {
 				if distance.as_() > CRFG_VOTE_DELAY_BEST {
+					debug!(target: "afg", "New voter poll");
 					voter.poll()
 				}
 				else{

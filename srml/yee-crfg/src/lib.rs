@@ -55,6 +55,7 @@ mod mock;
 mod tests;
 
 pub const AUTHORS_MAX_LEN: usize = 7;
+pub const BLOCK_INTERVAL: u64 = 7;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
 //pub type InherentType = AuthorityId;
 
@@ -253,32 +254,45 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
+		/// Report some misbehavior.
+		fn report_misbehavior(origin, _report: Vec<u8>) {
+			ensure_signed(origin)?;
+			// FIXME: https://github.com/paritytech/substrate/issues/1112
+		}
+
         fn update_authorities(origin, info: <T as Trait>::SessionKey){//replace schedule_change function
 			use primitives::traits::{Zero, As};
-			//ensure_signed(origin)?;
 
 			let scheduled_at = system::ChainContext::<T>::default().current_height();
-			if Self::next_forced().map_or(false, |next| next > scheduled_at) {
-				return Err("Cannot signal forced change so soon after last.");
-			}
-
-			let forced = scheduled_at + T::BlockNumber::sa(2);
-			<NextForced<T>>::put(forced);
-
 			let mut authorities = <Module<T>>::crfg_authorities();
+			if(scheduled_at < T::BlockNumber::sa(BLOCK_INTERVAL)){
+				authorities.push((info, 1));
+				<AuthorityStorageVec<T::SessionKey>>::set_items(authorities.clone());
+				println!("SRML AUTHORS UPDATE AT HEIGHT:{}, NEW SET:{:?}", scheduled_at, authorities);
+				return Err("Insufficient block interval to current height for signal forced change.");
+			}
+			//if Self::next_forced().map_or(false, |next| next > scheduled_at) {
+			//	return Err("Cannot signal forced change so soon after last.");
+			//}
+
+			//let next_forced = scheduled_at + T::BlockNumber::sa(1);
+			//<NextForced<T>>::put(next_forced);
+
 
 			if authorities.len() >= AUTHORS_MAX_LEN {
 				authorities.remove(0);
 			}
 			authorities.push((info, 1));
-
 			println!("SRML AUTHORS UPDATE AT HEIGHT:{}, NEW SET:{:?}", scheduled_at, authorities);
+
 			let delay = T::BlockNumber::sa(0);
+			//let median = scheduled_at - T::BlockNumber::sa(BLOCK_INTERVAL - 1);
 			<PendingChange<T>>::put(StoredPendingChange {
 				delay,
 				scheduled_at,
 				next_authorities: authorities,
-				forced: Some(forced),
+				forced: None,
+				//forced: Some(median),
 			});
         }
 
