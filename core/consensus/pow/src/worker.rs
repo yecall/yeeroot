@@ -50,6 +50,7 @@ use crate::job::{JobManager, DefaultJob};
 use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::ShardingDigestItem;
 use primitives::H256;
+use ansi_term::Colour;
 
 pub trait PowWorker<JM: JobManager> {
     type Error: Debug + Send;
@@ -159,7 +160,7 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
                     };
                     block_import.import_block(import_block, Default::default())?;
 
-                    info!("block mined @ {} {:?}", header_num, hash);
+                    info!("{} @ {} {:?}", Colour::Red.bold().paint("Block Mined"), header_num, hash);
                     return Ok(());
                 }
             }

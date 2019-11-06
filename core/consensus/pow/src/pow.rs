@@ -43,6 +43,7 @@ use primitives::{Blake2Hasher, H256};
 use hash_db::Hasher as BlakeHasher;
 use std::iter::FromIterator;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
+use ansi_term::Colour;
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
@@ -255,7 +256,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Opti
     }
     let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
     let multi_proof = MultiLayerProof::new(layer1_merkles, Some(layer2_tree), vec![]);
-    info!(target:"proof", "height:{}, proof: {:?}", header.number(), &multi_proof);
+    info!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
     Some(multi_proof.into_bytes())
 }
 

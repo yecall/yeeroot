@@ -26,6 +26,7 @@ yee-merkle = { path = "../../merkle" }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 hash-db = "0.12"
+ansi_term = "0.11"
 
 [dev-dependencies]
 hex-literal = "0.2"

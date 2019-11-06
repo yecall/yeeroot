@@ -33,6 +33,8 @@ use std::collections::{BTreeMap, HashMap};
 use substrate_network::{SyncStatus, OnDemandService};
 use parking_lot::RwLock;
 use merkle_light::merkle::MerkleTree;
+use log::info;
+use ansi_term::Colour;
 
 const REQUEST_TIMEOUT_SEC: u64 = 40;
 /// Interval at which we perform time based maintenance
@@ -382,6 +384,11 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             } else {
                 None
             };
+            if proof.is_some() {
+                info!("{}: number:{}, proof.len():{}", Colour::White.bold().paint("Proof"), number, proof.clone().unwrap().len());
+            } else {
+                info!("{}: no proof. number:{}", Colour::White.bold().paint("Proof"), number);
+            }
             let block_data = message::generic::BlockData {
                 hash: hash,
                 header: if get_header { Some(header) } else { None },
