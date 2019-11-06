@@ -20,7 +20,7 @@ use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
-    consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
+    consensus::{self, import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
@@ -38,7 +38,7 @@ mod sharding;
 use sharding::prepare_sharding;
 
 mod foreign;
-use foreign::{Params, start_foreign_network};
+use foreign::{start_foreign_network};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
@@ -185,6 +185,14 @@ construct_service_factory! {
                         inherents_pool: service.inherents_pool(),
                     });
                     let client = service.client();
+
+                    let params = consensus::Params{
+                        coinbase: service.config.custom.coinbase.clone(),
+                        force_authoring: service.config.force_authoring,
+                        mine: service.config.custom.mine,
+                        shard_num: service.config.custom.shard_num,
+                    };
+
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                     key.clone(),
                         client.clone(),
@@ -193,16 +201,14 @@ construct_service_factory! {
                         service.network(),
                         service.on_exit(),
                         service.config.custom.inherent_data_providers.clone(),
-                        service.config.custom.coinbase.clone(),
                         service.config.custom.job_manager.clone(),
-                        service.config.force_authoring,
-                        service.config.custom.mine,
+                        params,
                     )?);
                 }
 
                 //foreign network setup
                 let config = &service.config;
-                let foreign_network_param = Params{
+                let foreign_network_param = foreign::Params{
                     client_version: config.network.client_version.clone(),
                     protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
                     node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),

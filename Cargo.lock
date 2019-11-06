@@ -5357,6 +5357,7 @@ dependencies = [
  "yee-consensus-pow-primitives 0.1.0",
  "yee-runtime 1.0.0",
  "yee-sharding 0.1.0",
+ "yee-sharding-primitives 0.1.0",
 ]
 
 [[package]]
