@@ -20,7 +20,7 @@ use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
 use {
     parking_lot::RwLock,
-    consensus::{import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
+    consensus::{self, import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
@@ -33,18 +33,20 @@ use {
     yee_rpc::{FullRpcHandlerConstructor, LightRpcHandlerConstructor},
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
+use yee_primitives::{AddressCodec};
 
 mod sharding;
 use sharding::prepare_sharding;
 
 mod foreign;
-use foreign::{Params, start_foreign_network};
+use foreign::{start_foreign_network};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_rpc::ProvideJobManager;
 
 use crfg;
+use yee_primitives::Hrp;
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -64,12 +66,13 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
     pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
     inherent_data_providers: InherentDataProviders,
-    pub coin_base: AccountId,
+    pub coinbase: AccountId,
     pub shard_num: u16,
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
-    pub job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
+    pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub mine: bool,
+    pub hrp: Hrp,
 }
 
 impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
@@ -77,12 +80,13 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
         Self {
             crfg_import_setup: None,
             inherent_data_providers: Default::default(),
-            coin_base: Default::default(),
+            coinbase: Default::default(),
             shard_num: Default::default(),
             foreign_port: Default::default(),
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
             mine: Default::default(),
+            hrp: Default::default(),
         }
     }
 }
@@ -91,10 +95,11 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
     fn clone(&self) -> Self {
         Self {
             crfg_import_setup: None,
-            coin_base: self.coin_base.clone(),
+            coinbase: self.coinbase.clone(),
             shard_num: self.shard_num,
             foreign_port: self.foreign_port,
             mine: self.mine,
+            hrp: self.hrp.clone(),
 
             // cloned config SHALL NOT SHARE some items with original config
             inherent_data_providers: Default::default(),
@@ -115,7 +120,7 @@ impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::Service
 }
 
 impl<F> ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where F: substrate_service::ServiceFactory {
-    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
+    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
     }
 }
@@ -174,13 +179,21 @@ construct_service_factory! {
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
                 if let Some(ref key) = key {
-                    info!("Using authority key {}", key.public());
+                    info!("Using authority key {}", key.public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                     let proposer = Arc::new(ProposerFactory {
                         client: service.client(),
                         transaction_pool: service.transaction_pool(),
                         inherents_pool: service.inherents_pool(),
                     });
                     let client = service.client();
+
+                    let params = consensus::Params{
+                        coinbase: service.config.custom.coinbase.clone(),
+                        force_authoring: service.config.force_authoring,
+                        mine: service.config.custom.mine,
+                        shard_num: service.config.custom.shard_num,
+                    };
+
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                     key.clone(),
                         client.clone(),
@@ -189,16 +202,14 @@ construct_service_factory! {
                         service.network(),
                         service.on_exit(),
                         service.config.custom.inherent_data_providers.clone(),
-                        service.config.custom.coin_base.clone(),
                         service.config.custom.job_manager.clone(),
-                        service.config.force_authoring,
-                        service.config.custom.mine,
+                        params,
                     )?);
                 }
 
                 //foreign network setup
                 let config = &service.config;
-                let foreign_network_param = Params{
+                let foreign_network_param = foreign::Params{
                     client_version: config.network.client_version.clone(),
                     protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
                     node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
@@ -231,7 +242,7 @@ construct_service_factory! {
                     key.clone()
                 };
 
-                info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public());
+                info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                 executor.spawn(crfg::run_crfg(
                     crfg::Config {
                         local_key,

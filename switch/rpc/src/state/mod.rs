@@ -31,15 +31,16 @@ use crate::errors;
 use jsonrpc_core::BoxFuture;
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 use yee_serde_hex::Hex;
+use yee_primitives::{Address, AddressCodec};
 
 /// Substrate state API
 #[rpc]
 pub trait StateApi<Hash> {
 	#[rpc(name = "state_getBalance")]
-	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>>;
+	fn balance(&self, address: Address) -> BoxFuture<Hex<BigUint>>;
 
 	#[rpc(name = "state_getNonce")]
-	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>>;
+	fn nonce(&self, account: Address) -> BoxFuture<Hex<BigUint>>;
 }
 
 /// State API with subscriptions support.
@@ -61,7 +62,12 @@ impl State {
 impl<Hash> StateApi<Hash> for State
 	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
 {
-	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>> {
+	fn balance(&self, address: Address) -> BoxFuture<Hex<BigUint>> {
+
+		let account_id = match AccountId::from_address(&address){
+			Ok((account_id, _hrp)) => account_id,
+			Err(e) => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidAddress).into())),
+		};
 
 		let shard_count = self.config.get_shard_count();
 
@@ -104,7 +110,12 @@ impl<Hash> StateApi<Hash> for State
 		}))
 	}
 
-	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>> {
+	fn nonce(&self, address: Address) -> BoxFuture<Hex<BigUint>> {
+
+		let account_id = match AccountId::from_address(&address){
+			Ok((account_id, _hrp)) => account_id,
+			Err(e) => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidAddress).into())),
+		};
 
 		let shard_count = self.config.get_shard_count();
 

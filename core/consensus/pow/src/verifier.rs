@@ -104,7 +104,8 @@ fn check_header<B, AccountId>(
         format!("Header {:?} not sealed", hash)
     })?;
 
-    // TODO: check seal.difficulty
+    // TODO: check difficulty in seal
+    // TODO: check shard_num, shard_count in header
 
     check_proof(&header, &seal)?;
 
