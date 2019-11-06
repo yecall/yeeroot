@@ -255,7 +255,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> Opti
         }
     }
     let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
-    let multi_proof = MultiLayerProof::new(layer1_merkles, Some(layer2_tree), vec![]);
+    let multi_proof = MultiLayerProof::new(layer1_merkles, layer2_tree, vec![]);
     info!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
     Some(multi_proof.into_bytes())
 }

@@ -62,7 +62,7 @@ impl<H: HashT> Algorithm<ProofHash<H>> for ProofAlgorithm<H> {
 
 #[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct MultiLayerProof {
-    layer2_merkle: Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>,
+    layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
     layer2_proof: Vec<u8>,
     layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>,
 }
@@ -70,7 +70,7 @@ pub struct MultiLayerProof {
 impl MultiLayerProof {
     /// construct a object
     pub fn new(layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>,
-               layer2_merkle: Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>,
+               layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
                layer2_proof: Vec<u8>) -> Self {
         Self {
             layer2_merkle,
@@ -81,17 +81,13 @@ impl MultiLayerProof {
 
     /// Gen proof for special shard_num.
     pub fn gen_proof(&self, shard_num: u16) -> Self {
-//        let shard_num = shard_num as usize;
+        let shard_num = shard_num as usize;
         let mut result = Default::default();
-        if self.layer2_merkle.is_none() {
+        if self.layer1_merkles.len() != self.layer2_merkle.leafs() || shard_num >= self.layer2_merkle.leafs() {
             return result;
         }
-        let layer2 = &(self.layer2_merkle.clone().unwrap());
-        if self.layer1_merkles.len() != layer2.leafs() || shard_num as usize >= layer2.leafs() {
-            return result;
-        }
-        result.layer2_proof = layer2.gen_proof(shard_num as usize).into_bytes();
-        let layer1 = self.layer1_merkles.get(shard_num as usize);
+        result.layer2_proof = self.layer2_merkle.gen_proof(shard_num).into_bytes();
+        let layer1 = self.layer1_merkles.get(shard_num);
         if let Some((num, data)) = layer1 {
             result.layer1_merkles = vec![(*num, (*data).clone())];
         }

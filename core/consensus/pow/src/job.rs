@@ -59,6 +59,7 @@ use {
 use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::ShardingDigestItem;
 use primitives::H256;
+use ansi_term::Colour;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -211,7 +212,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 		let block_import = self.block_import.clone();
 
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
-
+			let number = &job.header.number().clone();
 			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
 			let extrinsic_proof = gen_extrinsic_proof::<B>(&job.header, job.body.as_slice());
 			let import_block: ImportBlock<B> = ImportBlock {
@@ -226,7 +227,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 				fork_choice: ForkChoiceStrategy::LongestChain,
 			};
 			block_import.import_block(import_block, Default::default())?;
-
+			info!("{} @ {} {:?}", Colour::Green.bold().paint("Block Mined"), number, hash);
 			Ok(hash)
 		};
 

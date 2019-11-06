@@ -27,13 +27,12 @@ use crate::chain::Client;
 use crate::error;
 use network_libp2p::{PeerId, Severity};
 use runtime_primitives::{generic::BlockId, ConsensusEngineId, Proof, traits::BlakeTwo256};
-use log::{trace, debug};
+use log::{trace, debug, info};
 use std::{cmp, num::NonZeroUsize, thread, time};
 use std::collections::{BTreeMap, HashMap};
 use substrate_network::{SyncStatus, OnDemandService};
 use parking_lot::RwLock;
 use merkle_light::merkle::MerkleTree;
-use log::info;
 use ansi_term::Colour;
 
 const REQUEST_TIMEOUT_SEC: u64 = 40;
@@ -385,12 +384,12 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 None
             };
             if proof.is_some() {
-                info!("{}: number:{}, proof.len():{}", Colour::White.bold().paint("Proof"), number, proof.clone().unwrap().len());
+                debug!("receive {}: number:{}, proof.len():{}", Colour::White.bold().paint("Proof"), number, proof.clone().unwrap().len());
             } else {
-                info!("{}: no proof. number:{}", Colour::White.bold().paint("Proof"), number);
+                info!("{}. number:{}", Colour::White.bold().paint("No Proof"), number);
             }
             let block_data = message::generic::BlockData {
-                hash: hash,
+                hash,
                 header: if get_header { Some(header) } else { None },
                 body: if get_body {
                     self.context_data
