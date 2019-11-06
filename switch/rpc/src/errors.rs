@@ -39,6 +39,10 @@ error_chain! {
 			description("parse error"),
 			display("Parse error"),
 		}
+		InvalidAddress {
+			description("invalid address"),
+			display("Invalid address"),
+		}
 		RpcError(e: jsonrpc_client_transports::RpcError) {
 			description("rpc error"),
 			display("Rpc error"),
@@ -68,6 +72,11 @@ impl From<Error> for rpc::Error {
 			Error(ErrorKind::ParseError, _) => rpc::Error {
 				code: rpc::ErrorCode::ServerError(1),
 				message: "Parse error".into(),
+				data: None,
+			},
+			Error(ErrorKind::InvalidAddress, _) => rpc::Error {
+				code: rpc::ErrorCode::ServerError(1),
+				message: "Invalid address".into(),
 				data: None,
 			},
 			Error(ErrorKind::RpcError(e), _) => match e{

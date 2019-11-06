@@ -10,9 +10,9 @@ use yee_runtime::{
 	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
 };
-use hex_literal::{hex, hex_impl};
 use substrate_service;
 use yee_primitives::{Address, AddressCodec};
+use yee_dev;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -25,9 +25,9 @@ pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 /// from a string (`--chain=...`) into a `ChainSpec`.
 #[derive(Clone, Debug)]
 pub enum Alternative {
-	/// Whatever the current runtime is, with just Alice as an auth.
+	/// Whatever the current runtime is
 	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
+	/// Whatever the current runtime is
 	LocalTestnet,
     /// Proof-of-Concept chain with prebuilt runtime.
     POCTestnet,
@@ -71,14 +71,13 @@ fn account_addr(s: &str) -> AccountId {
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
 	pub(crate) fn load(self) -> Result<ChainSpec, String> {
+
+
 		Ok(match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
-				|| testnet_genesis(vec![
-					account_key("Alice")
-				],
-				),
+				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -88,15 +87,7 @@ impl Alternative {
 			Alternative::LocalTestnet => ChainSpec::from_genesis(
 				"Local Testnet",
 				"local_testnet",
-				|| testnet_genesis(vec![
-					account_key("Alice"),
-					account_key("Bob"),
-					account_key("Charlie"),
-					account_key("Dave"),
-					account_key("Eve"),
-					account_key("Ferdie"),
-				],
-				),
+				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -106,12 +97,7 @@ impl Alternative {
             Alternative::POCTestnet => ChainSpec::from_genesis(
                 "POC Testnet",
                 "poc_testnet",
-                || poc_testnet_genesis(vec![
-                    account_addr("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6"),
-                    account_addr("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j"),
-                    account_addr("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3"),
-                    account_addr("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd"),
-                ]),
+                || testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
                 vec![],
                 None,
                 None,
@@ -155,9 +141,6 @@ fn testnet_template_genesis(
     genesis_difficulty: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
-	let initial_authorities = vec![
-			get_authority_keys_from_seed("Alice"),
-		];
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,
@@ -188,7 +171,7 @@ fn testnet_template_genesis(
             genesis_sharding_count: 4,
         }),
 		crfg: Some(CrfgConfig {
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+			authorities: vec![],
 		}),
 	}
 }

@@ -17,6 +17,7 @@
 
 use bech32::{ToBase32, Error, FromBase32};
 use std::fmt;
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Hrp {
@@ -31,7 +32,7 @@ impl Default for Hrp{
 	}
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug, Deserialize)]
 pub struct Address(pub String);
 
 pub trait AddressCodec: Sized {

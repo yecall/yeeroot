@@ -32,6 +32,7 @@ rand = "0.6.5"
 num-bigint = "0.2.2"
 hex = "0.3.2"
 yee-serde-hex = { package = "yee-serde-hex", path = "../../rpc/serde-hex" }
+yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }
 
 [features]
 http = []
