@@ -33,6 +33,7 @@ use {
     yee_rpc::{FullRpcHandlerConstructor, LightRpcHandlerConstructor},
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
+use yee_primitives::{AddressCodec};
 
 mod sharding;
 use sharding::prepare_sharding;
@@ -69,7 +70,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub shard_num: u16,
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
-    pub job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
+    pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub mine: bool,
     pub hrp: Hrp,
 }
@@ -119,7 +120,7 @@ impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::Service
 }
 
 impl<F> ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where F: substrate_service::ServiceFactory {
-    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
+    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
     }
 }
@@ -178,7 +179,7 @@ construct_service_factory! {
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
                 if let Some(ref key) = key {
-                    info!("Using authority key {}", key.public());
+                    info!("Using authority key {}", key.public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                     let proposer = Arc::new(ProposerFactory {
                         client: service.client(),
                         transaction_pool: service.transaction_pool(),
@@ -241,7 +242,7 @@ construct_service_factory! {
                     key.clone()
                 };
 
-                info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public());
+                info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                 executor.spawn(crfg::run_crfg(
                     crfg::Config {
                         local_key,

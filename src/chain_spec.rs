@@ -97,7 +97,7 @@ impl Alternative {
             Alternative::POCTestnet => ChainSpec::from_genesis(
                 "POC Testnet",
                 "poc_testnet",
-                || testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
+                || poc_testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
                 vec![],
                 None,
                 None,
