@@ -218,7 +218,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Pow: pow::{Module, Storage, Config<T>},
+		Pow: pow::{Module, Call, Storage, Config<T>, Inherent},
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},

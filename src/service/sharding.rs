@@ -34,6 +34,9 @@ use {
             ProvideRuntimeApi,
             One,
         },
+        codec::{
+            Codec,
+        },
     },
     state_machine::backend::Backend as StateBackend,
     substrate_client::{
@@ -114,16 +117,20 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
         }
     };
 
-    register_inherent_data_provider(&node_config.inherent_data_providers, curr_shard, curr_count)?;
+    register_inherent_data_provider(&node_config.inherent_data_providers, node_config.coinbase.clone(),curr_shard, curr_count)?;
 
     Ok(())
 }
 
-fn register_inherent_data_provider(
+fn register_inherent_data_provider<AccountId>(
     inherent_data_providers: &InherentDataProviders,
-    shard_num: u16, shard_cnt: u16,
-) -> Result<(), consensus_common::Error> {
-    consensus::register_inherent_data_provider(inherent_data_providers)?;
+    coinbase: AccountId,
+    shard_num: u16,
+    shard_cnt: u16,
+) -> Result<(), consensus_common::Error> where
+    AccountId : Codec + Send + Sync + 'static,
+{
+    consensus::register_inherent_data_provider(inherent_data_providers, coinbase)?;
     if !inherent_data_providers.has_provider(&srml_sharding::INHERENT_IDENTIFIER) {
         inherent_data_providers.register_provider(srml_sharding::InherentDataProvider::new(shard_num, shard_cnt))
             .map_err(inherent_to_common_error)

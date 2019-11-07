@@ -273,22 +273,24 @@ construct_service_factory! {
                     let justification_import = block_import.clone();
                     config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
-                    import_queue::<Self::Block, _, <Pair as PairT>::Public>(
+                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        config.custom.coinbase.clone(),
                     ).map_err(Into::into)
                 }
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
                     prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-                    import_queue::<Self::Block, _, <Pair as PairT>::Public>(
+                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        config.custom.coinbase.clone(),
                     ).map_err(Into::into)
                 }
             },
