@@ -30,15 +30,22 @@ use {
     runtime_primitives::{
         codec::{Decode, Encode},
         Justification,
+        Proof,
         traits::{
             Block, Header,
             AuthorityIdFor, Digest, DigestItemFor,
+            BlakeTwo256,
         },
     },
 };
 use super::CompatibleDigestItem;
 use crate::pow::check_proof;
 use yee_sharding::ShardingDigestItem;
+use merkle_light::proof::Proof as MLProof;
+use merkle_light::merkle::MerkleTree;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
+use ansi_term::Colour;
+use log::{debug, warn};
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<C, AuthorityId> {
@@ -59,19 +66,37 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
         origin: BlockOrigin,
         header: <B as Block>::Header,
         justification: Option<Justification>,
+        proof: Option<Proof>,
         body: Option<Vec<<B as Block>::Extrinsic>>,
     ) -> Result<(ImportBlock<B>, Option<Vec<AuthorityIdFor<B>>>), String> {
+        let number = header.number().clone();
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
         let (pre_header, seal) = check_header::<B, AuthorityId>(
             header,
-            hash,
+            hash.clone(),
         )?;
 
         // TODO: verify body
-        let proof = None;
+        let mut validate_proof = false;
+        if let Some(proof) = proof.clone() {
+            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
+                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_slice()) {
+                    let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
+                    if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
+                        validate_proof = true;
+                    }
+                }
+            }
+        }
+        if !validate_proof{
+            warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
+            return Err("Proof validate failed.".to_string());
+        } else{
+            debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
+        }
 
         let import_block = ImportBlock {
             origin,

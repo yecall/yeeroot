@@ -63,7 +63,7 @@ impl<H: HashT> Algorithm<ProofHash<H>> for ProofAlgorithm<H> {
 #[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct MultiLayerProof {
     layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
-    layer2_proof: Vec<u8>,
+    pub layer2_proof: Vec<u8>,
     layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>,
 }
 
