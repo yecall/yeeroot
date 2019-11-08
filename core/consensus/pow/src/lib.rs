@@ -60,6 +60,7 @@ pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::ShardingDigestItem;
 use yee_sharding_primitives::{ShardingAPI, utils::shard_num_for};
+use srml_yee_pow::RewardCondition;
 
 mod job;
 mod digest;
@@ -177,7 +178,7 @@ pub fn register_inherent_data_provider<AccountId: 'static + Codec + Send + Sync>
     AccountId : Codec + Send + Sync + 'static, {
 
     if !inherent_data_providers.has_provider(&srml_yee_pow::INHERENT_IDENTIFIER) {
-        inherent_data_providers.register_provider(srml_yee_pow::InherentDataProvider::new(coinbase))
+        inherent_data_providers.register_provider(srml_yee_pow::InherentDataProvider::new(coinbase, RewardCondition::Normal))
             .map_err(inherent_to_common_error)
     } else {
         Ok(())

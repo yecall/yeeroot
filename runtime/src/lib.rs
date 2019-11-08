@@ -147,6 +147,10 @@ impl system::Trait for Runtime {
 impl pow::Trait for Runtime {
     /// Type used for block difficulty
     type Difficulty = Difficulty;
+	/// Type used for reward
+	type Currency = balances::Module<Self>;
+
+	type Reward = ();
 }
 
 impl consensus::Trait for Runtime {
