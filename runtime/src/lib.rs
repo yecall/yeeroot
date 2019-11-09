@@ -147,6 +147,10 @@ impl system::Trait for Runtime {
 impl pow::Trait for Runtime {
     /// Type used for block difficulty
     type Difficulty = Difficulty;
+	/// Type used for reward
+	type Currency = balances::Module<Self>;
+
+	type Reward = ();
 }
 
 impl consensus::Trait for Runtime {
@@ -218,7 +222,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Pow: pow::{Module, Storage, Config<T>},
+		Pow: pow::{Module, Call, Storage, Config<T>, Inherent},
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},

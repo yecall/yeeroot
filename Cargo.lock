@@ -3604,11 +3604,14 @@ dependencies = [
 name = "srml-yee-pow"
 version = "0.1.0"
 dependencies = [
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-timestamp 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-inherents 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
 ]
 
 [[package]]

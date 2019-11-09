@@ -178,6 +178,58 @@ construct_service_factory! {
                 let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
+                //foreign network
+                let config = &service.config;
+                let foreign_network_param = foreign::Params{
+                    client_version: config.network.client_version.clone(),
+                    protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
+                    node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
+                    shard_num: config.custom.shard_num,
+                    foreign_port: config.custom.foreign_port,
+                    bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
+                };
+                let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
+
+                let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
+                let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
+                    config,
+                    foreign_network_wrapper,
+                    service.client(),
+                    executor.clone(),
+                )?;
+
+                // relay
+                yee_relay::start_relay_transfer::<Self, _, _>(
+                    service.client(),
+                    &executor,
+                    foreign_network.clone(),
+                    Arc::new(foreigh_chain),
+                    service.transaction_pool()
+                ).map_err(|e| format!("{:?}", e))?;
+
+                let local_key = if service.config.disable_grandpa {
+                    None
+                } else {
+                    key.clone()
+                };
+
+                // crfg
+                info!("Running crfg session as Authority {}", local_key.clone().unwrap().public().to_address(service.config.custom.hrp.clone()).expect("qed"));
+                executor.spawn(crfg::run_crfg(
+                    crfg::Config {
+                        local_key,
+                        // FIXME #1578 make this available through chainspec
+                        gossip_duration: Duration::from_millis(333),
+                        justification_period: 4096,
+                        name: Some(service.config.name.clone())
+                    },
+                    link_half,
+                    crfg::NetworkBridge::new(service.network()),
+                    service.config.custom.inherent_data_providers.clone(),
+                    service.on_exit(),
+                )?);
+
+                // pow
                 if let Some(ref key) = key {
                     info!("Using authority key {}", key.public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                     let proposer = Arc::new(ProposerFactory {
@@ -207,56 +259,6 @@ construct_service_factory! {
                     )?);
                 }
 
-                //foreign network setup
-                let config = &service.config;
-                let foreign_network_param = foreign::Params{
-                    client_version: config.network.client_version.clone(),
-                    protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
-                    node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
-                    shard_num: config.custom.shard_num,
-                    foreign_port: config.custom.foreign_port,
-                    bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
-                };
-                let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
-
-                let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
-                let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
-                    config,
-                    foreign_network_wrapper,
-                    service.client(),
-                    executor.clone(),
-                )?;
-
-                // relay-transfer
-                yee_relay::start_relay_transfer::<Self, _, _>(
-                    service.client(),
-                    &executor,
-                    foreign_network.clone(),
-                    Arc::new(foreigh_chain),
-                    service.transaction_pool()
-                ).map_err(|e| format!("{:?}", e))?;
-
-                let local_key = if service.config.disable_grandpa {
-                    None
-                } else {
-                    key.clone()
-                };
-
-                info!("Running Grandpa session as Authority {}", local_key.clone().unwrap().public().to_address(service.config.custom.hrp.clone()).expect("qed"));
-                executor.spawn(crfg::run_crfg(
-                    crfg::Config {
-                        local_key,
-                        // FIXME #1578 make this available through chainspec
-                        gossip_duration: Duration::from_millis(333),
-                        justification_period: 4096,
-                        name: Some(service.config.name.clone())
-                    },
-                    link_half,
-                    crfg::NetworkBridge::new(service.network()),
-                    service.config.custom.inherent_data_providers.clone(),
-                    service.on_exit(),
-                )?);
-
                 Ok(service)
             }
         },
@@ -273,22 +275,24 @@ construct_service_factory! {
                     let justification_import = block_import.clone();
                     config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
-                    import_queue::<Self::Block, _, <Pair as PairT>::Public>(
+                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        config.custom.coinbase.clone(),
                     ).map_err(Into::into)
                 }
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
                     prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-                    import_queue::<Self::Block, _, <Pair as PairT>::Public>(
+                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        config.custom.coinbase.clone(),
                     ).map_err(Into::into)
                 }
             },

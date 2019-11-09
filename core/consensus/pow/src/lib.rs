@@ -39,7 +39,7 @@ use {
     primitives::Pair,
     runtime_primitives::{
         codec::{
-            Decode, Encode,
+            Decode, Encode, Codec,
         },
         traits::{
             DigestItemFor,
@@ -60,6 +60,7 @@ pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::ShardingDigestItem;
 use yee_sharding_primitives::{ShardingAPI, utils::shard_num_for};
+use srml_yee_pow::RewardCondition;
 
 mod job;
 mod digest;
@@ -82,7 +83,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     sync_oracle: SO,
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
-    job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, P::Public>>>>>>,
+    job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, P::Public>>>>>>,
     params: Params<AccountId>,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
@@ -95,7 +96,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     E: Environment<B> + Send + Sync + 'static,
     <E as Environment<B>>::Error: Debug + Send,
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
-    AccountId: Clone + Debug + Decode + Encode + Default + Send + 'static,
+    AccountId: Clone + Debug + Decode + Encode + Default + Send + Sync + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16>,
@@ -132,6 +133,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         inner_job_manager.clone(),
         block_import,
         inherent_data_providers.clone(),
+        params.coinbase,
     ));
     worker::start_worker(
         worker,
@@ -144,18 +146,20 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
 pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Start import queue for POW consensus
-pub fn import_queue<B, C, AuthorityId>(
+pub fn import_queue<B, C, AccountId, AuthorityId>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
+    coinbase: AccountId,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
     C: 'static + Send + Sync,
+    AccountId: Codec + Send + Sync + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {
-    register_inherent_data_provider(&inherent_data_providers)?;
+    register_inherent_data_provider(&inherent_data_providers, coinbase)?;
 
     let verifier = Arc::new(
         verifier::PowVerifier {
@@ -167,11 +171,14 @@ pub fn import_queue<B, C, AuthorityId>(
     Ok(BasicQueue::new(verifier, block_import, justification_import))
 }
 
-pub fn register_inherent_data_provider(
+pub fn register_inherent_data_provider<AccountId: 'static + Codec + Send + Sync>(
     inherent_data_providers: &InherentDataProviders,
-) -> Result<(), consensus_common::Error> {
-    if !inherent_data_providers.has_provider(&srml_timestamp::INHERENT_IDENTIFIER) {
-        inherent_data_providers.register_provider(srml_timestamp::InherentDataProvider)
+    coinbase: AccountId,
+) -> Result<(), consensus_common::Error> where
+    AccountId : Codec + Send + Sync + 'static, {
+
+    if !inherent_data_providers.has_provider(&srml_yee_pow::INHERENT_IDENTIFIER) {
+        inherent_data_providers.register_provider(srml_yee_pow::InherentDataProvider::new(coinbase, RewardCondition::Normal))
             .map_err(inherent_to_common_error)
     } else {
         Ok(())

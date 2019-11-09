@@ -141,6 +141,12 @@ fn testnet_template_genesis(
     genesis_difficulty: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
+
+	let crfg_authorities_size = 6u64;
+	let crfg_block_latency = 6u64;
+
+	let block_reward_latency = crfg_authorities_size + crfg_block_latency + 1;
+
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,
@@ -154,6 +160,8 @@ fn testnet_template_genesis(
             genesis_difficulty,
             difficulty_adj: 60_u64.into(),
             target_block_time: target_block_time.into(),
+	        block_reward: 5000000000,
+	        block_reward_latency: block_reward_latency.into(),
         }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
@@ -164,7 +172,7 @@ fn testnet_template_genesis(
 			existential_deposit: 500,
 			transfer_fee: 0,
 			creation_fee: 0,
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k|(k, 0)).collect(),
 			vesting: vec![],
 		}),
         sharding: Some(ShardingConfig {
