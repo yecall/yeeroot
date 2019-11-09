@@ -27,12 +27,13 @@ use primitives::traits::{
     OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker,
 };
 use srml_support::{Dispatchable, traits::MakePayment};
-use parity_codec::{Codec, Encode, Compact};
+use parity_codec::{Codec, Encode, Decode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 
 pub mod decode;
+
 use decode::RelayTransfer;
 
 mod internal {
@@ -323,17 +324,25 @@ impl<
 
     fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>, shard_count: u16) -> TransactionValidity {
         // check origin signature
-        // todo
+        let mut check_origin = true;
+        if let Some(origin) = Decode::decode(&mut rtx.origin().as_slice()) {
+            let origin: Block::Extrinsic = origin;
+            let hash = rtx.hash();
+            // todo
+        }
+        if !check_origin {
+            return TransactionValidity::Invalid(-127);
+        }
 
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
-        let requires = (Compact(shard_num), Compact(rtx.number()), rtx.hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
+        let requires = (Compact(shard_num), Compact(rtx.number()), rtx.block_hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
             requires: vec![requires],
             provides: vec![],
             longevity: TransactionLongevity::max_value(),
         }
-    }
+}
 
     /// Start an offchain worker and generate extrinsics.
     pub fn offchain_worker(n: System::BlockNumber) {

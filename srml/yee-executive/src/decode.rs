@@ -1,6 +1,7 @@
 use rstd::vec::Vec;
 use primitives::{traits::Zero, generic::Era};
 use parity_codec::{Encode, Decode, Compact, Input};
+use substrate_primitives::{Blake2Hasher, Hasher};
 
 
 pub struct OriginTransfer<Address, Balance> {
@@ -14,9 +15,10 @@ pub struct OriginTransfer<Address, Balance> {
 
 pub struct RelayTransfer<Address, Balance, Hash> {
     pub transfer: OriginTransfer<Address, Balance>,
-    pub number: Compact<u64>,
-    pub hash: Hash,
-    pub parent: Hash,
+    number: Compact<u64>,
+    hash: Hash,
+    block_hash: Hash,
+    parent: Hash,
     pub proof: Vec<u8>,
 }
 
@@ -149,7 +151,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
     where
         Address: Decode + Default + Clone,
         Balance: Decode + Zero + Clone,
-        Hash: Decode + Clone + Default
+        Hash: Decode + Clone + Default,
 {
     pub fn decode(data: Vec<u8>) -> Option<Self> {
         let mut input = data.as_slice();
@@ -184,7 +186,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
             return None;
         }
         // origin transfer
-        let origin_transfer: Vec<u8> = match Decode::decode(&mut input) {
+        let origin: Vec<u8> = match Decode::decode(&mut input) {
             Some(ot) => ot,
             None => return None
         };
@@ -209,11 +211,12 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
             None => return None
         };
         // decode origin transfer and build relay transfer
-        if let Some(ot) = OriginTransfer::decode(origin_transfer) {
+        if let Some(ot) = OriginTransfer::decode(origin.clone()) {
             return Some(RelayTransfer {
                 transfer: ot,
                 number,
-                hash: block_hash,
+                hash: Decode::decode(&mut Blake2Hasher::hash(origin.as_slice()).encode().as_slice()).unwrap(),
+                block_hash,
                 parent,
                 proof,
             });
@@ -230,6 +233,10 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         self.hash.clone()
     }
 
+    pub fn block_hash(&self) -> Hash {
+        self.block_hash.clone()
+    }
+
     pub fn parent(&self) -> Hash {
         self.parent.clone()
     }
@@ -237,6 +244,11 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
     pub fn sender(&self) -> Address {
         self.transfer.sender()
     }
+
+//    pub fn origin(&self) -> Vec<u8> {
+//        self.origin.clone()
+//    }
+
 }
 
 #[test]
