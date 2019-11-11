@@ -11,7 +11,7 @@ parity-codec = "3.5"
 parking_lot = "0.7.1"
 tokio = "0.1"
 pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
-srml-yee-pow = { path = "../../../srml/yee-pow" }
+yee-srml-pow = { path = "../../../srml/yee-pow" }
 client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

@@ -151,6 +151,9 @@ impl pow::Trait for Runtime {
 	type Currency = balances::Module<Self>;
 
 	type Reward = ();
+
+	type Event = Event;
+
 }
 
 impl consensus::Trait for Runtime {
@@ -196,6 +199,7 @@ impl balances::Trait for Runtime {
 	type TransferPayment = ();
 
     type Sharding = sharding::Module<Runtime>;
+	type OnFeeWithdrawn = pow::Module<Runtime>;
 }
 
 impl crfg::Trait for Runtime {
@@ -222,7 +226,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Pow: pow::{Module, Call, Storage, Config<T>, Inherent},
+		Pow: pow::{Module, Call, Storage, Config<T>, Inherent, Event<T>},
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
