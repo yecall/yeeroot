@@ -32,11 +32,11 @@ use {
         MakeFatalError, ProvideInherent, RuntimeString,
     },
     srml_support::{
-        decl_module, decl_storage,
+        decl_module, decl_storage, decl_event,
         Parameter,
         storage::StorageValue,
         traits::{
-            Currency, OnUnbalanced, Imbalance,
+            Currency, OnUnbalanced,
         }
     },
     primitives::{
@@ -60,9 +60,19 @@ pub trait Trait: system::Trait {
 
     /// Handler for the unbalanced increment when rewarding a staker.
     type Reward: OnUnbalanced<PositiveImbalanceOf<Self>>;
+
+    /// The overarching event type.
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
 }
 
-#[derive(Encode, Decode)]
+pub trait OnFeeWithdrawn<Amount> {
+
+    /// Handler for fee withdrawn
+    fn on_fee_withdrawn(amount: Amount);
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize))]
 pub struct RewardPlan<N, AccountId, Balance> {
     block_number: N,
@@ -90,51 +100,84 @@ decl_storage! {
 
         /// Storage for PowInfo for current block
         pub RewardPlans get(reward_plans): Vec<RewardPlan<T::BlockNumber, T::AccountId, BalanceOf<T>>>;
+
+        /// Storage for total fee for current block
+        pub TotalFee get(total_fee): BalanceOf<T>;
+
+        /// Storage for total fee for current block
+        pub CurrentPowInfo get(current_pow_info): Option<PowInfo<T::AccountId>>;
+
     }
 }
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
+        fn deposit_event<T>() = default;
+
         fn set_pow_info(origin, info: PowInfo<T::AccountId>) {
             ensure_inherent(origin)?;
 
-            let reward_condition = info.reward_condition;
-
-            let block_number = <system::Module<T>>::block_number();
-            let coinbase = info.coinbase.clone();
-            let block_reward = Self::block_reward();
-            let fee_reward = Default::default();
-
-            let new_reward_plan = RewardPlan{
-                block_number,
-                coinbase: coinbase.clone(),
-                block_reward,
-                fee_reward,
-            };
-
-            let reward_block_number = if block_number >= Self::block_reward_latency() {
-                block_number - Self::block_reward_latency()
-            } else{
-                Default::default()
-            };
-
-            <Self as Store>::RewardPlans::mutate(|orig| {
-                orig.push(new_reward_plan);
-
-                orig.retain(|x|{
-                    let reward = x.block_number <= reward_block_number;
-                    if reward{
-                        Self::reward(x, coinbase.clone(), reward_condition.clone());
-                    }
-                    !reward
-                });
-
+            <Self as Store>::CurrentPowInfo::mutate(|orig| {
+                *orig = Some(info);
             });
+
+        }
+
+        fn on_initialize(_block_number: T::BlockNumber) {
+
+            <Self as Store>::TotalFee::mutate(|orig| {
+                *orig = Default::default();
+            });
+        }
+
+        fn on_finalize(block_number: T::BlockNumber) {
+
+            if let Some(info) = Self::current_pow_info(){
+
+                let reward_condition = info.reward_condition;
+
+                let block_number = block_number;
+                let coinbase = info.coinbase.clone();
+                let block_reward = Self::block_reward();
+                let fee_reward = Self::total_fee();
+
+                let new_reward_plan = RewardPlan{
+                    block_number,
+                    coinbase: coinbase.clone(),
+                    block_reward,
+                    fee_reward,
+                };
+
+                let reward_block_number = if block_number > Self::block_reward_latency() {
+                    block_number - Self::block_reward_latency()
+                } else{
+                    Default::default()
+                };
+
+                <Self as Store>::RewardPlans::mutate(|orig| {
+                    orig.push(new_reward_plan.clone());
+
+                    orig.retain(|x|{
+                        let reward = x.block_number <= reward_block_number;
+                        if reward{
+                            Self::reward(x, coinbase.clone(), reward_condition.clone());
+                        }
+                        !reward
+                    });
+                });
+            }
+
         }
 
     }
 }
+
+decl_event!(
+	pub enum Event<T> where Balance = BalanceOf<T>, N = <T as system::Trait>::BlockNumber, <T as system::Trait>::AccountId {
+		Reward(RewardPlan<N, AccountId, Balance>),
+	}
+);
 
 impl<T: Trait> Module<T> {
 
@@ -146,6 +189,13 @@ impl<T: Trait> Module<T> {
         let reward_amount = reward_plan.block_reward + reward_plan.fee_reward;
         let imbalance = T::Currency::deposit_creating(reward_target, reward_amount);
         T::Reward::on_unbalanced(imbalance);
+
+        Self::deposit_event(RawEvent::Reward(RewardPlan{
+            block_number: reward_plan.block_number.clone(),
+            coinbase: reward_target.clone(),
+            block_reward: reward_plan.block_reward,
+            fee_reward: reward_plan.fee_reward,
+        }));
     }
 }
 
@@ -242,4 +292,16 @@ impl<T: Trait> ProvideInherent for Module<T> {
     fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
         Ok(())
     }
+}
+
+impl<T: Trait> OnFeeWithdrawn<BalanceOf<T>> for Module<T> {
+
+    fn on_fee_withdrawn(amount: BalanceOf<T>){
+
+        <Self as Store>::TotalFee::mutate(|orig| {
+            *orig = *orig + amount;
+        });
+
+    }
+
 }
