@@ -19,7 +19,7 @@ pub mod client;
 pub mod config;
 pub mod job_template;
 
-use crate::job_template::{Hash, DifficultyType};
+use crate::job_template::{Hash, PowTarget};
 
 pub mod worker;
 pub mod miner;
@@ -39,7 +39,7 @@ use runtime_primitives::traits::BlakeTwo256;
 #[derive(Debug)]
 pub struct Work {
     pub raw_hash: Hash,
-    pub difficulty: DifficultyType,
+    pub pow_target: PowTarget,
     /// Extra Data used to encode miner info AND more entropy
     pub extra_data: Vec<u8>,
     /// merkle root of multi-mining headers
