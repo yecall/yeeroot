@@ -30,15 +30,15 @@ use {
 /// `ConsensusEngineId` of Yee POW consensus.
 pub const YEE_POW_ENGINE_ID: ConsensusEngineId = [b'Y', b'e', b'e', b'!'];
 
-pub type DifficultyType = primitives::U256;
+pub type PowTarget = primitives::U256;
 
 decl_runtime_apis! {
     pub trait YeePOWApi {
-        /// POW difficulty config used for genesis block
-        fn genesis_difficulty() -> DifficultyType;
+        /// POW target config used for genesis block
+        fn genesis_pow_target() -> PowTarget;
 
-        /// In-Chain config for Difficulty Adjust period
-        fn difficulty_adj() -> NumberFor<Block>;
+        /// In-Chain config for POW target adjust period
+        fn pow_target_adj() -> NumberFor<Block>;
 
         /// Target block time in seconds
         fn target_block_time() -> u64;

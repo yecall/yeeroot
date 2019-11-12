@@ -20,7 +20,7 @@ use crate::Work;
 use crate::WorkMap;
 use std::thread;
 use log::{info, error, debug};
-use crate::job_template::{JobTemplate, DifficultyType};
+use crate::job_template::{JobTemplate, PowTarget};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
 use std::time;
@@ -55,7 +55,7 @@ pub struct Gateway {
 impl Gateway {
     pub fn new(client: Client, new_work_tx: Sender<WorkMap>, map: Config) -> Gateway {
         let job = JobTemplate {
-            difficulty: DifficultyType::from(0x00000000),
+            pow_target: PowTarget::from(0x00000000),
             raw_hash: blake2_256("".as_bytes()).into(),
             url: "".to_string(),
         };
@@ -164,7 +164,7 @@ impl Gateway {
                 let compact_proof: CompactMerkleProof<BlakeTwo256> = ori_proof.into();
                 let w = Work {
                     raw_hash: value.raw_hash,
-                    difficulty: value.difficulty,
+                    pow_target: value.pow_target,
                     extra_data: extra_data.clone(),
                     merkle_root: merkle_root,
                     merkle_proof: compact_proof.proof,

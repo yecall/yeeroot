@@ -20,7 +20,7 @@ pub mod primitives;
 use substrate_service::{ServiceFactory, ComponentClient, FullComponents, Components};
 use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
                         WorkProof as DefaultWorkProof, ProofNonce as DefaultProofNonce, ProofMulti as DefaultProofMulti};
-use yee_consensus_pow_primitives::DifficultyType;
+use yee_consensus_pow_primitives::PowTarget;
 use parking_lot::RwLock;
 use yee_runtime::opaque::Block;
 use std::sync::Arc;
