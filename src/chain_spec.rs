@@ -138,7 +138,7 @@ fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
 fn testnet_template_genesis(
     endowed_accounts: Vec<AccountId>,
     code: Vec<u8>,
-    genesis_difficulty: primitives::U256,
+    genesis_pow_target: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
 
@@ -157,8 +157,8 @@ fn testnet_template_genesis(
 			minimum_period: 0, // 10 second block time.
 		}),
         pow: Some(PowConfig {
-            genesis_difficulty,
-            difficulty_adj: 60_u64.into(),
+            genesis_pow_target,
+            pow_target_adj: 60_u64.into(),
             target_block_time: target_block_time.into(),
 	        block_reward: 5000000000,
 	        block_reward_latency: block_reward_latency.into(),

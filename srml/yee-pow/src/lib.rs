@@ -52,8 +52,8 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Ac
 type PositiveImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::PositiveImbalance;
 
 pub trait Trait: system::Trait {
-    /// Type used for block difficulty
-    type Difficulty: Parameter + Default;
+    /// Type used for pow target
+    type PowTarget: Parameter + Default;
 
     /// The reward balance.
     type Currency: Currency<Self::AccountId>;
@@ -83,11 +83,11 @@ pub struct RewardPlan<N, AccountId, Balance> {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Pow {
-        /// Block POW Difficulty
-        pub GenesisDifficulty get(genesis_difficulty) config(): T::Difficulty;
+        /// Genesis POW target
+        pub GenesisPowTarget get(genesis_pow_target) config(): T::PowTarget;
 
-        /// Difficulty adjust period in block number
-        pub DifficultyAdj get(difficulty_adj) config(): T::BlockNumber;
+        /// POW target adjust period in block number
+        pub PowTargetAdj get(pow_target_adj) config(): T::BlockNumber;
 
         /// Target block time in seconds
         pub TargetBlockTime get(target_block_time) config(): u64;

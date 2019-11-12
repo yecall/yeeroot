@@ -17,7 +17,7 @@
 
 use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
                         WorkProof as DefaultWorkProof, ProofNonce as DefaultProofNonce, ProofMulti as DefaultProofMulti};
-use yee_consensus_pow_primitives::DifficultyType;
+use yee_consensus_pow_primitives::PowTarget;
 use runtime_primitives::traits::{Block as BlockT, ProvideRuntimeApi};
 use parity_codec::{Decode, Encode};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
@@ -42,7 +42,7 @@ pub struct JobResult<Hash> where
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct DigestItem<Hash, AuthorityId> {
     pub authority_id: AuthorityId,
-    pub difficulty: DifficultyType,
+    pub pow_target: PowTarget,
     #[serde(with = "SerdeHex")]
     pub timestamp: u64,
     pub work_proof: WorkProof<Hash>,
@@ -98,7 +98,7 @@ impl<B, AuthorityId> From<PowSeal<B, AuthorityId>> for DigestItem<B::Hash, Autho
     fn from(ps: PowSeal<B, AuthorityId>) -> Self {
         Self {
             authority_id: ps.authority_id,
-            difficulty: ps.difficulty,
+            pow_target: ps.pow_target,
             timestamp: ps.timestamp,
             work_proof: ps.work_proof.into(),
         }

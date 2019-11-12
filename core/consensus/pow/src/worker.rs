@@ -133,9 +133,9 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
             let header_num = header.number().clone();
             let header_pre_hash = header.hash();
             let digest_item = job.digest_item;
-            let difficulty = digest_item.difficulty;
+            let pow_target = digest_item.pow_target;
 
-            info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
+            info!("block template {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
 
             // TODO: remove hardcoded
             const PREFIX: &str = "yeeroot-";
