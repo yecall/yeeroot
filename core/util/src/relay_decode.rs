@@ -3,7 +3,6 @@ use primitives::{traits::Zero, generic::Era};
 use parity_codec::{Encode, Decode, Compact, Input};
 use substrate_primitives::{Blake2Hasher, Hasher};
 
-
 pub struct OriginTransfer<Address, Balance> {
     pub sender: Address,
     pub signature: Vec<u8>,

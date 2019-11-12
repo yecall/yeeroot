@@ -35,8 +35,24 @@ use {
             Block, Header,
             AuthorityIdFor, Digest, DigestItemFor,
             BlakeTwo256,
+            ProvideRuntimeApi,
         },
     },
+    substrate_service::{
+        ServiceFactory,
+        FactoryBlock,
+    },
+    client::{
+        self,
+        BlockchainEvents,
+        ChainHead,
+        blockchain::HeaderBackend,
+        BlockBody,
+    },
+    yee_sharding_primitives::ShardingAPI,
+    util::relay_decode::RelayTransfer,
+    foreign_chain::{ForeignChain},
+    foreign_chain_interface::foreign_chains::ForeignChains,
 };
 use super::CompatibleDigestItem;
 use crate::pow::check_proof;
@@ -46,20 +62,30 @@ use merkle_light::merkle::MerkleTree;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
 use log::{debug, warn};
+use parking_lot::RwLock;
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C, AuthorityId> {
+pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
+    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
     pub phantom: PhantomData<AuthorityId>,
 }
 
 #[forbid(deprecated)]
-impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
+impl<F, B, C, AuthorityId> Verifier<B> for PowVerifier<F, C, AuthorityId> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
     C: Send + Sync,
     AuthorityId: Decode + Encode + Clone + Send + Sync,
+    F: ServiceFactory + Send + Sync,
+    <F as ServiceFactory>::Configuration: Send + Sync,
+    C : ProvideRuntimeApi,
+    C : HeaderBackend<<F as ServiceFactory>::Block>,
+    C : BlockBody<<F as ServiceFactory>::Block>,
+    C : BlockchainEvents<<F as ServiceFactory>::Block>,
+    C : ChainHead<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
 {
     fn verify(
         &self,
@@ -80,6 +106,8 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
         )?;
 
         // TODO: verify body
+
+        // check proof.
         let mut validate_proof = false;
         if let Some(proof) = proof.clone() {
             if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
@@ -96,6 +124,14 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
             return Err("Proof validate failed.".to_string());
         } else{
             debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
+        }
+        if body.is_some() {
+            let exs = body.clone().unwrap();
+            // check relay extrinsic.
+//            let check_relay = self.check_relay_extrinsic(exs);
+//            if check_relay.is_err() {
+//                return Err(check_relay.err().unwrap());
+//            }
         }
 
         let import_block = ImportBlock {
@@ -136,4 +172,34 @@ fn check_header<B, AccountId>(
     check_proof(&header, &seal)?;
 
     Ok((header, digest_item))
+}
+
+impl<F, B, C, AuthorityId> CheckRelay<B> for PowVerifier<F, C, AuthorityId> where
+    B: Block,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
+    C: Send + Sync,
+    AuthorityId: Decode + Encode + Clone + Send + Sync,
+    F: ServiceFactory,
+    C : ProvideRuntimeApi,
+    C : HeaderBackend<<F as ServiceFactory>::Block>,
+    C : BlockBody<<F as ServiceFactory>::Block>,
+    C : BlockchainEvents<<F as ServiceFactory>::Block>,
+    C : ChainHead<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,{
+    fn check_relay_extrinsic(&self, body: Vec<<B as Block>::Extrinsic>) -> Result<(), String> {
+        // todo
+        for tx in body {
+//            let rt = RelayTransfer::decode(tx.encode());
+//            if rt.is_some() {
+//                let rt = rt.unwrap();
+//                let h = rt.hash();
+//            }
+        }
+
+        Ok(())
+    }
+}
+
+trait CheckRelay<B> where B: Block {
+    fn check_relay_extrinsic(&self, body: Vec<<B as Block>::Extrinsic>) -> Result<(), String>;
 }

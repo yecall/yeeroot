@@ -26,8 +26,8 @@ use std::net::{Ipv4Addr, SocketAddr, IpAddr};
 use log::info;
 use network::multiaddr::Protocol;
 
-pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &mut YeeCliConfig) -> error::Result<()>
-    where F: ServiceFactory<Configuration=NodeConfig<F>> {
+pub fn process_dev_param<F, C>(config: &mut FactoryFullConfiguration<F>, custom_args: &mut YeeCliConfig) -> error::Result<()>
+    where F: ServiceFactory<Configuration=NodeConfig<F, C>> {
 
     let chain_spec_id = config.chain_spec.id();
 

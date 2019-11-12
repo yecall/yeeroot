@@ -55,6 +55,8 @@ use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
+use foreign_chain_interface::foreign_chains::ForeignChains;
+use parking_lot::RwLock;
 
 const MAX_BLOCK_INTERVAL:u64 = 2;   // TODO
 
@@ -62,7 +64,7 @@ pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
     foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
-    foreign_chains: Arc<ForeignChain<F, C>>,
+    foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
     pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
     where F: ServiceFactory + Send + Sync,
@@ -141,7 +143,7 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
                 let mut number: u64 = info.best_number.into();
                 if number > MAX_BLOCK_INTERVAL {
-                    if let Some(chain) = foreign_chains.get_shard_component(shard_num) {
+                    if let Some(chain) = foreign_chains.read().as_ref().unwrap().get_shard_component(shard_num) {
                         number -= MAX_BLOCK_INTERVAL;
                         let block_id = BlockId::number(number.into());
                         let spv_header = chain.client().header(&block_id).unwrap().unwrap();

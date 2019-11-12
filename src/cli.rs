@@ -4,7 +4,7 @@ use std::cell::RefCell;
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 use substrate_cli::{informant, parse_and_execute};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles, FullClient};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
@@ -30,9 +30,9 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 			info!("Node name: {}", config.name);
 			info!("Roles: {:?}", config.roles);
 
-			process_dev_param::<service::Factory>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
+			process_dev_param::<service::Factory, FullClient<service::Factory>>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
 
-			process_custom_args::<service::Factory>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
+			process_custom_args::<service::Factory, FullClient<service::Factory>>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
 
 			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 			let executor = runtime.executor();

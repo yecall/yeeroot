@@ -52,8 +52,8 @@ use {
 use super::NodeConfig;
 use yee_sharding::ShardingDigestItem;
 
-pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
-    node_config: &NodeConfig<F>,
+pub fn prepare_sharding<F, C, FC, B, AuthorityId, SealSignature>(
+    node_config: &NodeConfig<F, FC>,
     client: Arc<C>,
     backend: Arc<B>,
 ) -> Result<(), substrate_service::Error> where

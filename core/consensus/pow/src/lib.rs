@@ -27,6 +27,8 @@ use {
     client::{
         ChainHead,
         blockchain::HeaderBackend,
+        BlockBody,
+        BlockchainEvents,
     },
     consensus_common::{
         BlockImport, Environment, Proposer, SyncOracle,
@@ -47,6 +49,8 @@ use {
             ProvideRuntimeApi,
         },
     },
+    foreign_chain::{ForeignChain},
+    yee_sharding_primitives::ShardingAPI,
 };
 use {
     pow_primitives::YeePOWApi,
@@ -58,6 +62,7 @@ pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::ShardingDigestItem;
 use primitives::H256;
+use substrate_service::ServiceFactory;
 
 mod job;
 mod digest;
@@ -128,15 +133,23 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
 pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Start import queue for POW consensus
-pub fn import_queue<B, C, AuthorityId>(
+pub fn import_queue<F, B, C, AuthorityId>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
+    foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
+    F: ServiceFactory + Send + Sync,
+    <F as ServiceFactory>::Configuration: Send + Sync,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
-    C: 'static + Send + Sync,
+    C: ProvideRuntimeApi + 'static + Send + Sync,
+    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: BlockBody<<F as ServiceFactory>::Block>,
+    C: BlockchainEvents<<F as ServiceFactory>::Block>,
+    C: ChainHead<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {
     register_inherent_data_provider(&inherent_data_providers)?;
@@ -145,6 +158,7 @@ pub fn import_queue<B, C, AuthorityId>(
         verifier::PowVerifier {
             client,
             inherent_data_providers,
+            foreign_chains,
             phantom: PhantomData,
         }
     );
