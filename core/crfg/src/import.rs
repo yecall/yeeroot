@@ -423,8 +423,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		let hash = block.post_header().hash();
 		let number = block.header.number().clone();
 
-		debug!(target: "finality", "Import block \n number: {}, hash: {},\n origin: {:?}, is finalized: {}, fork choice: {:?},\n body: {:#?}",
-			   number, hash, block.origin, block.finalized, block.fork_choice, block.body);
+		debug!(target: "afg", "Import block, number: {}, hash: {}, origin: {:?}",
+			   number, hash, block.origin);
 
 		// early exit if block already in chain, otherwise the check for
 		// authority changes will error when trying to re-import a change block
@@ -504,7 +504,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		match justification {
 			Some(justification) => {
 				self.import_justification(hash, number, justification, needs_justification).unwrap_or_else(|err| {
-					debug!(target: "finality", "Imported block #{} that enacts authority set change with \
+					debug!(target: "afg", "Imported block #{} that enacts authority set change with \
 						invalid justification: {:?}, requesting justification from peers.", number, err);
 					imported_aux.bad_justification = true;
 					imported_aux.needs_justification = true;
@@ -513,7 +513,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			None => {
 				if needs_justification {
 					trace!(
-						target: "finality",
+						target: "afg",
 						"Imported unjustified block #{} that enacts authority set change, waiting for finality for enactment.",
 						number,
 					);
@@ -601,7 +601,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		match result {
 			Err(CommandOrError::VoterCommand(command)) => {
-				info!(target: "finality", "Imported justification for block #{} that triggers \
+				info!(target: "afg", "Imported justification for block #{} that triggers \
 					command {}, signaling voter.", number, command);
 
 				if let Err(e) = self.send_voter_commands.unbounded_send(command) {

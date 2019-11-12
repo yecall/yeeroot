@@ -159,7 +159,7 @@ fn testnet_template_genesis(
 			//get_authority_keys_from_seed("Dave"),
 		];
     let authors: Vec<(AuthorityId, u64)> = initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect();
-	debug!("Authorities initial list with weight:{:#?}", authors);
+	debug!("Initial authority set with weight:{:#?}", authors);
 
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {

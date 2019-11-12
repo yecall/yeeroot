@@ -289,7 +289,7 @@ pub(crate) fn checked_message_stream<Block: BlockT, S>(
 
 					match &msg.message.message {
 						Prevote(prevote) => {
-							debug!(target: "afg", "received_prevote-- voter: {}, target_number: {}, target_hash: {}", msg.message.id, prevote.target_number, prevote.target_hash);
+							debug!(target: "afg", "Received prevote, voter: {}, target_number: {}, target_hash: {}", msg.message.id, prevote.target_number, prevote.target_hash);
 							telemetry!(CONSENSUS_INFO; "afg.received_prevote";
 								"voter" => ?format!("{}", msg.message.id),
 								"target_number" => ?prevote.target_number,
@@ -297,7 +297,7 @@ pub(crate) fn checked_message_stream<Block: BlockT, S>(
 							);
 						},
 						Precommit(precommit) => {
-							debug!(target: "afg", "received_precommit-- voter: {}, target_number: {}, target_hash: {}", msg.message.id, precommit.target_number, precommit.target_hash);
+							debug!(target: "afg", "received precommit, voter: {}, target_number: {}, target_hash: {}", msg.message.id, precommit.target_number, precommit.target_hash);
 							telemetry!(CONSENSUS_INFO; "afg.received_precommit";
 								"voter" => ?format!("{}", msg.message.id),
 								"target_number" => ?precommit.target_number,
