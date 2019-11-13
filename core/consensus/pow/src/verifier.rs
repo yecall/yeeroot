@@ -52,7 +52,7 @@ use {
     yee_sharding_primitives::ShardingAPI,
     util::relay_decode::RelayTransfer,
     foreign_chain::{ForeignChain},
-    foreign_chain_interface::foreign_chains::ForeignChains,
+    yee_runtime::{AccountId, BalancesCall},
 };
 use super::CompatibleDigestItem;
 use crate::pow::check_proof;
@@ -63,6 +63,8 @@ use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
 use log::{debug, warn};
 use parking_lot::RwLock;
+use primitives::H256;
+use yee_runtime::BlockId;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
@@ -86,6 +88,7 @@ impl<F, B, C, AuthorityId> Verifier<B> for PowVerifier<F, C, AuthorityId> where
     C : BlockchainEvents<<F as ServiceFactory>::Block>,
     C : ChainHead<<F as ServiceFactory>::Block>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    H256: From<<B as Block>::Hash>,
 {
     fn verify(
         &self,
@@ -119,19 +122,55 @@ impl<F, B, C, AuthorityId> Verifier<B> for PowVerifier<F, C, AuthorityId> where
                 }
             }
         }
-        if !validate_proof{
+        if !validate_proof {
             warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
             return Err("Proof validate failed.".to_string());
-        } else{
+        } else {
             debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
         }
+        let foreign_chains = self.foreign_chains.clone();
+        let client = self.client.clone();
         if body.is_some() {
+            let check_relay_extrinsic = move |exs: Vec<<B as Block>::Extrinsic>| -> Result<(), String> {
+                let err = Err("Block contains invalid extrinsic.".to_string());
+                let api = client.runtime_api();
+                let hash: <<F as ServiceFactory>::Block as Block>::Hash = hash.clone().into();
+                let block_id = BlockId::hash(hash);
+                let tc = api.get_shard_count(&block_id).unwrap();    // total count
+                let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
+
+                for tx in exs {
+                    let rt = RelayTransfer::decode(tx.encode());
+                    if rt.is_some() {
+                        let rt: RelayTransfer<AccountId, u128, <B as Block>::Hash> = rt.unwrap();
+                        let h = rt.hash();
+                        let id = BlockId::hash(h);
+                        let src = rt.transfer.sender();
+                        if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(src, tc as u16) {
+                            if let Some(lc) = foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
+                                let proof = lc.client().proof(&id);
+                                if proof.is_err() {
+                                    return err;
+                                }
+                                let proof = proof.unwrap();
+
+
+                                continue;
+                            }
+                        }
+                        panic!("Internal error. Get shard num or component failed.");
+                    }
+                }
+
+                Ok(())
+            };
+
             let exs = body.clone().unwrap();
             // check relay extrinsic.
-//            let check_relay = self.check_relay_extrinsic(exs);
-//            if check_relay.is_err() {
-//                return Err(check_relay.err().unwrap());
-//            }
+            let check_relay : Result<(), String> = check_relay_extrinsic(exs);
+            if check_relay.is_err() {
+                return Err(check_relay.err().unwrap());
+            }
         }
 
         let import_block = ImportBlock {
@@ -174,32 +213,31 @@ fn check_header<B, AccountId>(
     Ok((header, digest_item))
 }
 
-impl<F, B, C, AuthorityId> CheckRelay<B> for PowVerifier<F, C, AuthorityId> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
-    C: Send + Sync,
-    AuthorityId: Decode + Encode + Clone + Send + Sync,
-    F: ServiceFactory,
-    C : ProvideRuntimeApi,
-    C : HeaderBackend<<F as ServiceFactory>::Block>,
-    C : BlockBody<<F as ServiceFactory>::Block>,
-    C : BlockchainEvents<<F as ServiceFactory>::Block>,
-    C : ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,{
-    fn check_relay_extrinsic(&self, body: Vec<<B as Block>::Extrinsic>) -> Result<(), String> {
-        // todo
-        for tx in body {
-//            let rt = RelayTransfer::decode(tx.encode());
-//            if rt.is_some() {
-//                let rt = rt.unwrap();
-//                let h = rt.hash();
-//            }
-        }
-
-        Ok(())
-    }
-}
-
-trait CheckRelay<B> where B: Block {
-    fn check_relay_extrinsic(&self, body: Vec<<B as Block>::Extrinsic>) -> Result<(), String>;
-}
+//impl<F, C, AuthorityId> PowVerifier<F, C, AuthorityId> where
+//    DigestItemFor<<F as ServiceFactory>::Block>: CompatibleDigestItem<<F as ServiceFactory>::Block, AuthorityId> + ShardingDigestItem<u16>,
+//    C: Send + Sync,
+//    AuthorityId: Decode + Encode + Clone + Send + Sync,
+//    F: ServiceFactory,
+//    C : ProvideRuntimeApi,
+//    C : HeaderBackend<<F as ServiceFactory>::Block>,
+//    C : BlockBody<<F as ServiceFactory>::Block>,
+//    C : BlockchainEvents<<F as ServiceFactory>::Block>,
+//    C : ChainHead<<F as ServiceFactory>::Block>,
+//    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,{
+//    fn check_relay_extrinsic(&self, body: Vec<<<F as ServiceFactory>::Block as Block>::Extrinsic>) -> Result<(), String> {
+//        // todo
+//        for tx in body {
+////            let rt = RelayTransfer::decode(tx.encode());
+////            if rt.is_some() {
+////                let rt = rt.unwrap();
+////                let h = rt.hash();
+////            }
+//        }
+//
+//        Ok(())
+//    }
+//}
+//
+//trait CheckRelay<B> where B: Block {
+//    fn check_relay_extrinsic(&self, body: Vec<<B as Block>::Extrinsic>) -> Result<(), String>;
+//}

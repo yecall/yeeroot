@@ -141,6 +141,7 @@ pub fn import_queue<F, B, C, AuthorityId>(
     foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
+    H256: From<<B as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: Send + Sync,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,

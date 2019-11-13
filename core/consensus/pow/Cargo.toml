@@ -24,7 +24,6 @@ merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "zz
 yee-sharding = { package = "yee-sharding", path = "../../sharding" }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
 foreign_chain = { package = "yee-foreign-chain", path = "../../../foreign/chain" }
-foreign_chain_interface = { package = "foreign-chain-interface", path = "../../../foreign/chain/interface" }
 yee-merkle = { path = "../../merkle" }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
