@@ -116,7 +116,6 @@ mod tests;
 
 const CRFG_ENGINE_ID: runtime_primitives::ConsensusEngineId = [b'a', b'f', b'g', b'1'];
 const MESSAGE_ROUND_TOLERANCE: u64 = 2;
-const CRFG_VOTE_DELAY_BEST: u64 = 6;
 
 /// A CRFG message for a substrate chain.
 pub type Message<Block> = grandpa::Message<<Block as BlockT>::Hash, NumberFor<Block>>;
@@ -878,16 +877,10 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 			Err(e) => return future::Either::B(future::err(Error::Client(e))),
 		};
 
-		let distance = chain_info.chain.best_number - chain_info.chain.finalized_number;
 		let poll_voter = future::poll_fn(move || match maybe_voter {
 			Some(ref mut voter) => {
-				if distance.as_() > CRFG_VOTE_DELAY_BEST {
-					debug!(target: "afg", "New voter poll");
-					voter.poll()
-				}
-				else{
-					Ok(Async::NotReady)
-				}
+				debug!(target: "afg", "New voter poll");
+				voter.poll()
 			},
 			None => Ok(Async::NotReady),
 		});
