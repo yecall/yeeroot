@@ -32,7 +32,7 @@ pub use crfg_primitives as fg_primitives;
 
 #[cfg(feature = "std")]
 use serde::Serialize;
-use rstd::prelude::*;
+use rstd::{prelude::*, vec};
 use parity_codec as codec;
 use codec::{Encode, Decode};
 use fg_primitives::ScheduledChange;
@@ -54,8 +54,8 @@ use inherents::{
 mod mock;
 mod tests;
 
-pub const AUTHORS_MAX_LEN: usize = 7;
-pub const BLOCK_INTERVAL: u64 = 7;
+pub const BLOCK_INTERVAL: u64 = 6;
+pub const AUTHORS_MAX_LEN: usize = 6;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
 //pub type InherentType = AuthorityId;
 
@@ -228,6 +228,8 @@ decl_storage! {
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
 		// next block number where we can force a change.
 		NextForced get(next_forced): Option<T::BlockNumber>;
+
+		AuthoritiesCache get(authors_cache) build(|_| vec![]): Vec<(T::SessionKey, u64)>;
 	}
 	add_extra_genesis {
 		config(authorities): Vec<(T::SessionKey, u64)>;
@@ -257,24 +259,40 @@ decl_module! {
         fn update_authorities(origin, info: <T as Trait>::SessionKey){//replace schedule_change function
 			use primitives::traits::{Zero, As};
 
+			let mut authors_cache = Self::authors_cache();
+			let mut authors = <Module<T>>::crfg_authorities();
+			if authors_cache.len() == 0 {
+				authors_cache = authors.clone();
+			}
+
 			let scheduled_at = system::ChainContext::<T>::default().current_height();
-			let mut authorities = <Module<T>>::crfg_authorities();
-			if(scheduled_at < T::BlockNumber::sa(BLOCK_INTERVAL)){
-				authorities.push((info, 1));
-				<AuthorityStorageVec<T::SessionKey>>::set_items(authorities.clone());
+			if(scheduled_at <= T::BlockNumber::sa(BLOCK_INTERVAL)){
+				authors_cache.push((info, 1));
+				<AuthoritiesCache<T>>::put(authors_cache);
 				return Err("Insufficient block interval to current height for signal forced change.");
 			}
+			println!("afg, before update: block={}, authorities={:?}, authorities cache={:?}", scheduled_at, authors, authors_cache);
 
-			if authorities.len() >= AUTHORS_MAX_LEN {
-				authorities.remove(0);
+			let block_interval: usize = BLOCK_INTERVAL.as_();
+			let authors_cache_len = AUTHORS_MAX_LEN + block_interval;
+			while authors_cache.len() >= authors_cache_len {
+				authors_cache.remove(0);
 			}
-			authorities.push((info, 1));
 
-			let delay = T::BlockNumber::sa(0);
+			authors_cache.push((info, 1));
+			<AuthoritiesCache<T>>::put(authors_cache.clone());
+
+			authors.clear();
+			let cache = authors_cache.clone();//just for debug
+			while authors_cache.len() > block_interval {
+				authors.push(authors_cache.remove(0));
+			}
+			println!("afg, after update: block={}, authorities={:?}, authorities cache={:?}", scheduled_at, authors, cache);
+
 			<PendingChange<T>>::put(StoredPendingChange {
-				delay,
+				delay: T::BlockNumber::sa(0),
 				scheduled_at,
-				next_authorities: authorities,
+				next_authorities: authors,
 				forced: None,
 			});
         }
