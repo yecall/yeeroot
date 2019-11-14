@@ -103,4 +103,15 @@ impl MultiLayerProof {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ()> {
         Decode::decode(&mut &bytes[..]).ok_or(())
     }
+
+    pub fn contains(&self, shard: u16, hash: ProofHash<BlakeTwo256>) -> bool {
+        for (num ,tr) in &self.layer1_merkles {
+            if *num == shard {
+                if tr.is_some() {
+                    return tr.as_ref().unwrap().contains(hash);
+                }
+            }
+        }
+        return false;
+    }
 }

@@ -154,9 +154,19 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
                                     return err;
                                 }
                                 let proof = proof.unwrap();
-
-
-                                continue;
+                                if proof.is_none() {
+                                    return err;
+                                }
+                                let proof = proof.unwrap();
+                                let proof =  MultiLayerProof::from_bytes(proof.as_slice());
+                                if proof.is_err() {
+                                    return err;
+                                }
+                                let proof = proof.unwrap();
+                                if proof.contains(ds, h){
+                                    continue;
+                                }
+                                return err;
                             }
                         }
                         panic!("Internal error. Get shard num or component failed.");
