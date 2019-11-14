@@ -31,6 +31,7 @@ use {
         codec::{Decode, Encode},
         Justification,
         Proof,
+        generic,
         traits::{
             Block, Header,
             AuthorityIdFor, Digest, DigestItemFor,
@@ -51,7 +52,7 @@ use {
     },
     yee_sharding_primitives::ShardingAPI,
     util::relay_decode::RelayTransfer,
-    foreign_chain::{ForeignChain},
+    foreign_chain::{ForeignChain, ForeignChainConfig},
     yee_runtime::{AccountId, BalancesCall},
 };
 use super::CompatibleDigestItem;
@@ -75,35 +76,35 @@ pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
 }
 
 #[forbid(deprecated)]
-impl<F, B, C, AuthorityId> Verifier<B> for PowVerifier<F, C, AuthorityId> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
+impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> where
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16>,
     C: Send + Sync,
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
-    <F as ServiceFactory>::Configuration: Send + Sync,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
     C : ProvideRuntimeApi,
     C : HeaderBackend<<F as ServiceFactory>::Block>,
     C : BlockBody<<F as ServiceFactory>::Block>,
     C : BlockchainEvents<<F as ServiceFactory>::Block>,
     C : ChainHead<<F as ServiceFactory>::Block>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
-    H256: From<<B as Block>::Hash>,
+    H256: From<<F::Block as Block>::Hash>,
+    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
     fn verify(
         &self,
         origin: BlockOrigin,
-        header: <B as Block>::Header,
+        header: <F::Block as Block>::Header,
         justification: Option<Justification>,
         proof: Option<Proof>,
-        body: Option<Vec<<B as Block>::Extrinsic>>,
-    ) -> Result<(ImportBlock<B>, Option<Vec<AuthorityIdFor<B>>>), String> {
+        body: Option<Vec<<F::Block as Block>::Extrinsic>>,
+    ) -> Result<(ImportBlock<F::Block>, Option<Vec<AuthorityIdFor<F::Block>>>), String> {
         let number = header.number().clone();
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<B, AuthorityId>(
+        let (pre_header, seal) = check_header::<F::Block, AuthorityId>(
             header,
             hash.clone(),
         )?;
@@ -131,22 +132,22 @@ impl<F, B, C, AuthorityId> Verifier<B> for PowVerifier<F, C, AuthorityId> where
         let foreign_chains = self.foreign_chains.clone();
         let client = self.client.clone();
         if body.is_some() {
-            let check_relay_extrinsic = move |exs: Vec<<B as Block>::Extrinsic>| -> Result<(), String> {
+            let check_relay_extrinsic = move |exs: Vec<<F::Block as Block>::Extrinsic>| -> Result<(), String> {
                 let err = Err("Block contains invalid extrinsic.".to_string());
                 let api = client.runtime_api();
-                let hash: <<F as ServiceFactory>::Block as Block>::Hash = hash.clone().into();
-                let block_id = BlockId::hash(hash);
+                let hash = hash.clone();
+                let block_id = generic::BlockId::hash(hash);
                 let tc = api.get_shard_count(&block_id).unwrap();    // total count
                 let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
 
                 for tx in exs {
                     let rt = RelayTransfer::decode(tx.encode());
                     if rt.is_some() {
-                        let rt: RelayTransfer<AccountId, u128, <B as Block>::Hash> = rt.unwrap();
+                        let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
                         let h = rt.hash();
-                        let id = BlockId::hash(h);
+                        let id = generic::BlockId::hash(h);
                         let src = rt.transfer.sender();
-                        if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(src, tc as u16) {
+                        if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16) {
                             if let Some(lc) = foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
                                 let proof = lc.client().proof(&id);
                                 if proof.is_err() {
@@ -212,32 +213,3 @@ fn check_header<B, AccountId>(
 
     Ok((header, digest_item))
 }
-
-//impl<F, C, AuthorityId> PowVerifier<F, C, AuthorityId> where
-//    DigestItemFor<<F as ServiceFactory>::Block>: CompatibleDigestItem<<F as ServiceFactory>::Block, AuthorityId> + ShardingDigestItem<u16>,
-//    C: Send + Sync,
-//    AuthorityId: Decode + Encode + Clone + Send + Sync,
-//    F: ServiceFactory,
-//    C : ProvideRuntimeApi,
-//    C : HeaderBackend<<F as ServiceFactory>::Block>,
-//    C : BlockBody<<F as ServiceFactory>::Block>,
-//    C : BlockchainEvents<<F as ServiceFactory>::Block>,
-//    C : ChainHead<<F as ServiceFactory>::Block>,
-//    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,{
-//    fn check_relay_extrinsic(&self, body: Vec<<<F as ServiceFactory>::Block as Block>::Extrinsic>) -> Result<(), String> {
-//        // todo
-//        for tx in body {
-////            let rt = RelayTransfer::decode(tx.encode());
-////            if rt.is_some() {
-////                let rt = rt.unwrap();
-////                let h = rt.hash();
-////            }
-//        }
-//
-//        Ok(())
-//    }
-//}
-//
-//trait CheckRelay<B> where B: Block {
-//    fn check_relay_extrinsic(&self, body: Vec<<B as Block>::Extrinsic>) -> Result<(), String>;
-//}

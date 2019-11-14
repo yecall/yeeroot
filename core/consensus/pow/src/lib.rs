@@ -49,7 +49,7 @@ use {
             ProvideRuntimeApi,
         },
     },
-    foreign_chain::{ForeignChain},
+    foreign_chain::{ForeignChain, ForeignChainConfig},
     yee_sharding_primitives::ShardingAPI,
 };
 use {
@@ -133,18 +133,17 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
 pub type PowImportQueue<B> = BasicQueue<B>;
 
 /// Start import queue for POW consensus
-pub fn import_queue<F, B, C, AuthorityId>(
-    block_import: SharedBlockImport<B>,
-    justification_import: Option<SharedJustificationImport<B>>,
+pub fn import_queue<F, C, AuthorityId>(
+    block_import: SharedBlockImport<F::Block>,
+    justification_import: Option<SharedJustificationImport<F::Block>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
-) -> Result<PowImportQueue<B>, consensus_common::Error> where
-    B: Block,
-    H256: From<<B as Block>::Hash>,
+) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
+    H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
-    <F as ServiceFactory>::Configuration: Send + Sync,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16>,
     C: ProvideRuntimeApi + 'static + Send + Sync,
     C: HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,
@@ -152,6 +151,7 @@ pub fn import_queue<F, B, C, AuthorityId>(
     C: ChainHead<<F as ServiceFactory>::Block>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
+    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
     register_inherent_data_provider(&inherent_data_providers)?;
 
@@ -163,7 +163,7 @@ pub fn import_queue<F, B, C, AuthorityId>(
             phantom: PhantomData,
         }
     );
-    Ok(BasicQueue::new(verifier, block_import, justification_import))
+    Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import))
 }
 
 pub fn register_inherent_data_provider(

@@ -267,7 +267,7 @@ construct_service_factory! {
                     config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
                     let foreign_chain = config.custom.foreign_chains.read().as_ref().unwrap();
-                    import_queue::<Self, Self::Block, _, <Pair as PairT>::Public>(
+                    import_queue::<Self, _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
                         client,
@@ -279,7 +279,7 @@ construct_service_factory! {
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
                     prepare_sharding::<Self, _, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-                    import_queue::<Self, Self::Block, _, <Pair as PairT>::Public>(
+                    import_queue::<Self, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,

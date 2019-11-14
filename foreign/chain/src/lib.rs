@@ -100,14 +100,8 @@ impl<F, C> ForeignChain<F, C> where
             components,
         })
     }
-}
 
-impl<F, C> foreign_chain_interface::foreign_chains::ForeignChains<F> for ForeignChain<F, C>
-    where F: ServiceFactory + Send + Sync,
-    C: Send + Sync,
-    <F as ServiceFactory>::Configuration: Send + Sync,
-{
-    fn get_shard_component(&self, shard: u16) -> Option<&LightComponents<F>> {
+    pub fn get_shard_component(&self, shard: u16) -> Option<&LightComponents<F>> {
         self.components.get(&shard)
     }
 }

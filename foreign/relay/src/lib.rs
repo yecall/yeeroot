@@ -55,7 +55,6 @@ use yee_balances::Call as BalancesCall;
 use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
-use foreign_chain_interface::foreign_chains::ForeignChains;
 use parking_lot::RwLock;
 
 const MAX_BLOCK_INTERVAL:u64 = 2;   // TODO
