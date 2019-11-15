@@ -228,8 +228,8 @@ decl_storage! {
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
 		// next block number where we can force a change.
 		NextForced get(next_forced): Option<T::BlockNumber>;
-
-		AuthoritiesCache get(authors_cache) build(|_| vec![]): Vec<(T::SessionKey, u64)>;
+		//
+		//AuthoritiesCache get(authors_cache) build(|_| vec![]): Vec<(T::SessionKey, u64)>;
 	}
 	add_extra_genesis {
 		config(authorities): Vec<(T::SessionKey, u64)>;
@@ -259,35 +259,38 @@ decl_module! {
         fn update_authorities(origin, info: <T as Trait>::SessionKey){//replace schedule_change function
 			use primitives::traits::{Zero, As};
 
-			let mut authors_cache = Self::authors_cache();
+			//let mut authors_cache = Self::authors_cache();
 			let mut authors = <Module<T>>::crfg_authorities();
-			if authors_cache.len() == 0 {
-				authors_cache = authors.clone();
-			}
+			//if authors_cache.len() == 0 {
+			//	authors_cache = authors.clone();
+			//}
 
 			let scheduled_at = system::ChainContext::<T>::default().current_height();
 			if(scheduled_at <= T::BlockNumber::sa(BLOCK_INTERVAL)){
-				authors_cache.push((info, 1));
-				<AuthoritiesCache<T>>::put(authors_cache);
+				//authors_cache.push((info, 1));
+				//<AuthoritiesCache<T>>::put(authors_cache);
+				authors.push((info, 1));
+				<AuthorityStorageVec<T::SessionKey>>::set_items(authors);
 				return Err("Insufficient block interval to current height for signal forced change.");
 			}
-			println!("afg, before update: block={}, authorities={:?}, authorities cache={:?}", scheduled_at, authors, authors_cache);
 
-			let block_interval: usize = BLOCK_INTERVAL.as_();
-			let authors_cache_len = AUTHORS_MAX_LEN + block_interval;
-			while authors_cache.len() >= authors_cache_len {
-				authors_cache.remove(0);
+			//while authors_cache.len() > AUTHORS_MAX_LEN {
+			//	authors_cache.remove(0);
+			//}
+
+			println!("afg, before update: block={}, authorities={:?}", scheduled_at, authors);
+			while authors.len() >= AUTHORS_MAX_LEN {
+				authors.remove(0);
 			}
 
-			authors_cache.push((info, 1));
-			<AuthoritiesCache<T>>::put(authors_cache.clone());
+			//authors_cache.push((info, 1));
+			//<AuthoritiesCache<T>>::put(authors_cache.clone());
+			authors.push((info, 1));
 
-			authors.clear();
-			let cache = authors_cache.clone();//just for debug
-			while authors_cache.len() > block_interval {
-				authors.push(authors_cache.remove(0));
-			}
-			println!("afg, after update: block={}, authorities={:?}, authorities cache={:?}", scheduled_at, authors, cache);
+			//authors = authors_cache;
+			//let cache = authors_cache.clone();//just for debug
+			//authors.pop();
+			println!("afg, after update: block={}, authorities={:?}", scheduled_at, authors);
 
 			<PendingChange<T>>::put(StoredPendingChange {
 				delay: T::BlockNumber::sa(0),
