@@ -177,18 +177,19 @@ pub trait Trait: system::Trait {
 /// A stored pending change, old format.
 // TODO: remove shim
 // https://github.com/paritytech/substrate/issues/1614
-#[derive(Encode, Decode)]
-pub struct OldStoredPendingChange<N, SessionKey> {
-	/// The block number this was scheduled at.
-	pub scheduled_at: N,
-	/// The delay in blocks until it will be applied.
-	pub delay: N,
-	/// The next authority set.
-	pub next_authorities: Vec<(SessionKey, u64)>,
-}
+//#[derive(Encode, Decode)]
+//pub struct OldStoredPendingChange<N, SessionKey> {
+//	/// The block number this was scheduled at.
+//	pub scheduled_at: N,
+//	/// The delay in blocks until it will be applied.
+//	pub delay: N,
+//	/// The next authority set.
+//	pub next_authorities: Vec<(SessionKey, u64)>,
+//}
 
 /// A stored pending change.
-#[derive(Encode)]
+//#[derive(Encode)]
+#[derive(Encode, Decode)]
 pub struct StoredPendingChange<N, SessionKey> {
 	/// The block number this was scheduled at.
 	pub scheduled_at: N,
@@ -201,19 +202,19 @@ pub struct StoredPendingChange<N, SessionKey> {
 	pub forced: Option<N>,
 }
 
-impl<N: Decode, SessionKey: Decode> Decode for StoredPendingChange<N, SessionKey> {
-	fn decode<I: codec::Input>(value: &mut I) -> Option<Self> {
-		let old = OldStoredPendingChange::decode(value)?;
-		let forced = <Option<N>>::decode(value).unwrap_or(None);
-
-		Some(StoredPendingChange {
-			scheduled_at: old.scheduled_at,
-			delay: old.delay,
-			next_authorities: old.next_authorities,
-			forced,
-		})
-	}
-}
+//impl<N: Decode, SessionKey: Decode> Decode for StoredPendingChange<N, SessionKey> {
+//	fn decode<I: codec::Input>(value: &mut I) -> Option<Self> {
+//		let old = OldStoredPendingChange::decode(value)?;
+//		let forced = <Option<N>>::decode(value).unwrap_or(None);
+//
+//		Some(StoredPendingChange {
+//			scheduled_at: old.scheduled_at,
+//			delay: old.delay,
+//			next_authorities: old.next_authorities,
+//			forced,
+//		})
+//	}
+//}
 
 decl_event!(
 	pub enum Event<T> where <T as Trait>::SessionKey {
