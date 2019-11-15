@@ -24,4 +24,3 @@ substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-
 substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 foreign-network = { package = "yee-foreign-network", path = "../network" }
 foreign-chain = { package = "yee-foreign-chain", path = "../chain" }
-foreign_chain_interface = { package = "foreign-chain-interface", path = "../chain/interface" }

@@ -19,4 +19,3 @@ runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeec
 substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-foreign_chain_interface = { package = "foreign-chain-interface", path = "./interface" }
