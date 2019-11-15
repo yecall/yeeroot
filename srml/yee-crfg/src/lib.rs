@@ -57,7 +57,6 @@ mod tests;
 pub const BLOCK_INTERVAL: u64 = 6;
 pub const AUTHORS_MAX_LEN: usize = 6;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
-//pub type InherentType = AuthorityId;
 
 #[cfg(feature = "std")]
 pub struct InherentDataProvider {
@@ -174,21 +173,7 @@ pub trait Trait: system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-/// A stored pending change, old format.
-// TODO: remove shim
-// https://github.com/paritytech/substrate/issues/1614
-//#[derive(Encode, Decode)]
-//pub struct OldStoredPendingChange<N, SessionKey> {
-//	/// The block number this was scheduled at.
-//	pub scheduled_at: N,
-//	/// The delay in blocks until it will be applied.
-//	pub delay: N,
-//	/// The next authority set.
-//	pub next_authorities: Vec<(SessionKey, u64)>,
-//}
-
 /// A stored pending change.
-//#[derive(Encode)]
 #[derive(Encode, Decode)]
 pub struct StoredPendingChange<N, SessionKey> {
 	/// The block number this was scheduled at.
@@ -201,20 +186,6 @@ pub struct StoredPendingChange<N, SessionKey> {
 	/// indicates the median last finalized block when the change was signaled.
 	pub forced: Option<N>,
 }
-
-//impl<N: Decode, SessionKey: Decode> Decode for StoredPendingChange<N, SessionKey> {
-//	fn decode<I: codec::Input>(value: &mut I) -> Option<Self> {
-//		let old = OldStoredPendingChange::decode(value)?;
-//		let forced = <Option<N>>::decode(value).unwrap_or(None);
-//
-//		Some(StoredPendingChange {
-//			scheduled_at: old.scheduled_at,
-//			delay: old.delay,
-//			next_authorities: old.next_authorities,
-//			forced,
-//		})
-//	}
-//}
 
 decl_event!(
 	pub enum Event<T> where <T as Trait>::SessionKey {
@@ -229,8 +200,6 @@ decl_storage! {
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
 		// next block number where we can force a change.
 		NextForced get(next_forced): Option<T::BlockNumber>;
-		//
-		//AuthoritiesCache get(authors_cache) build(|_| vec![]): Vec<(T::SessionKey, u64)>;
 	}
 	add_extra_genesis {
 		config(authorities): Vec<(T::SessionKey, u64)>;
@@ -260,37 +229,19 @@ decl_module! {
         fn update_authorities(origin, info: <T as Trait>::SessionKey){//replace schedule_change function
 			use primitives::traits::{Zero, As};
 
-			//let mut authors_cache = Self::authors_cache();
 			let mut authors = <Module<T>>::crfg_authorities();
-			//if authors_cache.len() == 0 {
-			//	authors_cache = authors.clone();
-			//}
-
 			let scheduled_at = system::ChainContext::<T>::default().current_height();
 			if(scheduled_at <= T::BlockNumber::sa(BLOCK_INTERVAL)){
-				//authors_cache.push((info, 1));
-				//<AuthoritiesCache<T>>::put(authors_cache);
 				authors.push((info, 1));
 				<AuthorityStorageVec<T::SessionKey>>::set_items(authors);
 				return Err("Insufficient block interval to current height for signal forced change.");
 			}
 
-			//while authors_cache.len() > AUTHORS_MAX_LEN {
-			//	authors_cache.remove(0);
-			//}
-
 			println!("afg, before update: block={}, authorities={:?}", scheduled_at, authors);
 			while authors.len() >= AUTHORS_MAX_LEN {
 				authors.remove(0);
 			}
-
-			//authors_cache.push((info, 1));
-			//<AuthoritiesCache<T>>::put(authors_cache.clone());
 			authors.push((info, 1));
-
-			//authors = authors_cache;
-			//let cache = authors_cache.clone();//just for debug
-			//authors.pop();
 			println!("afg, after update: block={}, authorities={:?}", scheduled_at, authors);
 
 			<PendingChange<T>>::put(StoredPendingChange {
@@ -376,7 +327,7 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	type Call = Call<T>;
 	type Error = MakeFatalError<RuntimeString>;
 	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
-	//shoud confirm: whether this func will be executed when block is synced from peer node
+
 	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 		let data = extract_inherent_data(data)
 			.expect("Crfg inherent data must exist");
