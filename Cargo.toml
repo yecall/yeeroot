@@ -37,18 +37,18 @@ trie-root = "0.12.0"
 yee-runtime = { path = "runtime" }
 consensus = { package = "yee-consensus-pow", path = "core/consensus/pow" }
 sharding_primitives = { package = "yee-sharding-primitives", path = "core/sharding/primitives" }
-sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-executor = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+substrate-executor = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
 crfg = { package = "yee-crfg", path = "core/crfg" }
 structopt = "0.2"
 ansi_term = "0.11"
@@ -61,8 +61,9 @@ yee-relay = { package = "yee-foreign-relay", path = "foreign/relay" }
 yee-dev = { package = "yee-dev", path = "dev" }
 yee-primitives = { package = "yee-primitives", path = "core/primitives" }
 srml-sharding = { package = "yee-srml-sharding", path = "srml/yee-sharding" }
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
 foreign_chain = { package = "yee-foreign-chain", path = "foreign/chain" }
+signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 
 [build-dependencies]
 vergen = "3"

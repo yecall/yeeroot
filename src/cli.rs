@@ -1,10 +1,9 @@
 use crate::service;
 use futures::{future, Future, sync::oneshot};
-use std::cell::RefCell;
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
-use substrate_cli::{informant, parse_and_execute};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles};
+use substrate_cli::{informant, parse_and_execute, TriggerExit};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, Configuration};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
@@ -13,6 +12,11 @@ use super::{
     custom_param::{YeeCliConfig, process_custom_args},
 	dev_param::process_dev_param,
 };
+use parking_lot::Mutex;
+use futures::sync::oneshot::Sender;
+use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
+use std::thread;
+use serde::export::fmt::Debug;
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
@@ -74,7 +78,7 @@ fn run_until_exit<T, C, E>(
 	let executor = runtime.executor();
 	informant::start(&service, exit.clone(), executor.clone());
 
-	let _ = runtime.block_on(e.into_exit());
+	let _ = runtime.block_on(e.into_exit().0);
 	exit_send.fire();
 
 	// we eagerly drop the service so that the internal exit future is fired,
@@ -87,18 +91,53 @@ fn run_until_exit<T, C, E>(
 // handles ctrl-c
 pub struct Exit;
 impl IntoExit for Exit {
-	type Exit = future::MapErr<oneshot::Receiver<()>, fn(oneshot::Canceled) -> ()>;
-	fn into_exit(self) -> Self::Exit {
+	type TriggerExit = CliTriggerExit<CliSignal>;
+	type Exit = future::MapErr<oneshot::Receiver<<Self::TriggerExit as TriggerExit>::Signal>, fn(oneshot::Canceled) -> ()>;
+	fn into_exit(self) -> (Self::Exit, Self::TriggerExit) {
 		// can't use signal directly here because CtrlC takes only `Fn`.
 		let (exit_send, exit) = oneshot::channel();
 
-		let exit_send_cell = RefCell::new(Some(exit_send));
-		ctrlc::set_handler(move || {
-			if let Some(exit_send) = exit_send_cell.try_borrow_mut().expect("signal handler not reentrant; qed").take() {
-				exit_send.send(()).expect("Error sending exit notification");
-			}
-		}).expect("Error setting Ctrl-C handler");
+		let exit_send_cell = Arc::new(Mutex::new(Some(exit_send)));
+		let exit_send_cell_clone = exit_send_cell.clone();
 
-		exit.map_err(drop)
+		let signals = Signals::new(&[SIGUSR1, SIGINT, SIGTERM]).unwrap();
+
+		thread::spawn(move || {
+			for sig in signals.forever() {
+				info!("Received signal {:?}", sig);
+
+				let signal = match sig{
+					SIGUSR1 => CliSignal::Restart,
+					_ => CliSignal::Stop,
+				};
+
+				if let Some(sender) = exit_send_cell.lock().take() {
+					sender.send(signal).expect("Error sending exit signal");
+				}
+			}
+		});
+
+		(exit.map_err(drop), CliTriggerExit{sender: exit_send_cell_clone})
+	}
+}
+
+#[derive(Debug)]
+pub enum CliSignal{
+	Stop,
+	Restart,
+}
+
+pub struct CliTriggerExit<Signal>{
+	sender: Arc<Mutex<Option<Sender<Signal>>>>,
+}
+
+impl<Signal> TriggerExit for CliTriggerExit<Signal>
+where Signal: Send + Debug + 'static {
+	type Signal = Signal;
+	fn trigger_exit(&self, signal: Self::Signal){
+
+		if let Some(sender) = self.sender.lock().take() {
+			sender.send(signal).expect("Error sending exit signal");
+		}
 	}
 }

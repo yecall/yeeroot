@@ -5,30 +5,30 @@ authors = ["YeeCo contact@yeefoundation.com"]
 edition = "2018"
 
 [dependencies]
-fork-tree = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
+fork-tree = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal"}
 futures = "0.1"
 log = "0.4"
 parking_lot = "0.7.1"
 tokio = "0.1.7"
 rand = "0.6"
 parity-codec = { version = "3.2", features = ["derive"] }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-telemetry = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, branch = "yee-v1.0" }
-srml-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+substrate-telemetry = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal"}
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, branch = "gb/exit-signal" }
+srml-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
 fg_primitives = { package = "crfg-primitives", path = "./primitives" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", features = ["derive-codec"] }
 
 [dev-dependencies]
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", features = ["test-helpers"] , branch = "yee-v1.0" }
-keyring = { package = "substrate-keyring", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-test_client = { package = "substrate-test-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", features = ["test-helpers"] , branch = "gb/exit-signal" }
+keyring = { package = "substrate-keyring", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+test_client = { package = "substrate-test-client", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
 env_logger = "0.6"
 
 [features]

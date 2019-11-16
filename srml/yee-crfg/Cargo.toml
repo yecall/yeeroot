@@ -7,18 +7,18 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", optional = true, features = ["derive"] }
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
 crfg-primitives = { path = "../../core/crfg/primitives", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-session = { package = "srml-session", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
+primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
+srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
+session = { package = "srml-session", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
+consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
+finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "gb/exit-signal" }
 
 [dev-dependencies]
-runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
 
 [features]
 default = ["std"]

@@ -7,11 +7,11 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", optional = true }
 parity-codec = { version = "3.2", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-srml-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal", default-features = false }
+runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal", default-features = false }
+primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal", default-features = false }
+srml-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal", default-features = false }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal", default-features = false }
 balances = { package = "yee-srml-balances", path = "../yee-balances", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
@@ -19,8 +19,8 @@ yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../c
 
 [dev-dependencies]
 hex-literal = "0.1.0"
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-srml-indices = { git = "https://github.com/yeeco/substrate.git",  branch = "yee-v1.0" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+srml-indices = { git = "https://github.com/yeeco/substrate.git",  branch = "gb/exit-signal" }
 balances = { package = "yee-srml-balances", path = "../yee-balances" }
 parity-codec-derive = { version = "3.1" }
 
