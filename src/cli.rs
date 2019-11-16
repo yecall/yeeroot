@@ -3,7 +3,7 @@ use futures::{future, Future, sync::oneshot};
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 use substrate_cli::{informant, parse_and_execute, TriggerExit};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, Configuration};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, Configuration, FactoryFullConfiguration};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
@@ -17,43 +17,62 @@ use futures::sync::oneshot::Sender;
 use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
 use std::thread;
 use serde::export::fmt::Debug;
+use crate::service::NodeConfig;
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
 	I: IntoIterator<Item = T>,
 	T: Into<std::ffi::OsString> + Clone,
-	E: IntoExit,
+	E: IntoExit<TriggerExit=CliTriggerExit<CliSignal>> + Clone,
+	SignalOfExit<E>: Debug,
 {
 	parse_and_execute::<service::Factory, CustomCommand, YeeCliConfig, _, _, _, _, _>(
 		load_spec, &version, service::IMPL_NAME, args, exit,
 	 	|exit, mut custom_args, mut config| {
-			info!("{}", version.name);
-			info!("  version {}", config.full_version());
-			info!("  by {}, 2019", version.author);
-			info!("Chain specification: {}", config.chain_spec.name());
-			info!("Node name: {}", config.name);
-			info!("Roles: {:?}", config.roles);
 
-			process_dev_param::<service::Factory>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
+		    loop {
+			    let signal = run_service::<_, service::Factory>(&version, exit.clone(), custom_args.clone(), config.clone());
+			    match signal {
+				    Ok(CliSignal::Restart) => info!("Restart service"),
+				    Ok(CliSignal::Stop) => return Ok(()),
+				    Err(e) => return Err(e),
+			    }
+		    }
 
-			process_custom_args::<service::Factory>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
-
-			let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
-			let executor = runtime.executor();
-			match config.roles {
-				ServiceRoles::LIGHT => run_until_exit(
-					runtime,
-				 	service::Factory::new_light(config, executor).map_err(|e| format!("{:?}", e))?,
-					exit
-				),
-				_ => run_until_exit(
-					runtime,
-					service::Factory::new_full(config, executor).map_err(|e| format!("{:?}", e))?,
-					exit
-				),
-			}.map_err(|e| format!("{:?}", e))
 		}
 	).and_then(run_custom_command::<service::Factory, _, _>).map_err(Into::into).map(|_| ())
+}
+
+fn run_service<E, F>(version: &VersionInfo, exit: E, mut custom_args: YeeCliConfig, mut config: FactoryFullConfiguration<F>) -> Result<SignalOfExit<E>, String>
+where
+	E: IntoExit,
+	F: ServiceFactory<Configuration=NodeConfig<F>>,
+{
+	info!("{}", version.name);
+	info!("  version {}", config.full_version());
+	info!("  by {}, 2019", version.author);
+	info!("Chain specification: {}", config.chain_spec.name());
+	info!("Node name: {}", config.name);
+	info!("Roles: {:?}", config.roles);
+
+	process_dev_param::<F>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
+
+	process_custom_args::<F>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
+
+	let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
+	let executor = runtime.executor();
+	match config.roles {
+		ServiceRoles::LIGHT => run_until_exit(
+			runtime,
+			F::new_light(config, executor).map_err(|e| format!("{:?}", e))?,
+			exit
+		),
+		_ => run_until_exit(
+			runtime,
+			F::new_full(config, executor).map_err(|e| format!("{:?}", e))?,
+			exit
+		),
+	}.map_err(|e| format!("{:?}", e))
 }
 
 fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
@@ -67,7 +86,7 @@ fn run_until_exit<T, C, E>(
 	mut runtime: Runtime,
 	service: T,
 	e: E,
-) -> error::Result<()>
+) -> error::Result<SignalOfExit<E>>
 	where
 		T: Deref<Target=substrate_service::Service<C>>,
 		C: substrate_service::Components,
@@ -78,17 +97,20 @@ fn run_until_exit<T, C, E>(
 	let executor = runtime.executor();
 	informant::start(&service, exit.clone(), executor.clone());
 
-	let _ = runtime.block_on(e.into_exit().0);
+	let signal = runtime.block_on(e.into_exit().0);
 	exit_send.fire();
 
 	// we eagerly drop the service so that the internal exit future is fired,
 	// but we need to keep holding a reference to the global telemetry guard
 	let _telemetry = service.telemetry();
 	drop(service);
-	Ok(())
+	signal.map_err(|_|"Signal error".into())
 }
 
+pub type SignalOfExit<E> = <<E as IntoExit>::TriggerExit as TriggerExit>::Signal;
+
 // handles ctrl-c
+#[derive(Clone)]
 pub struct Exit;
 impl IntoExit for Exit {
 	type TriggerExit = CliTriggerExit<CliSignal>;
