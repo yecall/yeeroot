@@ -252,6 +252,7 @@ construct_service_factory! {
                         force_authoring: service.config.force_authoring,
                         mine: service.config.custom.mine,
                         shard_num: service.config.custom.shard_num,
+                        shard_count: service.config.custom.shard_count,
                     };
 
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(

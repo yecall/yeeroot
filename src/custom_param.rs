@@ -33,7 +33,7 @@ use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;
 use yee_primitives::{AddressCodec, Address, Hrp};
 use yee_sharding::ShardingDigestItem;
-use sharding_primitives::ShardingAPI;
+use sharding_primitives::{ShardingAPI, utils::shard_num_for};
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -72,6 +72,7 @@ where
     <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
 
+    // get shard num, shard count
     let client = new_client::<F>(&config)?;
     let last_block_header = client.best_block_header()?;
     let shard_info : Option<(u16, u16)> = last_block_header.digest().logs().iter().rev()
@@ -112,6 +113,12 @@ where
 
         if config.custom.hrp != hrp{
             return Err(error::ErrorKind::Input("Invalid coinbase hrp".to_string()).into());
+        }
+
+        let coinbase_shard_num = shard_num_for(&coinbase, shard_count).expect("qed");
+        info!("Coinbase shard num: {}", coinbase_shard_num);
+        if coinbase_shard_num != shard_num {
+            return Err(error::ErrorKind::Input("Invalid coinbase: shard num is not accordant".to_string()).into());
         }
 
         config.custom.coinbase = coinbase;
