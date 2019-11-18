@@ -33,6 +33,6 @@ rust-crypto = "0.2.36"
 yee-switch-rpc = { package = "yee-switch-rpc", path = "../rpc" }
 merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
 yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensus/pow" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "gb/exit-signal" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 yee-rpc = { package = "yee-rpc", path = "../../rpc" }
 yee-serde-hex = { package = "yee-serde-hex", path = "../../rpc/serde-hex" }
