@@ -3,7 +3,7 @@ use futures::{future, Future, sync::oneshot};
 use tokio::runtime::Runtime;
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 use substrate_cli::{informant, parse_and_execute, TriggerExit};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, Configuration, FactoryFullConfiguration};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, FactoryFullConfiguration, FactoryBlock, FullClient};
 use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
@@ -18,6 +18,12 @@ use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
 use std::thread;
 use serde::export::fmt::Debug;
 use crate::service::NodeConfig;
+use runtime_primitives::{
+	traits::{ProvideRuntimeApi, DigestItemFor},
+};
+use yee_sharding::ShardingDigestItem;
+use substrate_client::ChainHead;
+use sharding_primitives::ShardingAPI;
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
@@ -28,7 +34,7 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 {
 	parse_and_execute::<service::Factory, CustomCommand, YeeCliConfig, _, _, _, _, _>(
 		load_spec, &version, service::IMPL_NAME, args, exit,
-	 	|exit, mut custom_args, mut config| {
+	 	|exit, custom_args, config| {
 
 		    loop {
 			    let signal = run_service::<_, service::Factory>(&version, exit.clone(), custom_args.clone(), config.clone());
@@ -47,6 +53,9 @@ fn run_service<E, F>(version: &VersionInfo, exit: E, mut custom_args: YeeCliConf
 where
 	E: IntoExit,
 	F: ServiceFactory<Configuration=NodeConfig<F>>,
+	DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16>,
+	FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+	<FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
 	info!("{}", version.name);
 	info!("  version {}", config.full_version());

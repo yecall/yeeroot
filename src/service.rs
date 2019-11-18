@@ -68,6 +68,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     inherent_data_providers: InherentDataProviders,
     pub coinbase: AccountId,
     pub shard_num: u16,
+    pub shard_count: u16,
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
@@ -82,6 +83,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             inherent_data_providers: Default::default(),
             coinbase: Default::default(),
             shard_num: Default::default(),
+            shard_count: Default::default(),
             foreign_port: Default::default(),
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
@@ -97,6 +99,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             crfg_import_setup: None,
             coinbase: self.coinbase.clone(),
             shard_num: self.shard_num,
+            shard_count: self.shard_count,
             foreign_port: self.foreign_port,
             mine: self.mine,
             hrp: self.hrp.clone(),
@@ -116,6 +119,10 @@ impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::Service
 
     fn set_shard_num(&mut self, shard: u16) {
         self.shard_num = shard;
+    }
+
+    fn get_shard_count(&self) -> u16 {
+        self.shard_count
     }
 }
 
@@ -178,23 +185,24 @@ construct_service_factory! {
                 let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
-                //foreign network
+                // foreign network
                 let config = &service.config;
                 let foreign_network_param = foreign::Params{
                     client_version: config.network.client_version.clone(),
                     protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
                     node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
                     shard_num: config.custom.shard_num,
+                    shard_count: config.custom.shard_count,
                     foreign_port: config.custom.foreign_port,
                     bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
                 };
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
+                // foreign chain
                 let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
-                let foreigh_chain = ForeignChain::<Self, FullClient<Self>>::new(
+                let foreigh_chain = ForeignChain::<Self>::new(
                     config,
                     foreign_network_wrapper,
-                    service.client(),
                     executor.clone(),
                 )?;
 
