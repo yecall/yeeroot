@@ -20,7 +20,7 @@
 use {
     std::{fmt::Debug, marker::PhantomData, sync::Arc},
     futures::{Future, IntoFuture},
-    log::{warn, info},
+    log::{warn},
     parking_lot::RwLock,
 };
 use {
@@ -45,9 +45,7 @@ use {
             DigestItemFor,
             Block,
             ProvideRuntimeApi,
-            Header,
         },
-        generic::BlockId,
     },
 };
 use {
@@ -59,7 +57,6 @@ pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
               MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::ShardingDigestItem;
-use yee_sharding_primitives::{ShardingAPI, utils::shard_num_for};
 use yee_srml_pow::RewardCondition;
 
 mod job;
@@ -73,6 +70,7 @@ pub struct Params<AccountId> {
     pub force_authoring: bool,
     pub mine: bool,
     pub shard_num: u16,
+    pub shard_count: u16,
 }
 
 pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
@@ -91,7 +89,6 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     <P as Pair>::Public: Clone + Debug + Decode + Encode + Send + Sync,
     C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<B>,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     E: Environment<B> + Send + Sync + 'static,
     <E as Environment<B>>::Error: Debug + Send,
@@ -101,15 +98,6 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16>,
 {
-
-    //validate coinbase
-    let shard_count = get_shard_count::<B, _>(&client)?;
-    let coinbase_shard_num = shard_num_for(&params.coinbase, shard_count).expect("qed");
-    info!("Coinbase shard num: {}", coinbase_shard_num);
-    if coinbase_shard_num != params.shard_num {
-        panic!("Invalid coinbase: shard num is not accordant");
-    }
-
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
         env.clone(),
@@ -187,17 +175,4 @@ pub fn register_inherent_data_provider<AccountId: 'static + Codec + Send + Sync>
 
 fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
     consensus_common::ErrorKind::InherentData(err.into()).into()
-}
-
-fn get_shard_count<B, C>(client: &Arc<C>) -> consensus_common::error::Result<u16> where
-    B: Block,
-    C: ProvideRuntimeApi + ChainHead<B>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<B>, {
-    let api = client.runtime_api();
-    let last_block_header = client.best_block_header().map_err(|e| format!("{:?}", e))?;
-    let last_block_id = BlockId::hash(last_block_header.hash());
-
-    let shard_count = api.get_shard_count(&last_block_id).map(|x| x as u16).map_err(|e| format!("{:?}", e))?;
-
-    Ok(shard_count)
 }

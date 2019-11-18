@@ -20,13 +20,20 @@ use {
     substrate_cli::{impl_augment_clap},
 };
 use log::{info, warn};
-use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles};
+use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles, new_client, FactoryBlock, FullClient};
+use substrate_client::ChainHead;
+use runtime_primitives::{
+    generic::BlockId,
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor},
+};
 use crate::error;
 use crate::service::{NodeConfig};
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;
 use yee_primitives::{AddressCodec, Address, Hrp};
+use yee_sharding::ShardingDigestItem;
+use sharding_primitives::{ShardingAPI, utils::shard_num_for};
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -58,11 +65,47 @@ pub struct YeeCliConfig {
 impl_augment_clap!(YeeCliConfig);
 
 pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
-where F: ServiceFactory<Configuration=NodeConfig<F>>{
+where
+    F: ServiceFactory<Configuration=NodeConfig<F>>,
+    DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16>,
+    FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+{
 
-    config.custom.hrp = get_hrp(config.chain_spec.id());
+    // get shard num, shard count
+    let client = new_client::<F>(&config)?;
+    let last_block_header = client.best_block_header()?;
+    let shard_info : Option<(u16, u16)> = last_block_header.digest().logs().iter().rev()
+        .filter_map(ShardingDigestItem::as_sharding_info)
+        .next();
 
-    config.custom.shard_num = custom_args.shard_num;
+    let shard_num = custom_args.shard_num;
+
+    let (shard_num, shard_count) = match shard_info {
+        Some((ori_shard_num, ori_shard_count)) => {
+            if shard_num == ori_shard_num {//normal
+                (ori_shard_num, ori_shard_count)
+            }else if shard_num == shard_num + ori_shard_count {//scale
+                (ori_shard_num, ori_shard_count)
+            }else{
+                return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
+            }
+        },
+        None => {
+            let api = client.runtime_api();
+            let last_block_id = BlockId::hash(last_block_header.hash());
+            let genesis_shard_cnt = api.get_genesis_shard_count(&last_block_id)?;
+            if shard_num > genesis_shard_cnt{
+                return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
+            }
+            (shard_num, genesis_shard_cnt)
+        }
+    };
+
+    config.custom.hrp = get_hrp( config.chain_spec.id());
+
+    config.custom.shard_num = shard_num;
+    config.custom.shard_count = shard_count;
 
     if config.roles == Roles::AUTHORITY{
         let coinbase = custom_args.coinbase.clone().ok_or(error::ErrorKind::Input("Coinbase not found".to_string()))?;
@@ -70,6 +113,12 @@ where F: ServiceFactory<Configuration=NodeConfig<F>>{
 
         if config.custom.hrp != hrp{
             return Err(error::ErrorKind::Input("Invalid coinbase hrp".to_string()).into());
+        }
+
+        let coinbase_shard_num = shard_num_for(&coinbase, shard_count).expect("qed");
+        info!("Coinbase shard num: {}", coinbase_shard_num);
+        if coinbase_shard_num != shard_num {
+            return Err(error::ErrorKind::Input("Invalid coinbase: shard num is not accordant".to_string()).into());
         }
 
         config.custom.coinbase = coinbase;
@@ -105,6 +154,7 @@ where F: ServiceFactory<Configuration=NodeConfig<F>>{
     info!("Custom params: ");
     info!("  coinbase: {}", config.custom.coinbase.to_address(config.custom.hrp.clone()).expect("qed"));
     info!("  shard num: {}", config.custom.shard_num);
+    info!("  shard count: {}", config.custom.shard_count);
     info!("  bootnodes: {:?}", config.network.boot_nodes);
     info!("  foreign port: {:?}", config.custom.foreign_port);
     info!("  bootnodes router conf: {:?}", config.custom.bootnodes_router_conf);

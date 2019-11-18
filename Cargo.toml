@@ -63,6 +63,7 @@ yee-primitives = { package = "yee-primitives", path = "core/primitives" }
 srml-sharding = { package = "yee-srml-sharding", path = "srml/yee-sharding" }
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 foreign_chain = { package = "yee-foreign-chain", path = "foreign/chain" }
+signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 
 [build-dependencies]
 vergen = "3"
