@@ -323,17 +323,6 @@ impl<
     }
 
     fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>, shard_count: u16) -> TransactionValidity {
-        // check origin signature
-        let mut check_origin = true;
-        if let Some(origin) = Decode::decode(&mut rtx.origin().as_slice()) {
-            let origin: Block::Extrinsic = origin;
-            let hash = rtx.hash();
-            // todo
-        }
-        if !check_origin {
-            return TransactionValidity::Invalid(-127);
-        }
-
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
         let requires = (Compact(shard_num), Compact(rtx.number()), rtx.block_hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
         TransactionValidity::Valid {

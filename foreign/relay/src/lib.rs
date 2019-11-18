@@ -111,9 +111,8 @@ pub fn start_relay_transfer<F, C, A>(
                     }
 
                     // create relay transfer
-                    let proof: Vec<u8> = vec![]; // todo
                     let h: Compact<u64> = Compact((*header.number()).into());
-                    let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash(), proof));
+                    let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash()));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
                     let relay = Decode::decode(&mut buf.as_slice()).unwrap();

@@ -20,7 +20,7 @@ pub struct RelayTransfer<Address, Balance, Hash> {
     block_hash: Hash,
     parent: Hash,
     origin: Vec<u8>,
-    pub proof: Vec<u8>,
+//    pub proof: Vec<u8>,
 }
 
 impl<Address, Balance> OriginTransfer<Address, Balance>
@@ -207,10 +207,10 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
             None => return None
         };
         // proof
-        let proof: Vec<u8> = match Decode::decode(&mut input) {
-            Some(p) => p,
-            None => return None
-        };
+//        let proof: Vec<u8> = match Decode::decode(&mut input) {
+//            Some(p) => p,
+//            None => return None
+//        };
         // decode origin transfer and build relay transfer
         if let Some(ot) = OriginTransfer::decode(origin.clone()) {
             return Some(RelayTransfer {
@@ -220,7 +220,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
                 block_hash,
                 parent,
                 origin,
-                proof,
+//                proof,
             });
         }
 
