@@ -21,9 +21,7 @@ use std::{
     iter::once,
 };
 use parity_codec::{Decode, Encode, Compact};
-use futures::{
-    Stream,
-};
+use futures::Stream;
 use substrate_service::{
     config::Configuration,
     ServiceFactory,
@@ -33,10 +31,12 @@ use substrate_service::{
 use yee_runtime::{
     Call,
     UncheckedExtrinsic,
+    AccountId,
+    Hash as RuntimeHash,
 };
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Block as BlockT, Header, Hash},
+    traits::{ProvideRuntimeApi, Block as BlockT, Header, Hash, Zero},
 };
 use substrate_client::{
     self,
@@ -56,15 +56,16 @@ use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
+use util::relay_decode::RelayTransfer;
 
-const MAX_BLOCK_INTERVAL:u64 = 2;   // TODO
+const MAX_BLOCK_INTERVAL: u64 = 2;   // TODO
 
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
-    foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
+    foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash>>,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
-    pool: Arc<TransactionPool<A>>
+    pool: Arc<TransactionPool<A>>,
 ) -> error::Result<()>
     where F: ServiceFactory + Send + Sync,
           C: 'static + Send + Sync,
@@ -80,13 +81,15 @@ pub fn start_relay_transfer<F, C, A>(
 {
     let network_send = foreign_network.clone();
     let network_rev = foreign_network.clone();
-    let import_events = client.import_notification_stream()
+    let client_notify = client.clone();
+    let client_rcv = client.clone();
+    let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
             let block_id = BlockId::Hash(hash);
-            let header = client.header(block_id).unwrap().unwrap();
-            let body = client.block_body(&block_id).unwrap().unwrap();
-            let api = client.runtime_api();
+            let header = client_notify.header(block_id).unwrap().unwrap();
+            let body = client_notify.block_body(&block_id).unwrap().unwrap();
+            let api = client_notify.runtime_api();
             let tc = api.get_shard_count(&block_id).unwrap();    // total count
             let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
             for tx in &body {
@@ -128,30 +131,49 @@ pub fn start_relay_transfer<F, C, A>(
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
         match messages {
             OutMessage::RelayExtrinsics(txs) => {
-                let h = 0u64;
-                let h = h.encode();
-                let h = Decode::decode(&mut h.as_slice()).unwrap();
-                let block_id = BlockId::number(h);
+                let block_id = BlockId::number(Zero::zero());
+                let api = client_rcv.runtime_api();
+                let tc = api.get_shard_count(&block_id).unwrap();    // total count
+                let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
                 for tx in &txs {
                     let tx = tx.encode();
+                    if let Some(r_t) = RelayTransfer::<AccountId, u128, RuntimeHash>::decode(tx.clone()) {
+                        let src = r_t.transfer.sender();
+                        let ds = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16);    // dest shard
+                        if ds.is_none() {
+                            continue;
+                        }
+                        let ds = ds.unwrap();
+                        if cs as u16 == ds {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+
+                    let block_id = BlockId::number(Zero::zero());
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
-                    pool.submit_one(&block_id, tx).expect("Submit relay transfer into pool failed!");
+                    pool.submit_relay_extrinsic(&block_id, tx, true).expect("Submit relay transfer into pool failed!");
                 }
                 info!(target: "foreign-relay", "received relay transaction: {:?}", txs);
             }
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
                 let mut number: u64 = info.best_number.into();
-                if number > MAX_BLOCK_INTERVAL {
-                    if let Some(chain) = foreign_chains.read().as_ref().unwrap().get_shard_component(shard_num) {
+                if let Some(chain) = foreign_chains.read().as_ref().unwrap().get_shard_component(shard_num) {
+                    let block_id = BlockId::number(number.into());
+                    let spv_header = chain.client().header(&block_id).unwrap().unwrap();
+                    pool.enforce_spv(shard_num, number, info.best_hash.clone().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec());
+                    // todo for crfg
+                    if number > MAX_BLOCK_INTERVAL {
                         number -= MAX_BLOCK_INTERVAL;
                         let block_id = BlockId::number(number.into());
                         let spv_header = chain.client().header(&block_id).unwrap().unwrap();
                         let tag = (Compact(shard_num), Compact(number), spv_header.hash().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec()).encode();
                         info!(target: "foreign-relay", "best block info reached. tag: {}", HexDisplay::from(&tag));
                         pool.import_provides(once(tag));
-                    } else {
-                        error!(target: "foreign-relay", "Get shard component({:?}) failed!", shard_num);
                     }
+                } else {
+                    error!(target: "foreign-relay", "Get shard component({:?}) failed!", shard_num);
                 }
             }
             _ => { /* do nothing */ }
