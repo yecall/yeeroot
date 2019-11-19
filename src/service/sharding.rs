@@ -51,6 +51,7 @@ use {
 };
 use super::NodeConfig;
 use yee_sharding::ShardingDigestItem;
+use crate::service::ScaleOut;
 
 pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
     node_config: &NodeConfig<F>,
@@ -114,7 +115,8 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
         }
     };
 
-    register_inherent_data_provider(&node_config.inherent_data_providers, curr_shard, curr_count)?;
+    let scale_out = node_config.scale_out.clone();
+    register_inherent_data_provider(&node_config.inherent_data_providers, curr_shard, curr_count, scale_out)?;
 
     Ok(())
 }
@@ -123,11 +125,15 @@ fn register_inherent_data_provider(
     inherent_data_providers: &InherentDataProviders,
     shard_num: u16,
     shard_cnt: u16,
+    scale_out: Option<ScaleOut>,
 ) -> Result<(), consensus_common::Error> where
 {
     if !inherent_data_providers.has_provider(&srml_sharding::INHERENT_IDENTIFIER) {
-        inherent_data_providers.register_provider(srml_sharding::InherentDataProvider::new(shard_num, shard_cnt))
-            .map_err(inherent_to_common_error)
+        inherent_data_providers.register_provider(srml_sharding::InherentDataProvider::new(
+            shard_num,
+            shard_cnt,
+            scale_out.map(|x|srml_sharding::ScaleOut{shard_count: x.shard_count})
+        )).map_err(inherent_to_common_error)
     } else {
         Ok(())
     }

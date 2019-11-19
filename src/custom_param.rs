@@ -27,7 +27,7 @@ use runtime_primitives::{
     traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor},
 };
 use crate::error;
-use crate::service::{NodeConfig};
+use crate::service::{NodeConfig, ScaleOut};
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;
@@ -81,12 +81,12 @@ where
 
     let shard_num = custom_args.shard_num;
 
-    let (shard_num, shard_count) = match shard_info {
+    let (shard_num, shard_count, scale_out) = match shard_info {
         Some((ori_shard_num, ori_shard_count)) => {
             if shard_num == ori_shard_num {//normal
-                (ori_shard_num, ori_shard_count)
-            }else if shard_num == shard_num + ori_shard_count {//scale
-                (ori_shard_num, ori_shard_count)
+                (ori_shard_num, ori_shard_count, None)
+            }else if shard_num == ori_shard_num + ori_shard_count {//scale
+                (ori_shard_num, ori_shard_count, Some(ScaleOut{shard_count: ori_shard_count * 2}))
             }else{
                 return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
             }
@@ -98,7 +98,7 @@ where
             if shard_num > genesis_shard_cnt{
                 return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
             }
-            (shard_num, genesis_shard_cnt)
+            (shard_num, genesis_shard_cnt, None)
         }
     };
 
@@ -106,6 +106,7 @@ where
 
     config.custom.shard_num = shard_num;
     config.custom.shard_count = shard_count;
+    config.custom.scale_out = scale_out;
 
     if config.roles == Roles::AUTHORITY{
         let coinbase = custom_args.coinbase.clone().ok_or(error::ErrorKind::Input("Coinbase not found".to_string()))?;

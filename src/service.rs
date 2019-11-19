@@ -60,6 +60,11 @@ native_executor_instance!(
     include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
+#[derive(Clone)]
+pub struct ScaleOut {
+    pub shard_count: u16,
+}
+
 /// Node specific configuration
 pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     /// crfg connection to import block
@@ -74,6 +79,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub mine: bool,
     pub hrp: Hrp,
+    pub scale_out: Option<ScaleOut>,
 }
 
 impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
@@ -89,6 +95,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             job_manager: Arc::new(RwLock::new(None)),
             mine: Default::default(),
             hrp: Default::default(),
+            scale_out: Default::default(),
         }
     }
 }
@@ -103,6 +110,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             foreign_port: self.foreign_port,
             mine: self.mine,
             hrp: self.hrp.clone(),
+            scale_out: self.scale_out.clone(),
 
             // cloned config SHALL NOT SHARE some items with original config
             inherent_data_providers: Default::default(),

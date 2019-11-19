@@ -19,8 +19,7 @@
 
 mod error;
 use std::collections::HashMap;
-use std::iter;
-use network::NodeKeyConfig;
+pub use network::NodeKeyConfig;
 use primitives::H256;
 use std::str::FromStr;
 
@@ -52,7 +51,7 @@ pub struct RunParams{
     pub rpc_port: u16,
     pub ws_port: u16,
     pub port: u16,
-    pub node_key_config: NodeKeyConfig,
+    pub node_key: String,
     pub foreign_port: u16,
     pub bootnodes_routers: Vec<String>,
 }
@@ -81,10 +80,8 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
     let rpc_port = one.1;
     let ws_port = one.2;
     let port = one.3;
-    let node_key = one.4;
+    let node_key = one.4.to_string();
     let foreign_port = one.5;
-
-    let node_key_config = NodeKeyConfig::Secp256k1(parse_secp256k1_secret(&node_key.to_string()).unwrap());
 
     let bootnodes_routers = vec![BOOTNODES_ROUTER.to_string()];
 
@@ -94,7 +91,7 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
         rpc_port,
         ws_port,
         port,
-        node_key_config,
+        node_key,
         foreign_port,
         bootnodes_routers,
     })
@@ -133,7 +130,7 @@ pub fn get_peer_id(node_key_config: &NodeKeyConfig) -> String {
     peer_id.to_base58()
 }
 
-fn parse_secp256k1_secret(hex: &String) -> error::Result<network::Secp256k1Secret> {
+pub fn parse_secp256k1_secret(hex: &String) -> error::Result<network::Secp256k1Secret> {
     H256::from_str(hex).map_err(invalid_node_key).and_then(|bytes|
         network::identity::secp256k1::SecretKey::from_bytes(bytes)
             .map(network::Secret::Input)

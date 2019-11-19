@@ -58,6 +58,14 @@ pub type InherentType = ShardInfo<u16>;
 pub struct ShardInfo<N> {
     pub num: N,
     pub count: N,
+    pub scale_out: Option<ScaleOut<N>>,
+}
+
+#[derive(Clone, PartialEq, Eq)]
+#[derive(Decode, Encode)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize))]
+pub struct ScaleOut<N> {
+    pub shard_count: N,
 }
 
 pub trait YeeShardInherentData {
@@ -83,9 +91,9 @@ pub struct InherentDataProvider {
 
 #[cfg(feature = "std")]
 impl InherentDataProvider {
-    pub fn new(num: u16, count: u16) -> Self {
+    pub fn new(num: u16, count: u16, scale_out: Option<ScaleOut<u16>>) -> Self {
         Self {
-            shard_info: ShardInfo { num, count },
+            shard_info: ShardInfo { num, count, scale_out },
         }
     }
 }
