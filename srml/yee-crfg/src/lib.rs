@@ -226,7 +226,7 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-        fn update_authorities(origin, info: <T as Trait>::SessionKey){//replace schedule_change function
+        fn update_authorities(origin, info: <T as Trait>::SessionKey){
 			use primitives::traits::{Zero, As};
 
 			let mut authors = <Module<T>>::crfg_authorities();
@@ -237,12 +237,10 @@ decl_module! {
 				return Err("Insufficient block interval to current height for signal forced change.");
 			}
 
-			println!("afg, before update: block={}, authorities={:?}", scheduled_at, authors);
 			while authors.len() >= AUTHORS_MAX_LEN {
 				authors.remove(0);
 			}
 			authors.push((info, 1));
-			println!("afg, after update: block={}, authorities={:?}", scheduled_at, authors);
 
 			<PendingChange<T>>::put(StoredPendingChange {
 				delay: T::BlockNumber::sa(0),

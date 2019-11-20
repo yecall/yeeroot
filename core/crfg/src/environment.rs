@@ -35,6 +35,7 @@ use runtime_primitives::traits::{
 };
 use substrate_primitives::{Blake2Hasher, ed25519, H256, Pair};
 use substrate_telemetry::{telemetry, CONSENSUS_INFO};
+use client::blockchain::HeaderBackend;
 
 use crate::{
 	Commit, Config, Error, Network, Precommit, Prevote,
@@ -139,62 +140,83 @@ impl<Block: BlockT<Hash=H256>, B, E, N, RA> grandpa::Chain<Block::Hash, NumberFo
 		let limit = self.authority_set.current_limit();
 		debug!(target: "afg", "Finding best chain containing block {:?} with number limit {:?}", block, limit);
 
-		match self.inner.best_containing(block, None) {
-			Ok(Some(mut best_hash)) => {
-				let base_header = self.inner.header(&BlockId::Hash(block)).ok()?
-					.expect("Header known to exist after `best_containing` call; qed");
-
-				if let Some(limit) = limit {
-					// this is a rare case which might cause issues,
-					// might be better to return the header itself.
-					if *base_header.number() > limit {
-						debug!(target: "afg", "Encountered error finding best chain containing {:?} with limit {:?}: target block is after limit",
-							block,
-							limit,
-						);
-						return None;
-					}
-				}
-
-				let mut best_header = self.inner.header(&BlockId::Hash(best_hash)).ok()?
-					.expect("Header known to exist after `best_containing` call; qed");
-
-				// we target a vote towards 3/4 of the unfinalized chain (rounding up)
-				let target = {
-					let two = NumberFor::<Block>::one() + One::one();
-					let three = two + One::one();
-					let four = three + One::one();
-
-					let diff = *best_header.number() - *base_header.number();
-					let diff = ((diff * three) + two) / four;
-
-					*base_header.number() + diff
-				};
-
-				// unless our vote is currently being limited due to a pending change
-				let target = limit.map(|limit| limit.min(target)).unwrap_or(target);
-
-				// walk backwards until we find the target block
-				loop {
-					if *best_header.number() < target { unreachable!(); }
-					if *best_header.number() == target {
-						return Some((best_hash, *best_header.number()));
-					}
-
-					best_hash = *best_header.parent_hash();
-					best_header = self.inner.header(&BlockId::Hash(best_hash)).ok()?
-						.expect("Header known to exist after `best_containing` call; qed");
-				}
-			},
-			Ok(None) => {
-				debug!(target: "afg", "Encountered error finding best chain containing {:?}: couldn't find target block", block);
-				None
-			}
-			Err(e) => {
-				debug!(target: "afg", "Encountered error finding best chain containing {:?}: {:?}", block, e);
-				None
-			}
+		//TODO: optimizing unwrap()
+		let info = self.inner.backend().blockchain().info().unwrap();
+		let mut to_finalized = info.finalized_hash.clone();
+		if info.best_number - info.finalized_number > NumberFor::<Block>::sa(6) {
+			let hash = self.inner.backend().blockchain().hash(info.best_number - NumberFor::<Block>::sa(6)).unwrap_or(None);
+			to_finalized = match hash{
+				Some(hash) => hash,
+				None => info.finalized_hash.clone(),
+			};
 		}
+
+		let to_finalized_header = self.inner.header(&BlockId::Hash(to_finalized)).unwrap_or(None);
+		let to_finalized_header = match to_finalized_header {
+			Some(head) => head,
+			None => return None,
+		};
+
+		return Some((to_finalized, *to_finalized_header.number()));
+
+		//---------------------------------split line-------------------------------------//
+
+		//match self.inner.best_containing(block, None) {
+		//	Ok(Some(mut best_hash)) => {
+		//		let base_header = self.inner.header(&BlockId::Hash(block)).ok()?
+		//			.expect("Header known to exist after `best_containing` call; qed");
+
+		//		if let Some(limit) = limit {
+		//			// this is a rare case which might cause issues,
+		//			// might be better to return the header itself.
+		//			if *base_header.number() > limit {
+		//				debug!(target: "afg", "Encountered error finding best chain containing {:?} with limit {:?}: target block is after limit",
+		//					block,
+		//					limit,
+		//				);
+		//				return None;
+		//			}
+		//		}
+
+		//		let mut best_header = self.inner.header(&BlockId::Hash(best_hash)).ok()?
+		//			.expect("Header known to exist after `best_containing` call; qed");
+
+		//		// we target a vote towards 3/4 of the unfinalized chain (rounding up)
+		//		let target = {
+		//			let two = NumberFor::<Block>::one() + One::one();
+		//			let three = two + One::one();
+		//			let four = three + One::one();
+
+		//			let diff = *best_header.number() - *base_header.number();
+		//			let diff = ((diff * three) + two) / four;
+
+		//			*base_header.number() + diff
+		//		};
+
+		//		// unless our vote is currently being limited due to a pending change
+		//		let target = limit.map(|limit| limit.min(target)).unwrap_or(target);
+
+		//		// walk backwards until we find the target block
+		//		loop {
+		//			if *best_header.number() < target { unreachable!(); }
+		//			if *best_header.number() == target {
+		//				return Some((best_hash, *best_header.number()));
+		//			}
+
+		//			best_hash = *best_header.parent_hash();
+		//			best_header = self.inner.header(&BlockId::Hash(best_hash)).ok()?
+		//				.expect("Header known to exist after `best_containing` call; qed");
+		//		}
+		//	},
+		//	Ok(None) => {
+		//		debug!(target: "afg", "Encountered error finding best chain containing {:?}: couldn't find target block", block);
+		//		None
+		//	}
+		//	Err(e) => {
+		//		debug!(target: "afg", "Encountered error finding best chain containing {:?}: {:?}", block, e);
+		//		None
+		//	}
+		//}
 	}
 }
 
@@ -289,7 +311,6 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 	}
 
 	fn finalize_block(&self, hash: Block::Hash, number: NumberFor<Block>, round: u64, commit: Commit<Block>) -> Result<(), Self::Error> {
-		use client::blockchain::HeaderBackend;
 
 		let status = self.inner.backend().blockchain().info()?;
 		if number <= status.finalized_number && self.inner.backend().blockchain().hash(number)? == Some(hash) {
