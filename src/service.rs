@@ -223,13 +223,12 @@ construct_service_factory! {
                     service.transaction_pool()
                 ).map_err(|e| format!("{:?}", e))?;
 
+                // crfg
                 let local_key = if service.config.disable_grandpa {
                     None
                 } else {
                     key.clone()
                 };
-
-                // crfg
                 info!("Running crfg session as Authority {}", local_key.clone().unwrap().public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                 executor.spawn(crfg::run_crfg(
                     crfg::Config {

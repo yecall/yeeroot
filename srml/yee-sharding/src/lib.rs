@@ -46,7 +46,7 @@ use {
     sharding_primitives::ShardingInfo,
 };
 
-pub type Log<T> = RawLog<<T as Trait>::ShardNum>;
+pub type Log<T> = RawLog<<T as Trait>::ShardNum, <T as system::Trait>::BlockNumber>;
 
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"YeeShard";
 
@@ -116,9 +116,10 @@ impl ProvideInherentData for InherentDataProvider {
 /// Logs in this module.
 #[cfg_attr(feature = "std", derive(Serialize, Debug))]
 #[derive(Encode, Decode, PartialEq, Eq, Clone)]
-pub enum RawLog<N> {
+pub enum RawLog<ShardNum, BlockNumber> {
     /// Block Header digest log for shard info
-    ShardMarker(N, N),
+    ShardMarker(ShardNum, ShardNum),
+    ScaleOutPhase(ScaleOutPhase<BlockNumber, ShardNum>),
 }
 
 pub trait Trait: system::Trait {
@@ -272,6 +273,10 @@ decl_module! {
 
             if let Some(shard_info) = Self::current_shard_info() {
                 Self::deposit_log(RawLog::ShardMarker(shard_info.num, shard_info.count));
+            }
+
+            if let Some(scale_out_phase) = Self::current_scale_out_phase() {
+                Self::deposit_log(RawLog::ScaleOutPhase(scale_out_phase));
             }
         }
     }
