@@ -22,7 +22,7 @@ use crossbeam_channel::{select, unbounded, Receiver};
 use std::thread;
 use log::{info, error, warn, debug};
 use crate::worker::Seal;
-use crate::job_template::{ProofMulti, Hash, Task, DifficultyType, JobResult, ResultDigestItem, WorkProof};
+use crate::job_template::{ProofMulti, Hash, Task, PowTarget, JobResult, ResultDigestItem, WorkProof};
 use yee_lru_cache::LruCache;
 use yee_util::Mutex;
 use crate::WorkMap;
@@ -100,7 +100,7 @@ impl Miner {
 			let len = work_set.len();
 
 			for (_key, value) in work_set {
-				let t = self.verify_target(seal.post_hash, value.difficulty, value.extra_data.clone());
+				let t = self.verify_target(seal.post_hash, value.pow_target, value.extra_data.clone());
 				let mut b = true;
 				if let Some(_work) = self.state.lock().get_refresh(&value.raw_hash) {
 					b = false;
@@ -108,9 +108,9 @@ impl Miner {
 				}
 
 				if t && b {
-					info!("Submit raw_hash: {:?}, difficulty: {:#x}, url: {:?}, merkle_root: {:?}, merkle_proof: {:?}, post_hash: {:?}",
+					info!("Submit raw_hash: {:?}, pow_target: {:#x}, url: {:?}, merkle_root: {:?}, merkle_proof: {:?}, post_hash: {:?}",
 					      value.raw_hash.clone(),
-					      value.difficulty.clone(),
+					      value.pow_target.clone(),
 					      value.url.clone(),
 					      value.merkle_root.clone(),
 					      value.merkle_proof.clone(),
@@ -141,10 +141,10 @@ impl Miner {
 		self.worker_controller.send_message(message.clone());
 	}
 
-	fn verify_target(&self, hash: Hash, difficulty: DifficultyType, extra_data: Vec<u8>) -> bool {
-		let proof_difficulty = DifficultyType::from(hash.as_ref());
+	fn verify_target(&self, hash: Hash, pow_target: PowTarget, extra_data: Vec<u8>) -> bool {
+		let proof_pow_target = PowTarget::from(hash.as_ref());
 
-		if extra_data.len() > MAX_EXTRA_DATA_LENGTH || proof_difficulty > difficulty {
+		if extra_data.len() > MAX_EXTRA_DATA_LENGTH || proof_pow_target > pow_target {
 			return false;
 		}
 		return true;

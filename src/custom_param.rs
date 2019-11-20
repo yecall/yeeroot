@@ -20,19 +20,26 @@ use {
     substrate_cli::{impl_augment_clap},
 };
 use log::{info, warn};
-use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles};
+use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles, new_client, FactoryBlock, FullClient};
+use substrate_client::ChainHead;
+use runtime_primitives::{
+    generic::BlockId,
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor},
+};
 use crate::error;
 use crate::service::{NodeConfig};
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;
-use primitives::crypto::Ss58Codec;
+use yee_primitives::{AddressCodec, Address, Hrp};
+use yee_sharding::ShardingDigestItem;
+use sharding_primitives::{ShardingAPI, utils::shard_num_for};
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
-    /// Specify miner coin base for block authoring
-    #[structopt(long = "coin-base", value_name = "COIN_BASE")]
-    pub coin_base: Option<String>,
+    /// Specify miner coinbase for block authoring
+    #[structopt(long = "coinbase", value_name = "COINBASE")]
+    pub coinbase: Option<String>,
 
     /// Specify shard number
     #[structopt(long = "shard-num", value_name = "SHARD_NUM")]
@@ -57,15 +64,65 @@ pub struct YeeCliConfig {
 
 impl_augment_clap!(YeeCliConfig);
 
-pub fn process_custom_args<F, C>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
-where F: ServiceFactory<Configuration=NodeConfig<F, C>> {
+pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
+where
+    F: ServiceFactory<Configuration=NodeConfig<F>>,
+    DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16>,
+    FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+{
+
+    // get shard num, shard count
+    let client = new_client::<F>(&config)?;
+    let last_block_header = client.best_block_header()?;
+    let shard_info : Option<(u16, u16)> = last_block_header.digest().logs().iter().rev()
+        .filter_map(ShardingDigestItem::as_sharding_info)
+        .next();
+
+    let shard_num = custom_args.shard_num;
+
+    let (shard_num, shard_count) = match shard_info {
+        Some((ori_shard_num, ori_shard_count)) => {
+            if shard_num == ori_shard_num {//normal
+                (ori_shard_num, ori_shard_count)
+            }else if shard_num == shard_num + ori_shard_count {//scale
+                (ori_shard_num, ori_shard_count)
+            }else{
+                return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
+            }
+        },
+        None => {
+            let api = client.runtime_api();
+            let last_block_id = BlockId::hash(last_block_header.hash());
+            let genesis_shard_cnt = api.get_genesis_shard_count(&last_block_id)?;
+            if shard_num > genesis_shard_cnt{
+                return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
+            }
+            (shard_num, genesis_shard_cnt)
+        }
+    };
+
+    config.custom.hrp = get_hrp( config.chain_spec.id());
+
+    config.custom.shard_num = shard_num;
+    config.custom.shard_count = shard_count;
 
     if config.roles == Roles::AUTHORITY{
-        let coin_base = custom_args.coin_base.clone().ok_or(error::ErrorKind::Input("Coin base not found".to_string().into()))?;
-        config.custom.coin_base = parse_coin_base(coin_base).map_err(|e| format!("Bad coin base address: {:?}", e))?;
-    }
+        let coinbase = custom_args.coinbase.clone().ok_or(error::ErrorKind::Input("Coinbase not found".to_string()))?;
+        let (coinbase, hrp) = parse_coinbase(coinbase).map_err(|e| format!("Invalid coinbase: {:?}", e))?;
 
-    config.custom.shard_num = custom_args.shard_num;
+        if config.custom.hrp != hrp{
+            return Err(error::ErrorKind::Input("Invalid coinbase hrp".to_string()).into());
+        }
+
+        let coinbase_shard_num = shard_num_for(&coinbase, shard_count).expect("qed");
+        info!("Coinbase shard num: {}", coinbase_shard_num);
+        if coinbase_shard_num != shard_num {
+            return Err(error::ErrorKind::Input("Invalid coinbase: shard num is not accordant".to_string()).into());
+        }
+
+        config.custom.coinbase = coinbase;
+    }
 
     let bootnodes_routers = custom_args.bootnodes_routers.clone();
 
@@ -95,8 +152,9 @@ where F: ServiceFactory<Configuration=NodeConfig<F, C>> {
     config.custom.mine = custom_args.mine;
 
     info!("Custom params: ");
-    info!("  coin base: {}", config.custom.coin_base);
+    info!("  coinbase: {}", config.custom.coinbase.to_address(config.custom.hrp.clone()).expect("qed"));
     info!("  shard num: {}", config.custom.shard_num);
+    info!("  shard count: {}", config.custom.shard_count);
     info!("  bootnodes: {:?}", config.network.boot_nodes);
     info!("  foreign port: {:?}", config.custom.foreign_port);
     info!("  bootnodes router conf: {:?}", config.custom.bootnodes_router_conf);
@@ -122,8 +180,18 @@ fn get_native_bootnodes(bootnodes_router_conf: &BootnodesRouterConf, shard_num: 
     }
 }
 
-fn parse_coin_base(input: String) -> error::Result<AccountId> {
-    let coin_base = <AccountId as Ss58Codec>::from_string(&input)
-        .map_err(|e| format!("{:?}", e))?;
-    Ok(coin_base)
+fn parse_coinbase(input: String) -> error::Result<(AccountId, Hrp)> {
+
+    let address = Address(input);
+    let (coinbase, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e))?;
+
+    Ok((coinbase, hrp))
+}
+
+fn get_hrp(chain_spec_id: &str) -> Hrp{
+
+    match chain_spec_id{
+        "main" => Hrp::MAINNET,
+        _ => Hrp::TESTNET,
+    }
 }

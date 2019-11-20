@@ -25,7 +25,7 @@ use version::RuntimeVersion;
 use version::NativeVersion;
 
 pub use {
-    consensus_pow::DifficultyType,
+    consensus_pow::PowTarget,
 };
 
 // A few exports that help ease life for downstream crates.
@@ -58,9 +58,6 @@ pub type BlockNumber = u64;
 
 /// Index of an account's extrinsic in the chain.
 pub type Nonce = u64;
-
-/// The type used for pow difficulty in block header.
-pub type Difficulty = primitives::U256;
 
 /// Yee module
 mod yee;
@@ -145,8 +142,15 @@ impl system::Trait for Runtime {
 }
 
 impl pow::Trait for Runtime {
-    /// Type used for block difficulty
-    type Difficulty = Difficulty;
+    /// Type used for POW target
+    type PowTarget = PowTarget;
+	/// Type used for reward
+	type Currency = balances::Module<Self>;
+
+	type Reward = ();
+
+	type Event = Event;
+
 }
 
 impl consensus::Trait for Runtime {
@@ -192,6 +196,7 @@ impl balances::Trait for Runtime {
 	type TransferPayment = ();
 
     type Sharding = sharding::Module<Runtime>;
+	type OnFeeWithdrawn = pow::Module<Runtime>;
 }
 
 impl crfg::Trait for Runtime {
@@ -218,7 +223,7 @@ construct_runtime!(
 		System: system::{default, Log(ChangesTrieRoot)},
 		Timestamp: timestamp::{Module, Call, Storage, Config<T>, Inherent},
 		Consensus: consensus::{Module, Call, Storage, Config<T>, Log(AuthoritiesChange), Inherent},
-		Pow: pow::{Module, Storage, Config<T>},
+		Pow: pow::{Module, Call, Storage, Config<T>, Inherent, Event<T>},
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
@@ -308,12 +313,12 @@ impl_runtime_apis! {
 	}
 
 	impl consensus_pow::YeePOWApi<Block> for Runtime {
-	    fn genesis_difficulty() -> DifficultyType {
-	        Pow::genesis_difficulty()
+	    fn genesis_pow_target() -> PowTarget {
+	        Pow::genesis_pow_target()
 	    }
 
-        fn difficulty_adj() -> NumberFor<Block> {
-            Pow::difficulty_adj()
+        fn pow_target_adj() -> NumberFor<Block> {
+            Pow::pow_target_adj()
         }
 
         fn target_block_time() -> u64 {

@@ -26,7 +26,6 @@ use {
 };
 use {
     runtime_primitives::{
-        generic::BlockId,
         traits::{
             Block, Header,
             ProvideRuntimeApi,
@@ -46,32 +45,26 @@ use {
 pub trait ForeignChainConfig {
     fn get_shard_num(&self) -> u16;
     fn set_shard_num(&mut self, shard: u16);
+
+    fn get_shard_count(&self) -> u16;
 }
 
-pub struct ForeignChain<F: ServiceFactory, C> {
-    _phantom: PhantomData<(F, C)>,
+pub struct ForeignChain<F: ServiceFactory> {
     components: HashMap<u16, LightComponents<F>>,
 }
 
-impl<F, C> ForeignChain<F, C> where
+impl<F> ForeignChain<F> where
     F: ServiceFactory,
-    <FactoryBlock<F> as Block>::Header: Header,
     FactoryFullConfiguration<F>: Clone,
     <F as ServiceFactory>::Configuration: ForeignChainConfig,
-    C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
     pub fn new(
         config: &FactoryFullConfiguration<F>,
         network_provider: impl NetworkProvider<F, ComponentExHash<LightComponents<F>>> + Clone,
-        client: Arc<C>,
         task_executor: TaskExecutor,
     ) -> Result<Self, substrate_service::Error> {
-        let api = client.runtime_api();
-        let last_block_header = client.best_block_header()?;
-        let last_block_id = BlockId::hash(last_block_header.hash());
         let curr_shard = config.custom.get_shard_num();
-        let shard_count = api.get_shard_count(&last_block_id)?;
+        let shard_count = config.custom.get_shard_count();
 
         info!(
             "start Foreign chain for shard {} / {}",
@@ -96,7 +89,6 @@ impl<F, C> ForeignChain<F, C> where
         }
 
         Ok(Self {
-            _phantom: Default::default(),
             components,
         })
     }

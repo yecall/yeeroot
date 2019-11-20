@@ -38,7 +38,7 @@ pub fn process_dev_param<F, C>(config: &mut FactoryFullConfiguration<F>, custom_
         let run_params = yee_dev::get_run_params(shard_num).map_err(|e| format!("{:?}", e))?;
 
         info!("Dev params: ");
-        info!("  coin base: {}", run_params.coin_base);
+        info!("  coinbase: {}", run_params.coinbase);
         info!("  rpc port: {}", run_params.rpc_port);
         info!("  ws port: {}", run_params.ws_port);
         info!("  port: {}", run_params.port);
@@ -46,7 +46,7 @@ pub fn process_dev_param<F, C>(config: &mut FactoryFullConfiguration<F>, custom_
         info!("  foreign port: {}", run_params.foreign_port);
         info!("  bootnodes routers: {:?}", run_params.bootnodes_routers);
 
-        custom_args.coin_base = Some(run_params.coin_base);
+        custom_args.coinbase = Some(run_params.coinbase);
         custom_args.foreign_port = Some(run_params.foreign_port);
         custom_args.bootnodes_routers = run_params.bootnodes_routers;
 

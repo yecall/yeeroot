@@ -31,15 +31,16 @@ use crate::errors;
 use jsonrpc_core::BoxFuture;
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 use yee_serde_hex::Hex;
+use yee_primitives::{Address, AddressCodec};
 
 /// Substrate state API
 #[rpc]
 pub trait StateApi<Hash> {
 	#[rpc(name = "state_getBalance")]
-	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>>;
+	fn balance(&self, address: Address, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>>;
 
 	#[rpc(name = "state_getNonce")]
-	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>>;
+	fn nonce(&self, account: Address, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>>;
 }
 
 /// State API with subscriptions support.
@@ -59,9 +60,14 @@ impl State {
 }
 
 impl<Hash> StateApi<Hash> for State
-	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned
+	where Hash: Send + Sync + 'static + Serialize + DeserializeOwned + Clone
 {
-	fn balance(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>> {
+	fn balance(&self, address: Address, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>> {
+
+		let account_id = match AccountId::from_address(&address){
+			Ok((account_id, _hrp)) => account_id,
+			Err(e) => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidAddress).into())),
+		};
 
 		let shard_count = self.config.get_shard_count();
 
@@ -79,12 +85,12 @@ impl<Hash> StateApi<Hash> for State
 		let reserved_balance_key = get_storage_key(&account_id, StorageKeyId::ReservedBalance);
 		log::debug!("reserved balance key: {}", hex::encode(reserved_balance_key.clone().0));
 
-		let free_balance_future : BoxFuture<Option<StorageData>> = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (free_balance_key, Option::<Hash>::None), shard_num){
+		let free_balance_future : BoxFuture<Option<StorageData>> = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (free_balance_key, hash.clone()), shard_num){
 			Ok(future) => future,
 			Err(e) => return Box::new(future::err(e.into())),
 		};
 
-		let reserved_balance_future : BoxFuture<Option<StorageData>> = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (reserved_balance_key, Option::<Hash>::None), shard_num){
+		let reserved_balance_future : BoxFuture<Option<StorageData>> = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (reserved_balance_key, hash), shard_num){
 			Ok(future) => future,
 			Err(e) => return Box::new(future::err(e.into())),
 		};
@@ -104,7 +110,12 @@ impl<Hash> StateApi<Hash> for State
 		}))
 	}
 
-	fn nonce(&self, account_id: AccountId) -> BoxFuture<Hex<BigUint>> {
+	fn nonce(&self, address: Address, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>> {
+
+		let account_id = match AccountId::from_address(&address){
+			Ok((account_id, _hrp)) => account_id,
+			Err(e) => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidAddress).into())),
+		};
 
 		let shard_count = self.config.get_shard_count();
 
@@ -117,7 +128,7 @@ impl<Hash> StateApi<Hash> for State
 		let key = get_storage_key(&account_id, StorageKeyId::AccountNonce);
 		log::debug!("nonce key: {}", hex::encode(key.clone().0));
 
-		match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key, Option::<Hash>::None), shard_num){
+		match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key, hash), shard_num){
 			Ok(future) => {
 
 				Box::new(future.map(|result: Option<StorageData>|{

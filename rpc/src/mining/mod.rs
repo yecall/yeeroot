@@ -20,7 +20,7 @@ pub mod primitives;
 use substrate_service::{ServiceFactory, ComponentClient, FullComponents, Components};
 use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
                         WorkProof as DefaultWorkProof, ProofNonce as DefaultProofNonce, ProofMulti as DefaultProofMulti};
-use yee_consensus_pow_primitives::DifficultyType;
+use yee_consensus_pow_primitives::PowTarget;
 use parking_lot::RwLock;
 use yee_runtime::opaque::Block;
 use std::sync::Arc;
@@ -60,7 +60,7 @@ pub struct Mining<B, AuthorityId> where
     B: BlockT,
     AuthorityId: Decode + Encode + Clone,
 {
-    job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, AuthorityId>>>>>>,
+    job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, AuthorityId>>>>>>,
     cache: Arc<RwLock<HashMap<B::Hash, (DefaultJob<B, AuthorityId>, Instant)>>>,
 }
 
@@ -68,7 +68,7 @@ impl<B, AuthorityId> Mining<B, AuthorityId> where
     B: BlockT,
     AuthorityId: Decode + Encode + Clone
 {
-    pub fn new(job_manager: Arc<RwLock<Option<Arc<JobManager<Job=DefaultJob<B, AuthorityId>>>>>>) -> Self {
+    pub fn new(job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, AuthorityId>>>>>>) -> Self {
         Self {
             job_manager,
             cache: Arc::new(RwLock::new(HashMap::new())),

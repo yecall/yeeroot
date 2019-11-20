@@ -32,10 +32,7 @@ use std::time::{Instant, Duration};
 use futures::stream::Stream;
 use futures::future::Future;
 use substrate_cli::error;
-use substrate_client::{ChainHead, ClientInfo};
-use runtime_primitives::traits::{ProvideRuntimeApi, Header, Block};
-use runtime_primitives::generic::BlockId;
-use sharding_primitives::ShardingAPI;
+use substrate_client::{ClientInfo};
 use ansi_term::Colour;
 use substrate_service::{Components, ComponentClient, ComponentExHash};
 use substrate_client::runtime_api::BlockT;
@@ -48,6 +45,7 @@ pub struct Params {
     pub protocol_version: String,
     pub node_key_pair: Keypair,
     pub shard_num: u16,
+    pub shard_count: u16,
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
@@ -152,21 +150,16 @@ pub struct Params {
 /// ```
 pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
     -> error::Result<Arc<network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
-    <FactoryBlock<C::Factory> as Block>::Header: Header,
     C: Components,
-    ComponentClient<C>: ProvideRuntimeApi + ChainHead<FactoryBlock<C::Factory>>,
-    <ComponentClient<C> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<C::Factory>>,
 {
     let peer_id = get_peer_id(&param.node_key_pair);
 
-    let shard_count = get_shard_count::<C::Factory, _>(&client)?;
-
     info!("Start foreign network: ");
-    info!("  shard count: {}", shard_count);
     info!("  client version: {}", param.client_version);
     info!("  protocol version: {}", param.protocol_version);
     info!("  node key: {}", peer_id);
     info!("  shard num: {}", param.shard_num);
+    info!("  shard count: {}", param.shard_count);
     info!("  foreign port: {:?}", param.foreign_port);
     info!("  bootnodes router conf: {:?}", param.bootnodes_router_conf);
 
@@ -206,6 +199,8 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
 
     let service_clone = service.clone();
 
+    let shard_count = param.shard_count;
+
     let task = Interval::new(Instant::now(), Duration::from_secs(5)).for_each(move |_instant| {
 
         let network_state = service.network_state();
@@ -233,20 +228,6 @@ fn get_peer_id(node_key_pair: &Keypair) -> String {
     let public = node_key_pair.public();
     let peer_id = public.clone().into_peer_id();
     peer_id.to_base58()
-}
-
-fn get_shard_count<F, C>(client: &Arc<C>) -> error::Result<u16>
-    where F: ServiceFactory,
-          <FactoryBlock<F> as Block>::Header: Header,
-          C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-          <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>, {
-    let api = client.runtime_api();
-    let last_block_header = client.best_block_header()?;
-    let last_block_id = BlockId::hash(last_block_header.hash());
-
-    let shard_count = api.get_shard_count(&last_block_id).map(|x| x as u16).map_err(|e| format!("{:?}", e))?;
-
-    Ok(shard_count)
 }
 
 fn get_status<B: BlockT>(network_state: &NetworkState, client_info: &HashMap<u16, Option<ClientInfo<B>>>, shard_count: u16) -> String {

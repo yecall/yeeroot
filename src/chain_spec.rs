@@ -1,7 +1,6 @@
 use {
     primitives::{
         sr25519, Pair,
-        crypto::Ss58Codec,
 		ed25519::Public as AuthorityId,
 		ed25519,
     },
@@ -11,8 +10,9 @@ use yee_runtime::{
 	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
 };
-use hex_literal::{hex, hex_impl};
 use substrate_service;
+use yee_primitives::{Address, AddressCodec};
+use yee_dev;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -25,9 +25,9 @@ pub type ChainSpec = substrate_service::ChainSpec<GenesisConfig>;
 /// from a string (`--chain=...`) into a `ChainSpec`.
 #[derive(Clone, Debug)]
 pub enum Alternative {
-	/// Whatever the current runtime is, with just Alice as an auth.
+	/// Whatever the current runtime is
 	Development,
-	/// Whatever the current runtime is, with simple Alice/Bob auths.
+	/// Whatever the current runtime is
 	LocalTestnet,
     /// Proof-of-Concept chain with prebuilt runtime.
     POCTestnet,
@@ -63,21 +63,21 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 }
 
 fn account_addr(s: &str) -> AccountId {
-    <AccountId as Ss58Codec>::from_string(s)
-        .expect("static values are valid; qed")
+
+	AccountId::from_address(&Address(s.to_string()))
+		.expect("static values are valid; qed").0
 }
 
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
 	pub(crate) fn load(self) -> Result<ChainSpec, String> {
+
+
 		Ok(match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
-				|| testnet_genesis(vec![
-					account_key("Alice")
-				],
-				),
+				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -87,15 +87,7 @@ impl Alternative {
 			Alternative::LocalTestnet => ChainSpec::from_genesis(
 				"Local Testnet",
 				"local_testnet",
-				|| testnet_genesis(vec![
-					account_key("Alice"),
-					account_key("Bob"),
-					account_key("Charlie"),
-					account_key("Dave"),
-					account_key("Eve"),
-					account_key("Ferdie"),
-				],
-				),
+				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -105,12 +97,7 @@ impl Alternative {
             Alternative::POCTestnet => ChainSpec::from_genesis(
                 "POC Testnet",
                 "poc_testnet",
-                || poc_testnet_genesis(vec![
-                    account_addr("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG"),
-                    account_addr("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695"),
-                    account_addr("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi"),
-                    account_addr("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9"),
-                ]),
+                || poc_testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
                 vec![],
                 None,
                 None,
@@ -151,12 +138,15 @@ fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
 fn testnet_template_genesis(
     endowed_accounts: Vec<AccountId>,
     code: Vec<u8>,
-    genesis_difficulty: primitives::U256,
+    genesis_pow_target: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
-	let initial_authorities = vec![
-			get_authority_keys_from_seed("Alice"),
-		];
+
+	let crfg_authorities_size = 6u64;
+	let crfg_block_latency = 6u64;
+
+	let block_reward_latency = crfg_authorities_size + crfg_block_latency + 1;
+
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
 			code,
@@ -167,9 +157,11 @@ fn testnet_template_genesis(
 			minimum_period: 0, // 10 second block time.
 		}),
         pow: Some(PowConfig {
-            genesis_difficulty,
-            difficulty_adj: 60_u64.into(),
+            genesis_pow_target,
+            pow_target_adj: 60_u64.into(),
             target_block_time: target_block_time.into(),
+	        block_reward: 5000000000,
+	        block_reward_latency: block_reward_latency.into(),
         }),
 		indices: Some(IndicesConfig {
 			ids: endowed_accounts.clone(),
@@ -180,14 +172,14 @@ fn testnet_template_genesis(
 			existential_deposit: 500,
 			transfer_fee: 0,
 			creation_fee: 0,
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 1 << 60)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k|(k, 0)).collect(),
 			vesting: vec![],
 		}),
         sharding: Some(ShardingConfig {
             genesis_sharding_count: 4,
         }),
 		crfg: Some(CrfgConfig {
-			authorities: initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect(),
+			authorities: vec![],
 		}),
 	}
 }

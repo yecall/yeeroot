@@ -1,5 +1,5 @@
 [package]
-name = "srml-yee-pow"
+name = "yee-srml-pow"
 version = "0.1.0"
 authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
@@ -10,6 +10,9 @@ rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", def
 primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 srml-support = { git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
+srml-timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 
 [features]
 default = ["std"]
@@ -19,4 +22,5 @@ std = [
     "primitives/std",
     "srml-support/std",
     "system/std",
+    "parity-codec/std",
 ]

@@ -43,12 +43,12 @@ pub struct FullRpcHandlerConstructor;
 pub type LightRpcHandlerConstructor = DefaultRpcHandlerConstructor;
 
 pub trait ProvideJobManager<J> {
-    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<JobManager<Job=J>>>>>;
+    fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>;
 }
 
 #[derive(Default, Clone)]
 pub struct FullRpcExtra<J> {
-    job_manager: Arc<RwLock<Option<Arc<JobManager<Job=J>>>>>,
+    job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>,
 }
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
@@ -67,7 +67,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
 
     fn new_rpc_handler(
         client: Arc<ComponentClient<C>>,
-        network: Arc<network::SyncProvider<ComponentBlock<C>>>,
+        network: Arc<dyn network::SyncProvider<ComponentBlock<C>>>,
         should_have_peers: bool,
         rpc_system_info: SystemInfo,
         task_executor: TaskExecutor,
