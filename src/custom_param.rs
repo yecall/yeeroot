@@ -85,8 +85,8 @@ where
         Some((ori_shard_num, ori_shard_count)) => {
             if shard_num == ori_shard_num {//normal
                 (ori_shard_num, ori_shard_count, None)
-            }else if shard_num == ori_shard_num + ori_shard_count {//scale
-                (ori_shard_num, ori_shard_count, Some(ScaleOut{shard_count: ori_shard_count * 2}))
+            }else if shard_num == ori_shard_num + ori_shard_count {//scale out
+                (ori_shard_num, ori_shard_count, Some(ScaleOut{shard_num}))
             }else{
                 return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
             }

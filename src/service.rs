@@ -62,7 +62,7 @@ native_executor_instance!(
 
 #[derive(Clone)]
 pub struct ScaleOut {
-    pub shard_count: u16,
+    pub shard_num: u16,
 }
 
 /// Node specific configuration

@@ -132,7 +132,7 @@ fn register_inherent_data_provider(
         inherent_data_providers.register_provider(srml_sharding::InherentDataProvider::new(
             shard_num,
             shard_cnt,
-            scale_out.map(|x|srml_sharding::ScaleOut{shard_count: x.shard_count})
+            scale_out.map(|x|srml_sharding::ScaleOut{shard_num: x.shard_num})
         )).map_err(inherent_to_common_error)
     } else {
         Ok(())
