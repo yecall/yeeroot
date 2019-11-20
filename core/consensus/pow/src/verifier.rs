@@ -56,7 +56,8 @@ use {
     yee_runtime::{AccountId, BalancesCall},
 };
 use super::CompatibleDigestItem;
-use crate::pow::check_proof;
+use crate::pow::{check_proof, gen_extrinsic_proof};
+use crate::digest::ProofDigestItem;
 use yee_sharding::ShardingDigestItem;
 use merkle_light::proof::Proof as MLProof;
 use merkle_light::merkle::MerkleTree;
@@ -77,7 +78,7 @@ pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
 
 #[forbid(deprecated)]
 impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> where
-    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16>,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16>,
     C: Send + Sync,
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
@@ -102,10 +103,16 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         let number = header.number().clone();
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
+        // get proof root from digest.
+        let header_proof = header.digest().logs().iter().rev().filter_map(ProofDigestItem::as_xt_proof).next();
+        if header_proof.is_none(){
+            return Err("get proof log in header failed.".to_string());
+        }
+        let p_h = header_proof.unwrap();
 
         // check if header has a valid work proof
         let (pre_header, seal) = check_header::<F::Block, AuthorityId>(
-            header,
+            header.clone(),
             hash.clone(),
         )?;
 
@@ -115,6 +122,12 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         let mut validate_proof = false;
         if let Some(proof) = proof.clone() {
             if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
+                // check proof root.
+                let root = mlp.layer2_merkle.root();
+                if root.as_ref() != p_h.as_slice() {
+                    return Err("Proof is invalid.".to_string());
+                }
+                // check proof self.
                 if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_slice()) {
                     let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
                     if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
@@ -129,6 +142,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         } else {
             debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
         }
+        let mut res_proof = proof;
         let foreign_chains = self.foreign_chains.clone();
         let client = self.client.clone();
         if body.is_some() {
@@ -177,6 +191,12 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
             };
 
             let exs = body.clone().unwrap();
+            // check proof root
+            let (root, proof) = gen_extrinsic_proof::<F::Block>(&header, &exs);
+            if root.as_slice() != p_h.as_slice() {
+                return Err("Proof is invalid.".to_string());
+            }
+            res_proof = Some(proof);
             // check relay extrinsic.
             let check_relay : Result<(), String> = check_relay_extrinsic(exs);
             if check_relay.is_err() {
@@ -188,7 +208,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
             origin,
             header: pre_header,
             justification,
-            proof,
+            proof: res_proof,
             post_digests: vec![seal],
             body,
             finalized: false,

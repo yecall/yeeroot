@@ -133,6 +133,7 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
             let header_pre_hash = header.hash();
             let digest_item = job.digest_item;
             let difficulty = digest_item.difficulty;
+            let xts_proof = job.xts_proof.clone();
 
             info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
 
@@ -146,12 +147,11 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
                 seal.work_proof = proof;
 
                 if let Ok((post_digest, hash)) = check_proof(&header, &seal){
-                    let extrinsic_proof = gen_extrinsic_proof::<B>(&header, &body.as_slice());
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,
                         header,
                         justification: None,
-                        proof: extrinsic_proof,
+                        proof: Some(xts_proof),
                         post_digests: vec![post_digest],
                         body: Some(body),
                         finalized: false,

@@ -56,7 +56,7 @@ use {
     pow_primitives::YeePOWApi,
 };
 
-pub use digest::CompatibleDigestItem;
+pub use digest::{CompatibleDigestItem, ProofDigestItem};
 pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
               MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
@@ -96,6 +96,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16>,
+    DigestItemFor<B>: ProofDigestItem<B>,
     <B as Block>::Hash: From<H256> + Ord,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
@@ -143,7 +144,7 @@ pub fn import_queue<F, C, AuthorityId>(
     H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16>,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16>,
     C: ProvideRuntimeApi + 'static + Send + Sync,
     C: HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,

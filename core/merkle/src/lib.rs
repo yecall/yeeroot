@@ -62,7 +62,7 @@ impl<H: HashT> Algorithm<ProofHash<H>> for ProofAlgorithm<H> {
 
 #[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct MultiLayerProof {
-    layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
+    pub layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
     pub layer2_proof: Vec<u8>,
     layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>,
 }
@@ -104,6 +104,7 @@ impl MultiLayerProof {
         Decode::decode(&mut &bytes[..]).ok_or(())
     }
 
+    /// Tries contains
     pub fn contains(&self, shard: u16, hash: ProofHash<BlakeTwo256>) -> bool {
         for (num ,tr) in &self.layer1_merkles {
             if *num == shard {

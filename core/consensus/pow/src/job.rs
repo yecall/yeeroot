@@ -50,7 +50,7 @@ use {
 	},
 };
 use std::time::Duration;
-use crate::{PowSeal, WorkProof, CompatibleDigestItem};
+use crate::{PowSeal, WorkProof, CompatibleDigestItem, digest::ProofDigestItem};
 use parity_codec::{Decode, Encode};
 use log::info;
 use {
@@ -74,6 +74,8 @@ pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
 	pub body: Vec<B::Extrinsic>,
 	/// Digest item
 	pub digest_item: PowSeal<B, AuthorityId>,
+	/// extrinsic proof
+	pub xts_proof: Vec<u8>,
 }
 
 impl<B: Block, AuthorityId: Decode + Encode + Clone> Job for DefaultJob<B, AuthorityId>{
@@ -137,7 +139,7 @@ impl<B, C, E, AuthorityId, I> DefaultJobManager<B, C, E, AuthorityId, I> where
 
 impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AuthorityId, I>
 	where B: Block,
-	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
+	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ProofDigestItem<B> + ShardingDigestItem<u16>,
 	      C: ChainHead<B> + Send + Sync + 'static,
 	      C: HeaderBackend<B> + ProvideRuntimeApi,
 	      <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
@@ -191,6 +193,12 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 			let mut header_with_pow_seal = header.clone();
 			let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
 			header_with_pow_seal.digest_mut().push(item);
+
+			// write extrinsic proof root to digest log.
+			let (root, proof) = gen_extrinsic_proof::<B>(&header, &body);
+			let proof_item = <DigestItemFor<B> as ProofDigestItem<B>>::gen_xt_proof(root);
+			header_with_pow_seal.digest_mut().push(proof_item);
+
 			let hash = header_with_pow_seal.hash();
 
 			info!("job {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
@@ -200,6 +208,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 				header,
 				body,
 				digest_item: pow_seal,
+				xts_proof: proof,
 			})
 		};
 
@@ -214,12 +223,12 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
 			let number = &job.header.number().clone();
 			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
-			let extrinsic_proof = gen_extrinsic_proof::<B>(&job.header, job.body.as_slice());
+			// let extrinsic_proof = gen_extrinsic_proof::<B>(&job.header, job.body.as_slice());
 			let import_block: ImportBlock<B> = ImportBlock {
 				origin: BlockOrigin::Own,
 				header: job.header,
 				justification: None,
-				proof: extrinsic_proof,
+				proof: Some(job.xts_proof),
 				post_digests: vec![post_digest],
 				body: Some(job.body),
 				finalized: false,
