@@ -54,7 +54,6 @@ use inherents::{
 mod mock;
 mod tests;
 
-pub const BLOCK_INTERVAL: u64 = 6;
 pub const AUTHORS_MAX_LEN: usize = 6;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
 
@@ -229,23 +228,17 @@ decl_module! {
         fn update_authorities(origin, info: <T as Trait>::SessionKey){
 			use primitives::traits::{Zero, As};
 
-			let mut authors = <Module<T>>::crfg_authorities();
+			let mut authorities = <Module<T>>::crfg_authorities();
+			while authorities.len() >= AUTHORS_MAX_LEN {
+				authorities.remove(0);
+			}
+			authorities.push((info, 1));
+
 			let scheduled_at = system::ChainContext::<T>::default().current_height();
-			if(scheduled_at <= T::BlockNumber::sa(BLOCK_INTERVAL)){
-				authors.push((info, 1));
-				<AuthorityStorageVec<T::SessionKey>>::set_items(authors);
-				return Err("Insufficient block interval to current height for signal forced change.");
-			}
-
-			while authors.len() >= AUTHORS_MAX_LEN {
-				authors.remove(0);
-			}
-			authors.push((info, 1));
-
 			<PendingChange<T>>::put(StoredPendingChange {
 				delay: T::BlockNumber::sa(0),
 				scheduled_at,
-				next_authorities: authors,
+				next_authorities: authorities,
 				forced: None,
 			});
         }
