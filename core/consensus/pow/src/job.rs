@@ -54,7 +54,7 @@ use crate::{PowSeal, WorkProof, CompatibleDigestItem};
 use parity_codec::{Decode, Encode};
 use log::info;
 use {
-	pow_primitives::{YeePOWApi, DifficultyType},
+	pow_primitives::{YeePOWApi, PowTarget},
 };
 use crate::pow::check_proof;
 use yee_sharding::ShardingDigestItem;
@@ -175,13 +175,13 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 			let header_num = header.number().clone();
 			let header_pre_hash = header.hash();
 			let timestamp = timestamp_now()?;
-			let difficulty = calc_difficulty(client, &header, timestamp)?;
+			let pow_target = calc_pow_target(client, &header, timestamp)?;
 			let authority_id = authority_id;
 			let work_proof = WorkProof::Unknown;
 
 			let pow_seal = PowSeal {
 				authority_id,
-				difficulty,
+				pow_target,
 				timestamp,
 				work_proof,
 			};
@@ -190,7 +190,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 			header_with_pow_seal.digest_mut().push(item);
 			let hash = header_with_pow_seal.hash();
 
-			info!("job {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
+			info!("job {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
 
 			Ok(DefaultJob {
 				hash,
@@ -237,9 +237,9 @@ fn timestamp_now() -> Result<u64, consensus_common::Error> {
 		.map_err(to_common_error)?.as_millis() as u64)
 }
 
-fn calc_difficulty<B, C, AuthorityId>(
+fn calc_pow_target<B, C, AuthorityId>(
 	client: Arc<C>, header: &<B as Block>::Header, timestamp: u64,
-) -> Result<DifficultyType, consensus_common::Error> where
+) -> Result<PowTarget, consensus_common::Error> where
 	B: Block,
 	NumberFor<B>: SimpleArithmetic,
 	DigestFor<B>: Digest,
@@ -250,28 +250,28 @@ fn calc_difficulty<B, C, AuthorityId>(
 {
 	let curr_block_id = BlockId::hash(*header.parent_hash());
 	let api = client.runtime_api();
-	let genesis_difficulty = api.genesis_difficulty(&curr_block_id)
+	let genesis_pow_target = api.genesis_pow_target(&curr_block_id)
 		.map_err(to_common_error)?;
-	let adj = api.difficulty_adj(&curr_block_id)
+	let adj = api.pow_target_adj(&curr_block_id)
 		.map_err(to_common_error)?;
 	let curr_header = client.header(curr_block_id)
 		.expect("parent block must exist for sealer; qed")
 		.expect("parent block must exist for sealer; qed");
 
-	// not on adjustment, reuse parent difficulty
+	// not on adjustment, reuse parent pow target
 	if *header.number() % adj != Zero::zero() {
-		let curr_difficulty = curr_header.digest().logs().iter().rev()
+		let curr_pow_target = curr_header.digest().logs().iter().rev()
 			.filter_map(CompatibleDigestItem::as_pow_seal).next()
-			.and_then(|seal| Some(seal.difficulty))
-			.unwrap_or(genesis_difficulty);
-		return Ok(curr_difficulty);
+			.and_then(|seal| Some(seal.pow_target))
+			.unwrap_or(genesis_pow_target);
+		return Ok(curr_pow_target);
 	}
 
 	let mut curr_header = curr_header;
 	let mut curr_seal = curr_header.digest().logs().iter().rev()
 		.filter_map(CompatibleDigestItem::as_pow_seal).next()
 		.expect("Seal must exist when adjustment comes; qed");
-	let curr_difficulty = curr_seal.difficulty;
+	let curr_pow_target = curr_seal.pow_target;
 	let (last_num, last_time) = loop {
 		let prev_header = client.header(BlockId::hash(*curr_header.parent_hash()))
 			.expect("parent block must exist for sealer; qed")
@@ -295,9 +295,9 @@ fn calc_difficulty<B, C, AuthorityId>(
 	let block_gap = As::<u64>::as_(*header.number() - *last_num);
 	let time_gap = timestamp - last_time;
 	let expected_gap = target_block_time * 1000 * block_gap;
-	let new_difficulty = (curr_difficulty / expected_gap) * time_gap;
-	info!("difficulty adjustment: gap {} time {}", block_gap, time_gap);
-	info!("    new difficulty {:#x}", new_difficulty);
+	let new_pow_target = (curr_pow_target / expected_gap) * time_gap;
+	info!("pow target adjustment: gap: {}, time: {}", block_gap, time_gap);
+	info!("    new pow target: {:#x}", new_pow_target);
 
-	Ok(new_difficulty)
+	Ok(new_pow_target)
 }

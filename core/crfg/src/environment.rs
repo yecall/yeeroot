@@ -244,7 +244,6 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 	}
 
 	fn finalize_block(&self, hash: Block::Hash, number: NumberFor<Block>, round: u64, commit: Commit<Block>) -> Result<(), Self::Error> {
-
 		let status = self.inner.backend().blockchain().info()?;
 		if number <= status.finalized_number && self.inner.backend().blockchain().hash(number)? == Some(hash) {
 			// This can happen after a forced change (triggered by the finality tracker when finality is stalled), since

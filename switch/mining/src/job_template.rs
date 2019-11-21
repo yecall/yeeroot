@@ -17,12 +17,12 @@
 use serde_derive::{Deserialize, Serialize};
 use yee_serde_hex::SerdeHex;
 
-pub type DifficultyType = primitives::U256;
+pub type PowTarget = primitives::U256;
 pub type Hash = primitives::H256;
 
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct JobTemplate {
-    pub difficulty: DifficultyType,
+    pub pow_target: PowTarget,
     pub raw_hash: Hash,
     pub url: String,
 
@@ -36,7 +36,7 @@ impl JobTemplate {
             header,
         } = job;
         Self {
-            difficulty: digest_item.difficulty,
+            pow_target: digest_item.pow_target,
             raw_hash: hash,
             url: str,
         }
@@ -77,7 +77,7 @@ pub struct Job {
 #[derive(Clone, Default, Serialize, Deserialize, PartialEq, Eq, Hash, Debug)]
 pub struct DigestItem {
     pub authority_id: String,
-    pub difficulty: DifficultyType,
+    pub pow_target: PowTarget,
     pub timestamp: String,
     pub work_proof: String,
 }

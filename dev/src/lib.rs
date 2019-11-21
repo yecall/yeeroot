@@ -24,19 +24,31 @@ use network::NodeKeyConfig;
 use primitives::H256;
 use std::str::FromStr;
 
-/// shard_num => (coin_base, rpc_port, ws_port, port, node_key, foreign_port)
-const SHARD_CONF : [(u16, (&str, u16, u16, u16, &str, u16)); 4] = [
-    (0, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 9933, 9944, 30333, "0000000000000000000000000000000000000000000000000000000000000001", 30334)),
-    (1, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 19933, 19944, 31333, "0000000000000000000000000000000000000000000000000000000000000002", 31334)),
-    (2, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 29933, 29944, 32333, "0000000000000000000000000000000000000000000000000000000000000003", 32334)),
-    (3, ("5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 39933, 39944, 33333, "0000000000000000000000000000000000000000000000000000000000000004", 33334)),
+/// shard_num => (coinbase, rpc_port, ws_port, port, node_key, foreign_port)
+/// pk:
+/// tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6:
+///     0xf8eb0d437140e458ec6103965a4442f6b00e37943142017e9856f3310023ab530a0cc96e386686f95d2da0c7fa423ab7b84d5076b3ba6e7756e21aaafe9d3696
+///
+/// tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j
+///     0xd0542cb78c304aa7ea075c93772d2a8283b75ea218eb9d6dd96ee181fc9da26caa746ccc1625cbd7451c25860c268792f57f108d536034173a42353ced9cf1e1
+///
+/// tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3:
+///     0xa8f84e392246b1a4317b1deb904a8272c0428d3d324e1889be8f00b0500a1e63845dbc96f4726783d94d7edcdeb8878ce4dcac793c41e815942c664687599c19
+///
+/// tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd
+///     0xa079ef650520662d08f270c4bc088f0c61abd0224f58243f6d1e6827c3ab234a7a1a0a3b89bbb02f2b10e357fd2a5ddb5050bc528c875a6990874f9dc6496772
+pub const SHARD_CONF : [(u16, (&str, u16, u16, u16, &str, u16)); 4] = [
+    (0, ("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6", 9933, 9944, 30333, "0000000000000000000000000000000000000000000000000000000000000001", 30334)),
+    (1, ("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j", 19933, 19944, 31333, "0000000000000000000000000000000000000000000000000000000000000002", 31334)),
+    (2, ("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3", 29933, 29944, 32333, "0000000000000000000000000000000000000000000000000000000000000003", 32334)),
+    (3, ("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd", 39933, 39944, 33333, "0000000000000000000000000000000000000000000000000000000000000004", 33334)),
 ];
 
 const BOOTNODES_ROUTER : &str = "http://127.0.0.1:50001";
 
 pub struct RunParams{
     pub shard_num: u16,
-    pub coin_base: String,
+    pub coinbase: String,
     pub rpc_port: u16,
     pub ws_port: u16,
     pub port: u16,
@@ -65,7 +77,7 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
     let one = shard_conf_map.get(&shard_num);
     let one = one.ok_or(error::ErrorKind::Msg("Invalid shard num".to_string().into()))?;
 
-    let coin_base = one.0.to_string();
+    let coinbase = one.0.to_string();
     let rpc_port = one.1;
     let ws_port = one.2;
     let port = one.3;
@@ -78,7 +90,7 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
 
     Ok(RunParams{
         shard_num,
-        coin_base,
+        coinbase,
         rpc_port,
         ws_port,
         port,

@@ -191,6 +191,7 @@ use system::{IsDeadAccount, OnNewAccount, ensure_signed};
 use {
     yee_sharding_primitives::ShardingInfo,
 };
+use pow::OnFeeWithdrawn;
 // use node_primitives::Signature;
 // use yee_relay::OriginTransfer;
 
@@ -216,6 +217,8 @@ pub trait Subtrait<I: Instance = DefaultInstance>: sharding::Trait {
     type OnNewAccount: OnNewAccount<Self::AccountId>;
 
     type Sharding: ShardingInfo<Self::ShardNum>;
+
+    type OnFeeWithdrawn: OnFeeWithdrawn<Self::Balance>;
 }
 
 pub trait Trait<I: Instance = DefaultInstance>: sharding::Trait {
@@ -245,6 +248,9 @@ pub trait Trait<I: Instance = DefaultInstance>: sharding::Trait {
     type Event: From<Event<Self, I>> + Into<<Self as system::Trait>::Event>;
 
     type Sharding: ShardingInfo<Self::ShardNum>;
+
+    type OnFeeWithdrawn: OnFeeWithdrawn<Self::Balance>;
+
 }
 
 impl<T: Trait<I>, I: Instance> Subtrait<I> for T {
@@ -252,6 +258,7 @@ impl<T: Trait<I>, I: Instance> Subtrait<I> for T {
     type OnFreeBalanceZero = T::OnFreeBalanceZero;
     type OnNewAccount = T::OnNewAccount;
     type Sharding = T::Sharding;
+    type OnFeeWithdrawn = T::OnFeeWithdrawn;
 }
 
 decl_event!(
@@ -754,6 +761,7 @@ impl<T: Subtrait<I>, I: Instance> Trait<I> for ElevatedTrait<T, I> {
     type TransferPayment = ();
     type DustRemoval = ();
     type Sharding = T::Sharding;
+    type OnFeeWithdrawn = T::OnFeeWithdrawn;
 }
 
 impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
@@ -833,6 +841,7 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
         if cn != dn {
             Self::set_free_balance(transactor, new_from_balance);
             T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
+            T::OnFeeWithdrawn::on_fee_withdrawn(fee);
             Self::deposit_event(RawEvent::Transfer(
                 transactor.clone(),
                 dest.clone(),
@@ -855,6 +864,7 @@ impl<T: Trait<I>, I: Instance> Currency<T::AccountId> for Module<T, I>
             }
             Self::set_free_balance(dest, new_to_balance);
             T::TransferPayment::on_unbalanced(NegativeImbalance::new(fee));
+            T::OnFeeWithdrawn::on_fee_withdrawn(fee);
             Self::deposit_event(RawEvent::Transfer(
                 transactor.clone(),
                 dest.clone(),
@@ -1122,6 +1132,7 @@ impl<T: Trait<I>, I: Instance> MakePayment<T::AccountId> for Module<T, I> {
             ExistenceRequirement::KeepAlive,
         )?;
         T::TransactionPayment::on_unbalanced(imbalance);
+        T::OnFeeWithdrawn::on_fee_withdrawn(transaction_fee);
         Ok(())
     }
 }

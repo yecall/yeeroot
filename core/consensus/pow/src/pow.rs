@@ -24,7 +24,7 @@ use runtime_primitives::{
     traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT},
 };
 use {
-    pow_primitives::DifficultyType,
+    pow_primitives::PowTarget,
 };
 use crate::CompatibleDigestItem;
 use yee_sharding::ShardingDigestItem;
@@ -41,7 +41,7 @@ pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
 #[derive(Clone, Debug, Decode, Encode)]
 pub struct PowSeal<B: Block, AuthorityId: Decode + Encode + Clone> {
     pub authority_id: AuthorityId,
-    pub difficulty: DifficultyType,
+    pub pow_target: PowTarget,
     pub timestamp: u64,
     pub work_proof: WorkProof<B>,
 }
@@ -119,10 +119,10 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
 
             let hash = work_header.hash();
 
-            let proof_difficulty = DifficultyType::from(hash.as_ref());
+            let proof_pow_target = PowTarget::from(hash.as_ref());
 
-            if proof_difficulty > seal.difficulty {
-                return Err(format!("Nonce proof: difficulty not enough, need {}, got {}", seal.difficulty, proof_difficulty));
+            if proof_pow_target > seal.pow_target {
+                return Err(format!("Nonce proof: pow target not satisified, need {}, got {}", seal.pow_target, proof_pow_target));
             }
 
             let post_digest = work_header.digest_mut().pop().expect("must exist");
@@ -142,7 +142,7 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             //get pre hash
             let pow_seal = PowSeal {
                 authority_id: seal.authority_id.clone(),
-                difficulty: seal.difficulty,
+                pow_target: seal.pow_target,
                 timestamp: seal.timestamp,
                 work_proof: WorkProof::Unknown,
             };
@@ -172,10 +172,10 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             //diff validate
             let source = (proof_multi.merkle_root.clone(), proof_multi.extra_data.clone(), proof_multi.nonce);
             let source_hash = <B::Header as Header>::Hashing::hash_of(&source);
-            let source_difficulty = DifficultyType::from(source_hash.as_ref());
+            let source_pow_target = PowTarget::from(source_hash.as_ref());
 
-            if source_difficulty > seal.difficulty {
-                return Err(format!("Multi proof: difficulty not enough, need {}, got {}", seal.difficulty, source_difficulty));
+            if source_pow_target > seal.pow_target {
+                return Err(format!("Multi proof: pow target not satisfied, need {}, got {}", seal.pow_target, source_pow_target));
             }
 
             //make hash

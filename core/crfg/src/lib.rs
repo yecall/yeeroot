@@ -871,17 +871,14 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		};
 
 		// needs to be combined with another future otherwise it can deadlock.
-		let chain_info = match client.info() {
-			Ok(i) => i,
-			//Err(e) => return Ok(Async::NotReady),
-			Err(e) => return future::Either::B(future::err(Error::Client(e))),
-		};
+		//let chain_info = match client.info() {
+		//	Ok(i) => i,
+		//	//Err(e) => return Ok(Async::NotReady),
+		//	Err(e) => return future::Either::B(future::err(Error::Client(e))),
+		//};
 
 		let poll_voter = future::poll_fn(move || match maybe_voter {
-			Some(ref mut voter) => {
-				debug!(target: "afg", "New voter poll");
-				voter.poll()
-			},
+			Some(ref mut voter) => voter.poll(),
 			None => Ok(Async::NotReady),
 		});
 

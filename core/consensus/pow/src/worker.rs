@@ -36,7 +36,7 @@ use {
     },
     inherents::InherentDataProviders,
     runtime_primitives::{
-        codec::{Decode, Encode},
+        codec::{Decode, Encode, Codec},
         traits::{
             Block, Header,
             Digest, DigestFor, DigestItemFor,
@@ -64,15 +64,16 @@ pub trait PowWorker<JM: JobManager> {
     fn on_work(&self, iter: u64) -> Self::OnWork;
 }
 
-pub struct DefaultWorker<B, I, JM, AuthorityId> {
+pub struct DefaultWorker<B, I, JM, AccountId, AuthorityId> {
     job_manager: Arc<JM>,
     block_import: Arc<I>,
     inherent_data_providers: InherentDataProviders,
     stop_sign: Arc<RwLock<bool>>,
+    coinbase: AccountId,
     phantom: PhantomData<(B, AuthorityId)>,
 }
 
-impl<B, I, JM, AuthorityId> DefaultWorker<B, I, JM, AuthorityId> where
+impl<B, I, JM, AccountId, AuthorityId> DefaultWorker<B, I, JM, AccountId, AuthorityId> where
     B: Block,
     JM: JobManager,
 {
@@ -80,23 +81,26 @@ impl<B, I, JM, AuthorityId> DefaultWorker<B, I, JM, AuthorityId> where
         job_manager: Arc<JM>,
         block_import: Arc<I>,
         inherent_data_providers: InherentDataProviders,
+        coinbase: AccountId,
     ) -> Self {
         DefaultWorker {
             job_manager,
             block_import,
             inherent_data_providers,
             stop_sign: Default::default(),
+            coinbase,
             phantom: PhantomData,
         }
     }
 }
 
-impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityId> where
+impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AccountId, AuthorityId> where
     B: Block,
     DigestFor<B>: Digest,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
+    AccountId: Codec + Send + Sync + Clone + 'static,
     AuthorityId: Decode + Encode + Clone + 'static,
 {
     type Error = consensus_common::Error;
@@ -108,7 +112,7 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
     }
 
     fn on_start(&self) -> Result<(), consensus_common::Error> {
-        super::register_inherent_data_provider(&self.inherent_data_providers)
+        super::register_inherent_data_provider(&self.inherent_data_providers, self.coinbase.clone())
     }
 
     fn on_job(&self) -> Self::OnJob {
@@ -129,9 +133,9 @@ impl<B, I, JM, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AuthorityI
             let header_num = header.number().clone();
             let header_pre_hash = header.hash();
             let digest_item = job.digest_item;
-            let difficulty = digest_item.difficulty;
+            let pow_target = digest_item.pow_target;
 
-            info!("block template {} @ {:?} difficulty {:#x}", header_num, header_pre_hash, difficulty);
+            info!("block template {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
 
             // TODO: remove hardcoded
             const PREFIX: &str = "yeeroot-";

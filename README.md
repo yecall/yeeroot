@@ -93,37 +93,38 @@ $ cargo build
     Switch provides proxy rpc of all the 4 shards.
     You can get the balance of a certain address of any shard by the following RPC: 
     ```sh
-    $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
+    $ curl -X POST --data '{"jsonrpc":"2.0","method":"state_getBalance","params":["tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6"],"id":1}' localhost:10033 -H 'Content-Type: application/json'
     ```
     
     Switch can also work as a multi-miner. Since we start the switch with `--mine`, it will mine on the 4 shards.
 
 ### Accounts
+
+Test accounts: 
     
-    Test accounts:
-    
-    <pre>
-    Name     Address                                           Shard num
-    Alice    5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY  1
-    Bob      5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty  0
-    Charlie  5FLSigC9HGRKVhB9FiEo4Y3koPsNmBmLJbpXg2mp1hXcS59Y  2
-    Dave     5DAAnrj7VHTznn2AWBemMuyBwZWs6FNFjdyVXUeYum3PTXFy  0
-    Eve      5HGjWAeFDfFCWPsjFQdVV2Msvz2XtMktvgocEZcCj68kUMaw  2
-    Ferdie   5CiPPseXPECbkjWCa6MnjNokrgYjMqmKndv2rSnekmSK2DjL  0
-    </pre>
-  
-    
-    
+```
+Address                                                            Shard num    Private key
+tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6    0            0xf8eb0d437140e458ec6103965a4442f6b00e37943142017e9856f3310023ab530a0cc96e386686f95d2da0c7fa423ab7b84d5076b3ba6e7756e21aaafe9d3696
+tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j    1            0xd0542cb78c304aa7ea075c93772d2a8283b75ea218eb9d6dd96ee181fc9da26caa746ccc1625cbd7451c25860c268792f57f108d536034173a42353ced9cf1e1
+tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3    2            0xa8f84e392246b1a4317b1deb904a8272c0428d3d324e1889be8f00b0500a1e63845dbc96f4726783d94d7edcdeb8878ce4dcac793c41e815942c664687599c19
+tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd    3            0xa079ef650520662d08f270c4bc088f0c61abd0224f58243f6d1e6827c3ab234a7a1a0a3b89bbb02f2b10e357fd2a5ddb5050bc528c875a6990874f9dc6496772
+```
     
 
 ## Roadmap
-1. **[Done in [tetris_demo](https://github.com/yeeco/tetris_demo)]** PoC-1: Tetris consensus demo (2019-02)
-2. **[Done in [gyee](https://github.com/yeeco/gyee)]** PoC-2: Transfer feature based on Tetris (2019-05)
+1. **[Done]** PoC-1: Tetris consensus demo (2019-02)
+
+     [tetris_demo](https://github.com/yeeco/tetris_demo)
+2. **[Done]** PoC-2: Transfer feature based on Tetris (2019-05)
+
+     [gyee](https://github.com/yeeco/gyee)
 1. **[Done]** PoC-3: PoW consensus, static sharding (2019-07)
     
     [Release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/poc3-release-notes.md)
-1. **[In progress]** PoC-4: Multi-mining, cross-shard transactions (2019-09)
-1. PoC-5: Dynamic sharding (2019-11)
+1. **[Done]** PoC-4: Multi-mining, cross-shard transactions (2019-09)
+
+    [Release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/poc4-release-notes.md)
+1. **[In progress]** PoC-5: Dynamic sharding (2019-11)
 1. PoC-6: Cross chain (interoperate with branch chain) (2019-12)
 1. PoC-7: Smart contract (on branch chain) (2020-01)
 1. Testnet (2020-03)

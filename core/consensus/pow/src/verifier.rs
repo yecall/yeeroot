@@ -86,7 +86,7 @@ impl<B, C, AuthorityId> Verifier<B> for PowVerifier<C, AuthorityId> where
     }
 }
 
-/// Check if block header has a valid POW difficulty
+/// Check if block header has a valid POW target
 fn check_header<B, AccountId>(
     mut header: B::Header,
     hash: B::Hash,
@@ -104,7 +104,8 @@ fn check_header<B, AccountId>(
         format!("Header {:?} not sealed", hash)
     })?;
 
-    // TODO: check seal.difficulty
+    // TODO: check pow_target in seal
+    // TODO: check shard_num, shard_count in header
 
     check_proof(&header, &seal)?;
 

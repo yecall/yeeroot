@@ -121,9 +121,10 @@ pub fn prepare_sharding<F, C, B, AuthorityId, SealSignature>(
 
 fn register_inherent_data_provider(
     inherent_data_providers: &InherentDataProviders,
-    shard_num: u16, shard_cnt: u16,
-) -> Result<(), consensus_common::Error> {
-    consensus::register_inherent_data_provider(inherent_data_providers)?;
+    shard_num: u16,
+    shard_cnt: u16,
+) -> Result<(), consensus_common::Error> where
+{
     if !inherent_data_providers.has_provider(&srml_sharding::INHERENT_IDENTIFIER) {
         inherent_data_providers.register_provider(srml_sharding::InherentDataProvider::new(shard_num, shard_cnt))
             .map_err(inherent_to_common_error)
