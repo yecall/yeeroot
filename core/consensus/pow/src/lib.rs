@@ -147,7 +147,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     justification_import: Option<SharedJustificationImport<F::Block>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
-    foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
+    foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     coinbase: AccountId,
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
     H256: From<<F::Block as Block>::Hash>,

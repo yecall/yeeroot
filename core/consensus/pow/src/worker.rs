@@ -137,7 +137,6 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
             let header_pre_hash = header.hash();
             let digest_item = job.digest_item;
             let pow_target = digest_item.pow_target;
-            let difficulty = digest_item.difficulty;
             let xts_proof = job.xts_proof.clone();
 
             info!("block template {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);

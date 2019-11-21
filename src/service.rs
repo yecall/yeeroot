@@ -61,7 +61,7 @@ native_executor_instance!(
 );
 
 /// Node specific configuration
-pub struct NodeConfig<F: substrate_service::ServiceFactory, C> {
+pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     /// crfg connection to import block
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
     pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
@@ -73,11 +73,11 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory, C> {
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub mine: bool,
-    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
+    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub hrp: Hrp,
 }
 
-impl<F: substrate_service::ServiceFactory, C> Default for NodeConfig<F, C> {
+impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
     fn default() -> Self {
         Self {
             crfg_import_setup: None,
@@ -95,7 +95,7 @@ impl<F: substrate_service::ServiceFactory, C> Default for NodeConfig<F, C> {
     }
 }
 
-impl<F: substrate_service::ServiceFactory, C> Clone for NodeConfig<F, C> {
+impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
     fn clone(&self) -> Self {
         Self {
             crfg_import_setup: None,
@@ -115,7 +115,7 @@ impl<F: substrate_service::ServiceFactory, C> Clone for NodeConfig<F, C> {
     }
 }
 
-impl<F, C> ForeignChainConfig for NodeConfig<F, C> where F: substrate_service::ServiceFactory {
+impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::ServiceFactory {
     fn get_shard_num(&self) -> u16 {
         self.shard_num
     }
@@ -129,7 +129,7 @@ impl<F, C> ForeignChainConfig for NodeConfig<F, C> where F: substrate_service::S
     }
 }
 
-impl<F, C> ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F, C> where F: substrate_service::ServiceFactory {
+impl<F> ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where F: substrate_service::ServiceFactory {
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
     }
@@ -178,7 +178,7 @@ construct_service_factory! {
         LightTransactionPoolApi = transaction_pool::ChainApi<client::Client<LightBackend<Self>, LightExecutor<Self>, Block, RuntimeApi>, Block>
             { |config, client| Ok(TransactionPool::new(config, transaction_pool::ChainApi::new(client))) },
         Genesis = GenesisConfig,
-        Configuration = NodeConfig<Self, FullClient<Self>>,
+        Configuration = NodeConfig<Self>,
         FullService = FullComponents<Self>
             { |config: FactoryFullConfiguration<Self>, executor: TaskExecutor|
                 FullComponents::<Factory>::new(config, executor)
@@ -203,7 +203,7 @@ construct_service_factory! {
 
                 // foreign chain
                 let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
-                let foreigh_chain = ForeignChain::<Self>::new(
+                let foreign_chain = ForeignChain::<Self>::new(
                     config,
                     foreign_network_wrapper,
                     executor.clone(),
@@ -279,7 +279,7 @@ construct_service_factory! {
             { |config, executor| <LightComponents<Factory>>::new(config, executor) },
         FullImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
-                    prepare_sharding::<Self, _, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
+                    prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
                     let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
                         client.clone(), client.clone()
                     )?;
@@ -289,8 +289,7 @@ construct_service_factory! {
                     config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
                     let foreign_chain = config.custom.foreign_chains.read().as_ref().unwrap();
-                    import_queue::<Self, _, <Pair as PairT>::Public>(
-                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
+                    import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
                         client,
@@ -302,10 +301,8 @@ construct_service_factory! {
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-                    prepare_sharding::<Self, _, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-                    import_queue::<Self, _, <Pair as PairT>::Public>(
                     prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
-                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
+                    import_queue::<Self, _, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,

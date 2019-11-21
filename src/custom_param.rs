@@ -64,7 +64,7 @@ pub struct YeeCliConfig {
 
 impl_augment_clap!(YeeCliConfig);
 
-pub fn process_custom_args<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
+pub fn process_custom_args<F, C>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
 where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16>,

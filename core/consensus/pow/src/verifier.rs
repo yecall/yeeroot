@@ -72,7 +72,7 @@ use yee_runtime::BlockId;
 pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
-    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F, C>>>>,
+    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub phantom: PhantomData<AuthorityId>,
 }
 

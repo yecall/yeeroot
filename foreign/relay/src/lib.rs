@@ -64,7 +64,7 @@ pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
     foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
-    foreign_chains: Arc<ForeignChain<F>>,
+    foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>
     where F: ServiceFactory + Send + Sync,
