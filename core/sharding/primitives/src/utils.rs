@@ -72,7 +72,9 @@ mod tests {
     use primitives::sr25519::Public;
     use yee_runtime::AccountId;
     use primitives::sr25519;
+    use primitives::sr25519::Pair;
     use primitives::crypto::{Ss58Codec, Pair as PairTrait};
+    use yee_primitives::{Address, AddressCodec, Hrp};
     use crate::utils::shard_num_for;
     use crate::utils::shard_num_for_bytes;
     use crate::utils::log2;
@@ -103,142 +105,84 @@ mod tests {
 
         let bytes = hex::decode("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").unwrap();
 
-        let a = shard_num_for_bytes(&bytes, 0u16);
+        assert_eq!(shard_num_for_bytes(&bytes, 0u16), None);
 
-        assert_eq!(a, None);
+        assert_eq!(shard_num_for_bytes(&bytes, 1u16), Some(0));
 
-        let a = shard_num_for_bytes(&bytes, 1u16);
+        assert_eq!(shard_num_for_bytes(&bytes, 2u16), Some(1));
 
-        assert_eq!(a, Some(0));
+        assert_eq!(shard_num_for_bytes(&bytes, 4u16), Some(1));
 
-        let a = shard_num_for_bytes(&bytes, 2u16);
+        assert_eq!(shard_num_for_bytes(&bytes, 8u16), Some(0b101));
 
-        assert_eq!(a, Some(1));
-
-        let a = shard_num_for_bytes(&bytes, 4u16);
-
-        assert_eq!(a, Some(1));
-
-        let a = shard_num_for_bytes(&bytes, 8u16);
-
-        assert_eq!(a, Some(0b101));
-
-        let a = shard_num_for_bytes(&bytes, 16u16);
-
-        assert_eq!(a, Some(0b1101));
-    }
-
-    #[test]
-    fn test_account_id() {
-
-        let account_id = sr25519::Pair::from_string(&format!("//{}", "Alice"), None)
-            .unwrap()
-            .public();
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(1));
-
-        let account_id = sr25519::Pair::from_string(&format!("//{}", "Bob"), None)
-            .unwrap()
-            .public();
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(0));
-
-        let account_id = sr25519::Pair::from_string(&format!("//{}", "Charlie"), None)
-            .unwrap()
-            .public();
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(2));
-
-        let account_id = sr25519::Pair::from_string(&format!("//{}", "Dave"), None)
-            .unwrap()
-            .public();
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(0));
-
-        let account_id = sr25519::Pair::from_string(&format!("//{}", "Eve"), None)
-            .unwrap()
-            .public();
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(2));
-
-        let account_id = sr25519::Pair::from_string(&format!("//{}", "Ferdie"), None)
-            .unwrap()
-            .public();
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(0));
-    }
-
-    #[test]
-    fn test_account_id2() {
-
-        let account_id = Public::from_slice(&hex::decode("d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d").unwrap());
-
-        let a = shard_num_for(&account_id, 0u16);
-
-        assert_eq!(a, None);
-
-        let a = shard_num_for(&account_id, 1u16);
-
-        assert_eq!(a, Some(0));
-
-        let a = shard_num_for(&account_id, 2u16);
-
-        assert_eq!(a, Some(1));
-
-        let a = shard_num_for(&account_id, 4u16);
-
-        assert_eq!(a, Some(1));
-
-        let a = shard_num_for(&account_id, 8u16);
-
-        assert_eq!(a, Some(0b101));
-
-        let a = shard_num_for(&account_id, 16u16);
-
-        assert_eq!(a, Some(0b1101));
+        assert_eq!(shard_num_for_bytes(&bytes, 16u16), Some(0b1101));
     }
 
     #[test]
     fn test_address(){
-        let account_id = Public::from_ss58check("5FpUCxXVR5KbQLf3qsfwxzdczyU74VeNYw9ba3rdocn23svG").unwrap();
-        //pk: 0xf8eb0d437140e458ec6103965a4442f6b00e37943142017e9856f3310023ab530a0cc96e386686f95d2da0c7fa423ab7b84d5076b3ba6e7756e21aaafe9d3696
 
-        let a = shard_num_for(&account_id, 4u16);
+        let address = Address("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
 
-        assert_eq!(a, Some(0));
+        assert_eq!(shard_num_for(&public, 4u16), Some(0));
 
-        let account_id = Public::from_ss58check("5EtYZwFsQR2Ex1abqYFsmTxpHWytPkphS1LDsrCJ2Gr6b695").unwrap();
-        //pk: 0xd0542cb78c304aa7ea075c93772d2a8283b75ea218eb9d6dd96ee181fc9da26caa746ccc1625cbd7451c25860c268792f57f108d536034173a42353ced9cf1e1
+        // address shard num will change on sharding scale out
+        assert_eq!(shard_num_for(&public, 8u16), Some(4));
 
-        let a = shard_num_for(&account_id, 4u16);
+        let address = Address("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
 
-        assert_eq!(a, Some(1));
+        assert_eq!(shard_num_for(&public, 4u16), Some(1));
 
-        let account_id = Public::from_ss58check("5Gn4ZNCiPGjBrPa7W1DHDCj83u6R9FyUChafM7nTpvW7iHEi").unwrap();
-        //pk: 0xa8f84e392246b1a4317b1deb904a8272c0428d3d324e1889be8f00b0500a1e63845dbc96f4726783d94d7edcdeb8878ce4dcac793c41e815942c664687599c19
+        // address shard num will change on sharding scale out
+        assert_eq!(shard_num_for(&public, 8u16), Some(5));
 
-        let a = shard_num_for(&account_id, 4u16);
+        let address = Address("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
 
-        assert_eq!(a, Some(2));
+        assert_eq!(shard_num_for(&public, 4u16), Some(2));
 
-        let account_id = Public::from_ss58check("5DyvtMHN3G9TvqVp6ZFcmLuJaRjSYibt2Sh5Hb32cNTTHVB9").unwrap();
-        //pk: 0xa079ef650520662d08f270c4bc088f0c61abd0224f58243f6d1e6827c3ab234a7a1a0a3b89bbb02f2b10e357fd2a5ddb5050bc528c875a6990874f9dc6496772
+        // address shard num will change on sharding scale out
+        assert_eq!(shard_num_for(&public, 8u16), Some(6));
 
-        let a = shard_num_for(&account_id, 4u16);
+        let address = Address("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
 
-        assert_eq!(a, Some(3));
+        assert_eq!(shard_num_for(&public, 4u16), Some(3));
+
+        // address shard num will not change on sharding scale out
+        assert_eq!(shard_num_for(&public, 8u16), Some(3));
+
+
+    }
+
+    #[test]
+    fn test_generate_address() {
+
+        let address = Address("tyee1yjn7neelq90y6x0jxcqavm0hv8gskxs6ctsftdjel4vwq0ecrvgqnh5efm".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+
+        assert_eq!(shard_num_for(&public, 4u16), Some(0));
+
+        // address shard num will not change on sharding scale out
+        assert_eq!(shard_num_for(&public, 8u16), Some(0));
+
+//        loop {
+//            let accountId = Pair::generate().public();
+//
+//            if shard_num_for(&accountId, 4u16) != Some(0) {
+//                continue;
+//            }
+//
+//            if shard_num_for(&accountId, 8u16) != Some(0) {
+//                continue;
+//            }
+//
+//            let address = accountId.to_address(Hrp::TESTNET).unwrap();
+//
+//            assert_eq!(address, Address("".to_string()));
+//            break;
+//        }
 
     }
 

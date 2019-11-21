@@ -45,6 +45,7 @@ use {
             DigestItemFor,
             Block,
             ProvideRuntimeApi,
+            NumberFor,
         },
     },
 };
@@ -56,8 +57,9 @@ pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
               MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
-use yee_sharding::ShardingDigestItem;
+use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use yee_srml_pow::RewardCondition;
+use yee_sharding_primitives::ScaleOut;
 
 mod job;
 mod digest;
@@ -133,27 +135,46 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
 /// POW chain import queue
 pub type PowImportQueue<B> = BasicQueue<B>;
 
+
+pub trait TriggerExit: Send + Sync{
+    fn trigger_restart(&self);
+    fn trigger_stop(&self);
+}
+
+pub struct ImportQueueParams<AccountId> {
+    pub coinbase: AccountId,
+    pub shard_num: u16,
+    pub shard_count: u16,
+    pub scale_out: Option<ScaleOut>,
+    pub trigger_exit: Arc<dyn TriggerExit>,
+}
+
 /// Start import queue for POW consensus
 pub fn import_queue<B, C, AccountId, AuthorityId>(
     block_import: SharedBlockImport<B>,
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
-    coinbase: AccountId,
+    params: ImportQueueParams<AccountId>
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     C: 'static + Send + Sync,
-    AccountId: Codec + Send + Sync + 'static,
+    AccountId: Codec + Send + Sync + Clone + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {
-    register_inherent_data_provider(&inherent_data_providers, coinbase)?;
+    register_inherent_data_provider(&inherent_data_providers, params.coinbase.clone())?;
 
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
             inherent_data_providers,
             phantom: PhantomData,
+            coinbase: params.coinbase.clone(),
+            shard_num: params.shard_num,
+            shard_count: params.shard_count,
+            scale_out: params.scale_out.clone(),
+            trigger_exit: params.trigger_exit,
         }
     );
     Ok(BasicQueue::new(verifier, block_import, justification_import))

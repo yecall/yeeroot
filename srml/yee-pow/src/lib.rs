@@ -216,7 +216,7 @@ pub struct PowInfo<AccountId> {
 #[cfg_attr(feature = "std", derive(Debug, Serialize))]
 pub enum RewardCondition {
     Normal,
-    Slash,//TODO provide slash reason
+    Slash,//TODO: provide slash reason
 }
 
 pub trait PowInherentData<AccountId> {

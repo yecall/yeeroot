@@ -25,6 +25,11 @@ use {
     substrate_client::decl_runtime_apis,
 };
 
+#[derive(Clone)]
+pub struct ScaleOut {
+    pub shard_num: u16,
+}
+
 pub trait ShardingInfo<N> {
     /// get total shard number in genesis block
     fn get_genesis_shard_count() -> N;

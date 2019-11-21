@@ -12,18 +12,20 @@ use super::{
     custom_param::{YeeCliConfig, process_custom_args},
 	dev_param::process_dev_param,
 };
-use parking_lot::Mutex;
+use parking_lot::{Mutex, RwLock};
 use futures::sync::oneshot::Sender;
 use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
 use std::thread;
 use serde::export::fmt::Debug;
 use crate::service::NodeConfig;
 use runtime_primitives::{
-	traits::{ProvideRuntimeApi, DigestItemFor},
+	traits::{ProvideRuntimeApi, DigestItemFor, Block, Header},
 };
-use yee_sharding::ShardingDigestItem;
+use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use substrate_client::ChainHead;
 use sharding_primitives::ShardingAPI;
+
+pub type FactoryBlockNumber<F> = <<FactoryBlock<F> as Block>::Header as Header>::Number;
 
 /// Parse command line arguments into service configuration.
 pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()> where
@@ -51,9 +53,9 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 
 fn run_service<E, F>(version: &VersionInfo, exit: E, mut custom_args: YeeCliConfig, mut config: FactoryFullConfiguration<F>) -> Result<SignalOfExit<E>, String>
 where
-	E: IntoExit,
+	E: IntoExit<TriggerExit=CliTriggerExit<CliSignal>>,
 	F: ServiceFactory<Configuration=NodeConfig<F>>,
-	DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16>,
+	DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
 	FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
 	<FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
@@ -68,15 +70,19 @@ where
 
 	process_custom_args::<F>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
 
+	let (exit, trigger_exit) = exit.into_exit();
+
+	config.custom.trigger_exit = Some(Arc::new(trigger_exit));
+
 	let runtime = Runtime::new().map_err(|e| format!("{:?}", e))?;
 	let executor = runtime.executor();
 	match config.roles {
-		ServiceRoles::LIGHT => run_until_exit(
+		ServiceRoles::LIGHT => run_until_exit::<_, _, E>(
 			runtime,
 			F::new_light(config, executor).map_err(|e| format!("{:?}", e))?,
 			exit
 		),
-		_ => run_until_exit(
+		_ => run_until_exit::<_, _, E>(
 			runtime,
 			F::new_full(config, executor).map_err(|e| format!("{:?}", e))?,
 			exit
@@ -94,7 +100,7 @@ fn load_spec(id: &str) -> Result<Option<chain_spec::ChainSpec>, String> {
 fn run_until_exit<T, C, E>(
 	mut runtime: Runtime,
 	service: T,
-	e: E,
+	e: E::Exit,
 ) -> error::Result<SignalOfExit<E>>
 	where
 		T: Deref<Target=substrate_service::Service<C>>,
@@ -106,7 +112,7 @@ fn run_until_exit<T, C, E>(
 	let executor = runtime.executor();
 	informant::start(&service, exit.clone(), executor.clone());
 
-	let signal = runtime.block_on(e.into_exit().0);
+	let signal = runtime.block_on(e);
 	exit_send.fire();
 
 	// we eagerly drop the service so that the internal exit future is fired,

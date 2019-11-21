@@ -34,12 +34,14 @@ use {
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
 use yee_primitives::{AddressCodec};
-
-mod sharding;
-use sharding::prepare_sharding;
+use substrate_cli::{TriggerExit};
+use sharding_primitives::ScaleOut;
 
 mod foreign;
 use foreign::{start_foreign_network};
+
+mod restarter;
+use restarter::{start_restarter};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
@@ -47,6 +49,7 @@ use yee_rpc::ProvideJobManager;
 
 use crfg;
 use yee_primitives::Hrp;
+use crate::cli::{CliTriggerExit, CliSignal};
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -60,17 +63,12 @@ native_executor_instance!(
     include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
-#[derive(Clone)]
-pub struct ScaleOut {
-    pub shard_num: u16,
-}
-
 /// Node specific configuration
 pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     /// crfg connection to import block
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
     pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
-    inherent_data_providers: InherentDataProviders,
+    pub inherent_data_providers: InherentDataProviders,
     pub coinbase: AccountId,
     pub shard_num: u16,
     pub shard_count: u16,
@@ -80,6 +78,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub mine: bool,
     pub hrp: Hrp,
     pub scale_out: Option<ScaleOut>,
+    pub trigger_exit: Option<Arc<CliTriggerExit<CliSignal>>>,
 }
 
 impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
@@ -96,6 +95,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             mine: Default::default(),
             hrp: Default::default(),
             scale_out: Default::default(),
+            trigger_exit: None,
         }
     }
 }
@@ -111,6 +111,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             mine: self.mine,
             hrp: self.hrp.clone(),
             scale_out: self.scale_out.clone(),
+            trigger_exit: self.trigger_exit.clone(),
 
             // cloned config SHALL NOT SHARE some items with original config
             inherent_data_providers: Default::default(),
@@ -164,6 +165,16 @@ impl<F, EH> NetworkProvider<F, EH> for NetworkWrapper<F, EH> where
         import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
     ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
         self.inner.provide_network(network_id, params, protocol_id, import_queue)
+    }
+}
+
+impl consensus::TriggerExit for CliTriggerExit<CliSignal>{
+    fn trigger_restart(&self){
+        self.trigger_exit(CliSignal::Restart);
+    }
+
+    fn trigger_stop(&self){
+        self.trigger_exit(CliSignal::Stop);
     }
 }
 
@@ -222,6 +233,16 @@ construct_service_factory! {
                     Arc::new(foreigh_chain),
                     service.transaction_pool()
                 ).map_err(|e| format!("{:?}", e))?;
+
+                // restarter
+                let restarter_param = restarter::Params{
+                    coinbase: config.custom.coinbase.clone(),
+                    shard_num: config.custom.shard_num,
+                    shard_count: config.custom.shard_count,
+                    scale_out: config.custom.scale_out.clone(),
+                    trigger_exit: config.custom.trigger_exit.clone(),
+                };
+                start_restarter::<FullComponents<Self>>(restarter_param, service.client(), &executor);
 
                 // crfg
                 let local_key = if service.config.disable_grandpa {
@@ -282,7 +303,6 @@ construct_service_factory! {
             { |config, executor| <LightComponents<Factory>>::new(config, executor) },
         FullImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
-                    prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
                     let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
                         client.clone(), client.clone()
                     )?;
@@ -296,19 +316,30 @@ construct_service_factory! {
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
-                        config.custom.coinbase.clone(),
+                        consensus::ImportQueueParams {
+                            coinbase: config.custom.coinbase.clone(),
+                            shard_num: config.custom.shard_num,
+                            shard_count: config.custom.shard_count,
+                            scale_out: config.custom.scale_out.clone(),
+                            trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
+                        }
                     ).map_err(Into::into)
                 }
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-                    prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
                     import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,
                         config.custom.inherent_data_providers.clone(),
-                        config.custom.coinbase.clone(),
+                        consensus::ImportQueueParams {
+                            coinbase: config.custom.coinbase.clone(),
+                            shard_num: config.custom.shard_num,
+                            shard_count: config.custom.shard_count,
+                            scale_out: config.custom.scale_out.clone(),
+                            trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
+                        }
                     ).map_err(Into::into)
                 }
             },

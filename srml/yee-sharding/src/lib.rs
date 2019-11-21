@@ -157,8 +157,14 @@ pub enum ScaleOutPhase<BlockNumber, ShardNum>{
     Ready{
         observe_util: BlockNumber,
         shard_num: ShardNum,
-    }
-
+    },
+    Commiting {
+        shard_count: ShardNum,
+    },
+    Committed {
+        shard_num: ShardNum,
+        shard_count: ShardNum,
+    },
 }
 
 decl_storage! {
@@ -175,8 +181,6 @@ decl_storage! {
         /// Storage for ScaleOutPhase used for current block
         pub CurrentScaleOutPhase get(current_scale_out_phase): Option<ScaleOutPhase<T::BlockNumber, T::ShardNum>>;
 
-        /// Storage for pending ShardInfo
-        pub PendingShardInfo get(pending_shard_info): Option<ShardInfo<T::ShardNum>>;
     }
 }
 
@@ -190,86 +194,87 @@ decl_module! {
                 *orig = Some(info_clone);
             });
 
-            if let Some(scale_out) = info.scale_out {
+            let block_number = <system::Module<T>>::block_number();
+            let scale_out_observe_blocks = Self::scale_out_observe_blocks();
 
-                let block_number = <system::Module<T>>::block_number();
-                let scale_out_observe_blocks = Self::scale_out_observe_blocks();
+            let current_scale_out_phase = Self::current_scale_out_phase();
 
-                let current_scale_out_phase = Self::current_scale_out_phase();
-                match current_scale_out_phase {
-                    None => {
+            let target_shard_num = match info.scale_out.clone(){
+                Some(scale_out) => scale_out.shard_num,
+                None => info.num,
+            };
+
+            match current_scale_out_phase {
+                None => {
+                    if let Some(scale_out) = info.scale_out {
                         <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
                             *orig = Some(ScaleOutPhase::Started{
                                 observe_util: block_number + scale_out_observe_blocks,
-                                shard_num: scale_out.shard_num,
+                                shard_num: target_shard_num,
+                            });
+                        });
+                    }
+                },
+                Some(current_scale_out_phase) => match current_scale_out_phase{
+                    ScaleOutPhase::Started{observe_util, shard_num} => {
+
+                        //TODO: check scaled shard_num percentage
+                        if observe_util == block_number{
+                            <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
+                                *orig = Some(ScaleOutPhase::NativeReady{
+                                    observe_util: block_number + scale_out_observe_blocks,
+                                    shard_num: target_shard_num,
+                                });
+                            });
+                        }
+                    },
+                    ScaleOutPhase::NativeReady{observe_util, shard_num} => {
+
+                        //TODO: check foreign scale out phase
+                        if observe_util == block_number{
+                            <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
+                                *orig = Some(ScaleOutPhase::Ready{
+                                    observe_util: block_number + scale_out_observe_blocks,
+                                    shard_num: target_shard_num,
+                                });
+                            });
+                        }
+
+                    },
+                    ScaleOutPhase::Ready{observe_util, shard_num} => {
+
+                        if observe_util == block_number{
+
+                            let scale_out_shard_count = info.count + info.count;
+
+                            <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
+                                *orig = Some(ScaleOutPhase::Commiting{
+                                    shard_count: scale_out_shard_count,
+                                });
+                            });
+                        }
+                    },
+                    ScaleOutPhase::Commiting{shard_count} => {
+
+                        <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
+                            *orig = Some(ScaleOutPhase::Committed{
+                                shard_num: target_shard_num,
+                                shard_count: shard_count,
                             });
                         });
                     },
-                    Some(current_scale_out_phase) => match current_scale_out_phase{
-                        ScaleOutPhase::Started{observe_util, shard_num} => {
+                    ScaleOutPhase::Committed{shard_num, shard_count} => {
 
-                            //TODO check
-                            if observe_util == block_number{
-                                <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
-                                    *orig = Some(ScaleOutPhase::NativeReady{
-                                        observe_util: block_number + scale_out_observe_blocks,
-                                        shard_num: scale_out.shard_num,
-                                    });
-                                });
-                            }
-                        },
-                        ScaleOutPhase::NativeReady{observe_util, shard_num} => {
-
-                            //TODO check
-                            if observe_util == block_number{
-                                <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
-                                    *orig = Some(ScaleOutPhase::Ready{
-                                        observe_util: block_number + scale_out_observe_blocks,
-                                        shard_num: scale_out.shard_num,
-                                    });
-                                });
-                            }
-
-                        },
-                        ScaleOutPhase::Ready{observe_util, shard_num} => {
-
-                            //TODO check
-                            if observe_util == block_number{
-
-                                let scale_out_shard_count = info.count + info.count;
-
-                                <Self as Store>::PendingShardInfo::mutate(|orig| {
-                                    *orig = Some(ShardInfo{
-                                        num: shard_num,
-                                        count: scale_out_shard_count,
-                                        scale_out: None,
-                                    });
-                                });
-
-                                <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
-                                    *orig = None;
-                                });
-                            }
-                        },
-                    }
+                        <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
+                            *orig = None;
+                        });
+                    },
                 }
-
             }
-
-            println!("current_scale_out_phase: {:?}", Self::current_scale_out_phase());
 
         }
 
         fn on_finalize(block_number: T::BlockNumber) {
-
-            if let Some(pending_shard_info) = Self::pending_shard_info(){
-                <Self as Store>::CurrentShardInfo::mutate(|orig| {
-                    *orig = Some(pending_shard_info);
-                });
-                <Self as Store>::PendingShardInfo::mutate(|orig| {
-                    *orig = None;
-                });
-            }
 
             if let Some(shard_info) = Self::current_shard_info() {
                 Self::deposit_log(RawLog::ShardMarker(shard_info.num, shard_info.count));
@@ -317,28 +322,7 @@ impl<T: Trait> ProvideInherent for Module<T> {
         let data = extract_inherent_data::<T::ShardNum>(data)
             .expect("Sharding inherent data must exist");
 
-        let shard_info = Self::current_shard_info();
-        match shard_info {
-            Some(shard_info) => {
-                if  data.num == shard_info.num &&
-                    data.count == shard_info.count &&
-                    (data.scale_out == None ||
-                        data.scale_out == Some(ScaleOut{shard_num: shard_info.num + shard_info.count})
-                    ) {
-                    Some(Call::set_shard_info(data))
-                } else{
-                    None
-                }
-            },
-            None => {
-                let genesis_sharding_count = Self::genesis_sharding_count();
-                if data.count == genesis_sharding_count {
-                    Some(Call::set_shard_info(data))
-                } else{
-                    None
-                }
-            }
-        }
+        Some(Call::set_shard_info(data))
     }
 
     fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
