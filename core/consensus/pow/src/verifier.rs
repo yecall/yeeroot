@@ -41,7 +41,7 @@ use super::CompatibleDigestItem;
 use crate::pow::check_proof;
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
 use log::warn;
-use crate::{TriggerExit, ScaleOut};
+use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
 use std::time::Duration;
 use yee_sharding_primitives::utils::shard_num_for;
@@ -51,11 +51,7 @@ pub struct PowVerifier<C, AccountId, AuthorityId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
     pub phantom: PhantomData<AuthorityId>,
-    pub coinbase: AccountId,
-    pub shard_num: u16,
-    pub shard_count: u16,
-    pub scale_out: Option<ScaleOut>,
-    pub trigger_exit: Arc<dyn TriggerExit>,
+    pub shard_extra: ShardExtra<AccountId>,
 }
 
 #[forbid(deprecated)]
@@ -80,11 +76,7 @@ impl<B, C, AccountId, AuthorityId> Verifier<B> for PowVerifier<C, AccountId, Aut
         let (pre_header, seal) = check_header::<B, AccountId, AuthorityId>(
             header,
             hash,
-            self.coinbase.clone(),
-            self.shard_num,
-            self.shard_count,
-            self.scale_out.clone(),
-            self.trigger_exit.clone(),
+            self.shard_extra.clone(),
         )?;
 
         // TODO: verify body
@@ -107,16 +99,12 @@ impl<B, C, AccountId, AuthorityId> Verifier<B> for PowVerifier<C, AccountId, Aut
 fn check_header<B, AccountId, AuthorityId>(
     mut header: B::Header,
     hash: B::Hash,
-    coinbase: AccountId,
-    shard_num: u16,
-    shard_count: u16,
-    scale_out: Option<ScaleOut>,
-    trigger_exit: Arc<dyn TriggerExit>,
+    shard_extra: ShardExtra<AccountId>
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     AuthorityId: Decode + Encode + Clone,
-    AccountId: Encode + Decode,
+    AccountId: Encode + Decode + Clone,
 {
     // pow work proof MUST be last digest item
     let digest_item = match header.digest_mut().pop() {
@@ -129,25 +117,27 @@ fn check_header<B, AccountId, AuthorityId>(
 
     // TODO: check pow_target in seal
 
-    check_shard_info::<B, AccountId>(&header, coinbase, shard_num, shard_count, scale_out, trigger_exit)?;
+    check_shard_info::<B, AccountId>(&header, shard_extra)?;
 
     check_proof(&header, &seal)?;
 
     Ok((header, digest_item))
 }
 
-fn check_shard_info<B, AccountId>(
+pub fn check_shard_info<B, AccountId>(
     header: &B::Header,
-    coinbase: AccountId,
-    shard_num: u16,
-    shard_count: u16,
-    scale_out: Option<ScaleOut>,
-    trigger_exit: Arc<dyn TriggerExit>,
+    shard_extra: ShardExtra<AccountId>
 ) -> Result<(), String> where
     B: Block,
     DigestItemFor<B>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-    AccountId: Encode + Decode,
+    AccountId: Encode + Decode + Clone,
 {
+    let coinbase = shard_extra.coinbase.clone();
+    let shard_num = shard_extra.shard_num;
+    let shard_count = shard_extra.shard_count;
+    let scale_out = shard_extra.scale_out;
+    let trigger_exit = shard_extra.trigger_exit;
+
     //check arg shard info and coinbase when scale out phase committed
     if let Some(ScaleOutPhase::Committed {shard_num: scale_shard_num, shard_count: scale_shard_count}) = header.digest().logs().iter().rev()
         .filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase)
@@ -163,13 +153,11 @@ fn check_shard_info<B, AccountId>(
             let coinbase_shard_num = shard_num_for(&coinbase, scale_shard_count).expect("qed");
             if target_shard_num != coinbase_shard_num {
                 warn!("Stop service for invalid arg coinbase");
-                sleep(Duration::from_secs(1));
                 trigger_exit.trigger_stop();
                 return Err(format!("Invalid arg coinbase"));
             }
 
             warn!("Restart service for invalid arg shard info");
-            sleep(Duration::from_secs(1));
             trigger_exit.trigger_restart();
 
             return Err(format!("Invalid arg shard info"));
@@ -186,7 +174,7 @@ fn check_shard_info<B, AccountId>(
         return Err(format!("Invalid header shard info"));
     }
 
-    // TODO: check shard info
+    // TODO: check shard info other criteria
 
     Ok(())
 }

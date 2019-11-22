@@ -24,6 +24,8 @@ use runtime_primitives::{
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use substrate_client::ChainHead;
 use sharding_primitives::ShardingAPI;
+use std::thread::sleep;
+use std::time::Duration;
 
 pub type FactoryBlockNumber<F> = <<FactoryBlock<F> as Block>::Header as Header>::Number;
 
@@ -41,7 +43,10 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 		    loop {
 			    let signal = run_service::<_, service::Factory>(&version, exit.clone(), custom_args.clone(), config.clone());
 			    match signal {
-				    Ok(CliSignal::Restart) => info!("Restart service"),
+				    Ok(CliSignal::Restart) => {
+					    sleep(Duration::from_secs(3));
+					    info!("Restart service");
+				    },
 				    Ok(CliSignal::Stop) => return Ok(()),
 				    Err(e) => return Err(e),
 			    }
@@ -114,6 +119,7 @@ fn run_until_exit<T, C, E>(
 
 	let signal = runtime.block_on(e);
 	exit_send.fire();
+	info!("Exit fired");
 
 	// we eagerly drop the service so that the internal exit future is fired,
 	// but we need to keep holding a reference to the global telemetry guard

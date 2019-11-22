@@ -68,11 +68,9 @@ mod verifier;
 mod worker;
 
 pub struct Params<AccountId> {
-    pub coinbase: AccountId,
     pub force_authoring: bool,
     pub mine: bool,
-    pub shard_num: u16,
-    pub shard_count: u16,
+    pub shard_extra: ShardExtra<AccountId>,
 }
 
 pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
@@ -98,7 +96,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     AccountId: Clone + Debug + Decode + Encode + Default + Send + Sync + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
@@ -106,6 +104,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         inherent_data_providers.clone(),
         local_key.public(),
         block_import.clone(),
+        params.shard_extra.clone(),
     ));
 
     let mut reg_lock = job_manager.write();
@@ -123,7 +122,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         inner_job_manager.clone(),
         block_import,
         inherent_data_providers.clone(),
-        params.coinbase,
+        params.shard_extra.clone(),
     ));
     worker::start_worker(
         worker,
@@ -141,7 +140,8 @@ pub trait TriggerExit: Send + Sync{
     fn trigger_stop(&self);
 }
 
-pub struct ImportQueueParams<AccountId> {
+#[derive(Clone)]
+pub struct ShardExtra<AccountId> {
     pub coinbase: AccountId,
     pub shard_num: u16,
     pub shard_count: u16,
@@ -155,7 +155,7 @@ pub fn import_queue<B, C, AccountId, AuthorityId>(
     justification_import: Option<SharedJustificationImport<B>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
-    params: ImportQueueParams<AccountId>
+    shard_extra: ShardExtra<AccountId>
 ) -> Result<PowImportQueue<B>, consensus_common::Error> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
@@ -163,18 +163,14 @@ pub fn import_queue<B, C, AccountId, AuthorityId>(
     AccountId: Codec + Send + Sync + Clone + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 {
-    register_inherent_data_provider(&inherent_data_providers, params.coinbase.clone())?;
+    register_inherent_data_provider(&inherent_data_providers, shard_extra.coinbase.clone())?;
 
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
             inherent_data_providers,
             phantom: PhantomData,
-            coinbase: params.coinbase.clone(),
-            shard_num: params.shard_num,
-            shard_count: params.shard_count,
-            scale_out: params.scale_out.clone(),
-            trigger_exit: params.trigger_exit,
+            shard_extra,
         }
     );
     Ok(BasicQueue::new(verifier, block_import, justification_import))

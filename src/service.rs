@@ -236,6 +236,7 @@ construct_service_factory! {
 
                 // restarter
                 let restarter_param = restarter::Params{
+                    authority_id: key.clone().map(|k|k.public()),
                     coinbase: config.custom.coinbase.clone(),
                     shard_num: config.custom.shard_num,
                     shard_count: config.custom.shard_count,
@@ -276,15 +277,19 @@ construct_service_factory! {
                     let client = service.client();
 
                     let params = consensus::Params{
-                        coinbase: service.config.custom.coinbase.clone(),
                         force_authoring: service.config.force_authoring,
                         mine: service.config.custom.mine,
-                        shard_num: service.config.custom.shard_num,
-                        shard_count: service.config.custom.shard_count,
+                        shard_extra: consensus::ShardExtra {
+                            coinbase: service.config.custom.coinbase.clone(),
+                            shard_num: service.config.custom.shard_num,
+                            shard_count: service.config.custom.shard_count,
+                            scale_out: service.config.custom.scale_out.clone(),
+                            trigger_exit: service.config.custom.trigger_exit.clone().expect("qed"),
+                        }
                     };
 
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
-                    key.clone(),
+                        key.clone(),
                         client.clone(),
                         client,
                         proposer,
@@ -316,7 +321,7 @@ construct_service_factory! {
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
-                        consensus::ImportQueueParams {
+                        consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,
                             shard_count: config.custom.shard_count,
@@ -333,7 +338,7 @@ construct_service_factory! {
                         None,
                         client,
                         config.custom.inherent_data_providers.clone(),
-                        consensus::ImportQueueParams {
+                        consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,
                             shard_count: config.custom.shard_count,

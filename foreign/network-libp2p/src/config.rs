@@ -28,6 +28,8 @@ use std::collections::HashMap;
 pub struct NetworkConfiguration {
 	/// Shard num
 	pub shard_num: u16,
+	/// Shard count
+	pub shard_count: u16,
 	/// Multiaddresses to listen for incoming connections.
 	pub listen_addresses: Vec<Multiaddr>,
 	/// Multiaddresses to advertise. Detected automatically if empty.
@@ -53,6 +55,7 @@ impl Default for NetworkConfiguration {
 	fn default() -> Self {
 		NetworkConfiguration {
 			shard_num: 0u16,
+			shard_count: 0u16,
 			listen_addresses: Vec::new(),
 			public_addresses: Vec::new(),
 			foreign_boot_nodes: HashMap::new(),
