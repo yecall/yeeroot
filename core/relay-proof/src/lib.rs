@@ -2,6 +2,7 @@ use runtime_primitives::{
     generic::DigestItem,
     traits::Block,
 };
+use parity_codec::{Encode, Decode};
 use primitives::H256;
 use std::slice;
 
@@ -20,7 +21,7 @@ impl<B, Hash, AuthorityId, SealSignature> ProofDigestItem<B> for DigestItem<Hash
 {
     fn gen_xt_proof(data: H256) -> Self {
         let prefix: [u8; 2] = [PROOF_MODULE_LOG_PREFIX, 0];
-        let data = [prefix.to_vec(), data.as_ref().to_vec()].concat();
+        let data = Encode::encode(&(prefix, data));
         DigestItem::Other(data)
     }
 
@@ -28,9 +29,9 @@ impl<B, Hash, AuthorityId, SealSignature> ProofDigestItem<B> for DigestItem<Hash
         match self {
             DigestItem::Other(data) if data.len() > 34 && data[0] == PROOF_MODULE_LOG_PREFIX && data[1] == 0
             => {
-                let mut ar = H256::default();
-                ar.as_mut().copy_from_slice(&data[2..]);
-                Some(ar)
+                let input = &mut &data[2..];
+                let root = Decode::decode(input)?;
+                Some(root)
             }
             _ => None
         }
