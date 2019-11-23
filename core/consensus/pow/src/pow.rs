@@ -205,7 +205,7 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
 }
 
 /// Gen extrinsic proof for foreign chain.
-pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (Vec<u8>, ExtrinsicProof)
+pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H256, ExtrinsicProof)
     where
         B: Block,
         <<<B as Block>::Header as Header>::Digest as Digest>::Item: yee_sharding::ShardingDigestItem<u16>,
@@ -255,7 +255,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (Vec
         }
     }
     let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
-    let layer2_root = layer2_tree.root().as_ref().to_vec();
+    let layer2_root = layer2_tree.root();
     let multi_proof = MultiLayerProof::new(layer1_merkles, layer2_tree, vec![]);
     info!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
     (layer2_root, multi_proof.into_bytes())

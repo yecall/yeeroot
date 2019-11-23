@@ -1,0 +1,27 @@
+[package]
+name = "yee-srml-relay-proof"
+version = "0.4.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
+serde = { version = "1.0", optional = true, features = ["derive"] }
+sharding_primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default_features = false }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
+support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
+
+[features]
+default = ["std"]
+std = [
+    "parity-codec/std",
+    "serde",
+    "sharding_primitives/std",
+    "runtime-primitives/std",
+    "support/std",
+    "system/std",
+]

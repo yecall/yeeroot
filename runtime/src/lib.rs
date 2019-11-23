@@ -214,6 +214,10 @@ impl sharding::Trait for Runtime {
     type Log = Log;
 }
 
+impl relay_proof::Trait for Runtime {
+	type Log = Log;
+}
+
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
 		Block = Block,
@@ -229,6 +233,7 @@ construct_runtime!(
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>},
 		FinalityTracker: finality_tracker::{Module, Call, Inherent},
+		RelayProof: relay_proof::{Module, Log()},
 	}
 );
 

@@ -57,13 +57,13 @@ use {
 };
 use super::CompatibleDigestItem;
 use crate::pow::{check_proof, gen_extrinsic_proof};
-use crate::digest::ProofDigestItem;
+use relay_proof::ProofDigestItem;
 use yee_sharding::ShardingDigestItem;
 use merkle_light::proof::Proof as MLProof;
 use merkle_light::merkle::MerkleTree;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use parking_lot::RwLock;
 use primitives::H256;
 use yee_runtime::BlockId;
@@ -104,6 +104,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
         // get proof root from digest.
+        info!("number:{}, {}: {}", number, Colour::Yellow.bold().paint("digest length"), header.digest().logs().len());
         let header_proof = header.digest().logs().iter().rev().filter_map(ProofDigestItem::as_xt_proof).next();
         if header_proof.is_none(){
             return Err("get proof log in header failed.".to_string());
@@ -124,7 +125,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
             if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
                 // check proof root.
                 let root = mlp.layer2_merkle.root();
-                if root.as_ref() != p_h.as_slice() {
+                if root != p_h {
                     return Err("Proof is invalid.".to_string());
                 }
                 // check proof self.
@@ -193,7 +194,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
             let exs = body.clone().unwrap();
             // check proof root
             let (root, proof) = gen_extrinsic_proof::<F::Block>(&header, &exs);
-            if root.as_slice() != p_h.as_slice() {
+            if root != p_h {
                 return Err("Proof is invalid.".to_string());
             }
             res_proof = Some(proof);

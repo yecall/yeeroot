@@ -56,7 +56,7 @@ use {
     pow_primitives::YeePOWApi,
 };
 
-pub use digest::{CompatibleDigestItem, ProofDigestItem};
+pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
               MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
@@ -64,6 +64,7 @@ use yee_sharding::ShardingDigestItem;
 use yee_srml_pow::RewardCondition;
 use primitives::H256;
 use substrate_service::ServiceFactory;
+use relay_proof::ProofDigestItem;
 
 mod job;
 mod digest;

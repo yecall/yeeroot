@@ -50,7 +50,7 @@ use {
 	},
 };
 use std::time::Duration;
-use crate::{PowSeal, WorkProof, CompatibleDigestItem, digest::ProofDigestItem};
+use crate::{PowSeal, WorkProof, CompatibleDigestItem};
 use parity_codec::{Decode, Encode};
 use log::info;
 use {
@@ -60,6 +60,7 @@ use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::ShardingDigestItem;
 use primitives::H256;
 use ansi_term::Colour;
+use relay_proof::ProofDigestItem;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -176,7 +177,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 		let authority_id = self.authority_id.clone();
 
 		let build_job = move |block: B| {
-			let (header, body) = block.deconstruct();
+			let (mut header, body) = block.deconstruct();
 			let header_num = header.number().clone();
 			let header_pre_hash = header.hash();
 			let timestamp = timestamp_now()?;
@@ -190,14 +191,15 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 				timestamp,
 				work_proof,
 			};
+			// write extrinsic proof root to digest log.
+			let (root, proof) = gen_extrinsic_proof::<B>(&header, &body);
+			let proof_item = <DigestItemFor<B> as ProofDigestItem<B>>::gen_xt_proof(root.clone());
+			header.digest_mut().push(proof_item);
+			info!("{}. number:{}, digest:{:?}", Colour::Yellow.bold().paint("Write proof root to header's digest"), header_num, header.digest());
+
 			let mut header_with_pow_seal = header.clone();
 			let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
 			header_with_pow_seal.digest_mut().push(item);
-
-			// write extrinsic proof root to digest log.
-			let (root, proof) = gen_extrinsic_proof::<B>(&header, &body);
-			let proof_item = <DigestItemFor<B> as ProofDigestItem<B>>::gen_xt_proof(root);
-			header_with_pow_seal.digest_mut().push(proof_item);
 
 			let hash = header_with_pow_seal.hash();
 
@@ -223,7 +225,6 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
 			let number = &job.header.number().clone();
 			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
-			// let extrinsic_proof = gen_extrinsic_proof::<B>(&job.header, job.body.as_slice());
 			let import_block: ImportBlock<B> = ImportBlock {
 				origin: BlockOrigin::Own,
 				header: job.header,

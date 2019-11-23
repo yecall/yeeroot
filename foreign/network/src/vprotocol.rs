@@ -386,7 +386,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             if proof.is_some() {
                 debug!("receive {}: number:{}, proof.len():{}", Colour::White.bold().paint("Proof"), number, proof.clone().unwrap().len());
             } else {
-                info!("{}. number:{}", Colour::White.bold().paint("No Proof"), number);
+                info!("Sync Block proof. {}. number:{}", Colour::White.bold().paint("No Proof"), number);
             }
             let block_data = message::generic::BlockData {
                 hash,

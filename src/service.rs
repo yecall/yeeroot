@@ -288,7 +288,6 @@ construct_service_factory! {
                     let justification_import = block_import.clone();
                     config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
-                    let foreign_chain = config.custom.foreign_chains.read().as_ref().unwrap();
                     import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),

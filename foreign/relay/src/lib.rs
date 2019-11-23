@@ -63,7 +63,7 @@ const MAX_BLOCK_INTERVAL: u64 = 2;   // TODO
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
-    foreign_network: Arc<SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
+    foreign_network: Arc<dyn SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pool: Arc<TransactionPool<A>>
 ) -> error::Result<()>

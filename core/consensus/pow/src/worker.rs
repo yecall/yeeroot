@@ -47,7 +47,7 @@ use super::{
     CompatibleDigestItem, WorkProof, ProofNonce,
 };
 use crate::job::{JobManager, DefaultJob};
-use crate::pow::{check_proof, gen_extrinsic_proof};
+use crate::pow::{check_proof};
 use yee_sharding::ShardingDigestItem;
 use primitives::H256;
 use ansi_term::Colour;
@@ -130,7 +130,6 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
         let job = self.on_job().into_future();
 
         let on_proposal_block = move |job: DefaultJob<B, AuthorityId>| -> Result<(), consensus_common::Error> {
-
             let header = job.header;
             let body = job.body;
             let header_num = header.number().clone();
