@@ -6,7 +6,7 @@ use parity_codec::{Encode, Decode};
 use primitives::H256;
 use std::slice;
 
-pub const PROOF_MODULE_LOG_PREFIX: u8 = 3;
+pub const PROOF_MODULE_LOG_PREFIX: u8 = 4;
 
 /// Digest item for proof.
 pub trait ProofDigestItem<B: Block>: Sized {
@@ -27,7 +27,7 @@ impl<B, Hash, AuthorityId, SealSignature> ProofDigestItem<B> for DigestItem<Hash
 
     fn as_xt_proof(&self) -> Option<H256> {
         match self {
-            DigestItem::Other(data) if data.len() > 34 && data[0] == PROOF_MODULE_LOG_PREFIX && data[1] == 0
+            DigestItem::Other(data) if data.len() >= 34 && data[0] == PROOF_MODULE_LOG_PREFIX && data[1] == 0
             => {
                 let input = &mut &data[2..];
                 let root = Decode::decode(input)?;
