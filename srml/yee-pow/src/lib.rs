@@ -43,15 +43,21 @@ use {
         codec::{
             Codec, Decode, Encode,
         },
+        traits::{
+            As,
+        }
     },
     system::ensure_inherent,
 };
 use rstd::{result, prelude::*};
+use yee_srml_sharding::{self as sharding};
+use yee_sharding_primitives::ShardingInfo;
+use yee_sharding_primitives::utils::shard_num_for;
 
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 type PositiveImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::PositiveImbalance;
 
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + sharding::Trait {
     /// Type used for pow target
     type PowTarget: Parameter + Default;
 
@@ -63,6 +69,8 @@ pub trait Trait: system::Trait {
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
+    type Sharding: ShardingInfo<Self::ShardNum>;
 
 }
 
@@ -135,11 +143,15 @@ decl_module! {
 
             if let Some(info) = Self::current_pow_info(){
 
+                let shard_count = <BalanceOf<T> as As<u64>>::sa(
+                    T::Sharding::get_shard_count().as_() as u64
+                );
+
                 let reward_condition = info.reward_condition;
 
                 let block_number = block_number;
                 let coinbase = info.coinbase.clone();
-                let block_reward = Self::block_reward();
+                let block_reward = Self::block_reward() / shard_count;
                 let fee_reward = Self::total_fee();
 
                 let new_reward_plan = RewardPlan{
@@ -182,20 +194,28 @@ decl_event!(
 impl<T: Trait> Module<T> {
 
     fn reward(reward_plan: &RewardPlan<T::BlockNumber, T::AccountId, BalanceOf<T>>, current_coinbase: T::AccountId, reward_condition: RewardCondition){
-        let reward_target = match reward_condition{
-            RewardCondition::Normal => &reward_plan.coinbase,
-            RewardCondition::Slash => &current_coinbase,
-        };
-        let reward_amount = reward_plan.block_reward + reward_plan.fee_reward;
-        let imbalance = T::Currency::deposit_creating(reward_target, reward_amount);
-        T::Reward::on_unbalanced(imbalance);
 
-        Self::deposit_event(RawEvent::Reward(RewardPlan{
-            block_number: reward_plan.block_number.clone(),
-            coinbase: reward_target.clone(),
-            block_reward: reward_plan.block_reward,
-            fee_reward: reward_plan.fee_reward,
-        }));
+        let shard_num = T::Sharding::get_curr_shard().expect("qed").as_() as u16;
+        let shard_count = T::Sharding::get_shard_count().as_() as u16;
+        let coinbase_shard_num = shard_num_for(&reward_plan.coinbase, shard_count).expect("qed");
+
+        //when scaling out, only one splitted shard will perform rewarding
+        if coinbase_shard_num == shard_num {
+            let reward_target = match reward_condition {
+                RewardCondition::Normal => &reward_plan.coinbase,
+                RewardCondition::Slash => &current_coinbase,
+            };
+            let reward_amount = reward_plan.block_reward + reward_plan.fee_reward;
+            let imbalance = T::Currency::deposit_creating(reward_target, reward_amount);
+            T::Reward::on_unbalanced(imbalance);
+
+            Self::deposit_event(RawEvent::Reward(RewardPlan {
+                block_number: reward_plan.block_number.clone(),
+                coinbase: reward_target.clone(),
+                block_reward: reward_plan.block_reward,
+                fee_reward: reward_plan.fee_reward,
+            }));
+        }
     }
 }
 
