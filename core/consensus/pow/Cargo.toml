@@ -12,13 +12,13 @@ parking_lot = "0.7.1"
 tokio = "0.1"
 pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
 yee-srml-pow = { path = "../../../srml/yee-pow" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof"}
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "zzq/proof" }
 yee-sharding = { package = "yee-sharding", path = "../../sharding" }
@@ -31,7 +31,6 @@ util = { package = "util", path = "../../util" }
 relay-proof = { package = "relay-proof", path = "../../relay-proof" }
 hash-db = "0.12"
 ansi_term = "0.11"
-yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
 
 [dev-dependencies]
 hex-literal = "0.2"
