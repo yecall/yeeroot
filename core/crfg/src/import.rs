@@ -511,6 +511,19 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				});
 			},
 			None => {
+				use runtime_primitives::traits::As;
+				//if number == NumberFor::<Block>::sa(2) {
+				if number.as_() == 2 {
+					let justification=  CrfgJustification::<Block>::default_justification(hash, number);
+					self.import_justification(hash, number, justification.encode(), needs_justification).unwrap_or_else(|err| {
+						debug!(target: "afg", "Imported block #{} that enacts authority set change with \
+						invalid justification: {:?}, requesting justification from peers.", number, err);
+						imported_aux.bad_justification = true;
+						imported_aux.needs_justification = true;
+					});
+					return Ok(ImportResult::Imported(imported_aux))
+				}
+
 				if needs_justification {
 					trace!(
 						target: "afg",

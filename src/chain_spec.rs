@@ -142,16 +142,8 @@ fn testnet_template_genesis(
     genesis_pow_target: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
-	let initial_authorities = vec![
-			get_authority_keys_from_seed("Bob"),
-			//get_authority_keys_from_seed("Dave"),
-		];
-    let authors: Vec<(AuthorityId, u64)> = initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect();
-	debug!("Initial authority set with weight:{:#?}", authors);
-
 	let crfg_authorities_size = 6u64;
 	let crfg_block_latency = 6u64;
-
 	let block_reward_latency = crfg_authorities_size + crfg_block_latency + 1;
 
 	GenesisConfig {
@@ -186,7 +178,7 @@ fn testnet_template_genesis(
             genesis_sharding_count: 4,
         }),
 		crfg: Some(CrfgConfig {
-			authorities: authors,
+			authorities: vec![],
 		}),
 	}
 }
