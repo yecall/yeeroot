@@ -39,7 +39,7 @@ use {
         codec::{Decode, Encode, Codec},
         traits::{
             Block, Header,
-            Digest, DigestFor, DigestItemFor,
+            Digest, DigestFor, DigestItemFor, NumberFor,
         },
     },
 };
@@ -48,7 +48,9 @@ use super::{
 };
 use crate::job::{JobManager, DefaultJob};
 use crate::pow::check_proof;
-use yee_sharding::ShardingDigestItem;
+use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
+use crate::ShardExtra;
+use crate::verifier::check_shard_info;
 
 pub trait PowWorker<JM: JobManager> {
     type Error: Debug + Send;
@@ -69,7 +71,7 @@ pub struct DefaultWorker<B, I, JM, AccountId, AuthorityId> {
     block_import: Arc<I>,
     inherent_data_providers: InherentDataProviders,
     stop_sign: Arc<RwLock<bool>>,
-    coinbase: AccountId,
+    shard_extra: ShardExtra<AccountId>,
     phantom: PhantomData<(B, AuthorityId)>,
 }
 
@@ -81,14 +83,14 @@ impl<B, I, JM, AccountId, AuthorityId> DefaultWorker<B, I, JM, AccountId, Author
         job_manager: Arc<JM>,
         block_import: Arc<I>,
         inherent_data_providers: InherentDataProviders,
-        coinbase: AccountId,
+        shard_extra: ShardExtra<AccountId>,
     ) -> Self {
         DefaultWorker {
             job_manager,
             block_import,
             inherent_data_providers,
             stop_sign: Default::default(),
-            coinbase,
+            shard_extra,
             phantom: PhantomData,
         }
     }
@@ -98,10 +100,10 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
     B: Block,
     DigestFor<B>: Digest,
     I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
     AccountId: Codec + Send + Sync + Clone + 'static,
-    AuthorityId: Decode + Encode + Clone + 'static,
+    AuthorityId: Decode + Encode + Send + Sync + Clone + 'static,
 {
     type Error = consensus_common::Error;
     type OnJob = Box<dyn Future<Item=DefaultJob<B, AuthorityId>, Error=Self::Error> + Send>;
@@ -112,7 +114,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
     }
 
     fn on_start(&self) -> Result<(), consensus_common::Error> {
-        super::register_inherent_data_provider(&self.inherent_data_providers, self.coinbase.clone())
+        super::register_inherent_data_provider(&self.inherent_data_providers, self.shard_extra.coinbase.clone())
     }
 
     fn on_job(&self) -> Self::OnJob {
@@ -125,6 +127,8 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
         let block_import = self.block_import.clone();
 
         let job = self.on_job().into_future();
+
+        let shard_extra = self.shard_extra.clone();
 
         let on_proposal_block = move |job: DefaultJob<B, AuthorityId>| -> Result<(), consensus_common::Error> {
 
@@ -142,11 +146,15 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
 
             for i in 0_u64..iter {
 
+                let shard_extra = shard_extra.clone();
                 let proof = WorkProof::Nonce(ProofNonce::get_with_prefix_len(PREFIX, 12, i));
                 let mut seal = digest_item.clone();
                 seal.work_proof = proof;
 
                 if let Ok((post_digest, hash)) = check_proof(&header, &seal){
+
+                    check_shard_info::<B, AccountId>(&header, shard_extra)?;
+
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,
                         header,
