@@ -3320,6 +3320,8 @@ dependencies = [
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-timestamp 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-inherents 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-sharding-primitives 0.1.0",
+ "yee-srml-sharding 0.1.0",
 ]
 
 [[package]]

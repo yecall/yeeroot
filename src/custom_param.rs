@@ -24,16 +24,20 @@ use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles,
 use substrate_client::ChainHead;
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor},
+    traits::{ProvideRuntimeApi, Block, Header, Digest as DigestT, DigestItemFor},
 };
 use crate::error;
 use crate::service::{NodeConfig};
+use crate::cli::FactoryBlockNumber;
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;
 use yee_primitives::{AddressCodec, Address, Hrp};
-use yee_sharding::ShardingDigestItem;
-use sharding_primitives::{ShardingAPI, utils::shard_num_for};
+use yee_sharding::{ShardingDigestItem, ScaleOutPhase, ScaleOutPhaseDigestItem};
+use sharding_primitives::{ShardingAPI, ScaleOut, utils::shard_num_for};
+use inherents::{
+    InherentDataProviders, RuntimeString,
+};
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -67,45 +71,18 @@ impl_augment_clap!(YeeCliConfig);
 pub fn process_custom_args<F, C>(config: &mut FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<()>
 where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
-    DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16>,
+    DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
     FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
 
-    // get shard num, shard count
-    let client = new_client::<F>(&config)?;
-    let last_block_header = client.best_block_header()?;
-    let shard_info : Option<(u16, u16)> = last_block_header.digest().logs().iter().rev()
-        .filter_map(ShardingDigestItem::as_sharding_info)
-        .next();
-
-    let shard_num = custom_args.shard_num;
-
-    let (shard_num, shard_count) = match shard_info {
-        Some((ori_shard_num, ori_shard_count)) => {
-            if shard_num == ori_shard_num {//normal
-                (ori_shard_num, ori_shard_count)
-            }else if shard_num == shard_num + ori_shard_count {//scale
-                (ori_shard_num, ori_shard_count)
-            }else{
-                return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
-            }
-        },
-        None => {
-            let api = client.runtime_api();
-            let last_block_id = BlockId::hash(last_block_header.hash());
-            let genesis_shard_cnt = api.get_genesis_shard_count(&last_block_id)?;
-            if shard_num > genesis_shard_cnt{
-                return Err(error::ErrorKind::Input("Invalid shard_num".to_string()).into());
-            }
-            (shard_num, genesis_shard_cnt)
-        }
-    };
+    let (shard_num, shard_count, scale_out) = get_shard_info::<F>(&config, &custom_args)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 
     config.custom.shard_num = shard_num;
     config.custom.shard_count = shard_count;
+    config.custom.scale_out = scale_out.clone();
 
     if config.roles == Roles::AUTHORITY{
         let coinbase = custom_args.coinbase.clone().ok_or(error::ErrorKind::Input("Coinbase not found".to_string()))?;
@@ -119,6 +96,16 @@ where
         info!("Coinbase shard num: {}", coinbase_shard_num);
         if coinbase_shard_num != shard_num {
             return Err(error::ErrorKind::Input("Invalid coinbase: shard num is not accordant".to_string()).into());
+        }
+
+        //check if coinbase is accordant after scaling out
+        if let Some(ScaleOut{shard_num: scale_out_shard_num}) = scale_out {
+            let scale_out_shard_count = shard_count * 2;
+            let coinbase_shard_num = shard_num_for(&coinbase, scale_out_shard_count).expect("qed");
+            info!("Coinbase shard num after scaling out: {}", coinbase_shard_num);
+            if coinbase_shard_num != scale_out_shard_num {
+                return Err(error::ErrorKind::Input("Invalid coinbase: shard num is not accordant after scaling out".to_string()).into());
+            }
         }
 
         config.custom.coinbase = coinbase;
@@ -160,6 +147,9 @@ where
     info!("  bootnodes router conf: {:?}", config.custom.bootnodes_router_conf);
     info!("  mine: {:?}", config.custom.mine);
 
+    register_inherent_data_provider(&config.custom.inherent_data_providers, shard_num, shard_count, scale_out)
+        .map_err(|e| format!("Inherent data error: {:?}", e))?;
+
     Ok(())
 }
 
@@ -194,4 +184,101 @@ fn get_hrp(chain_spec_id: &str) -> Hrp{
         "main" => Hrp::MAINNET,
         _ => Hrp::TESTNET,
     }
+}
+
+fn get_shard_info<F>(config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<(u16, u16, Option<ScaleOut>)>
+where
+    F: ServiceFactory<Configuration=NodeConfig<F>>,
+    DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
+    FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+{
+    let client = new_client::<F>(&config)?;
+    let last_block_header = client.best_block_header()?;
+
+    let shard_info : Option<(u16, u16)> = last_block_header.digest().logs().iter().rev()
+        .filter_map(ShardingDigestItem::as_sharding_info)
+        .next();
+
+    if let Some((num, cnt)) = shard_info {
+        info!("Original shard info: shard num: {}, shard count: {}", num, cnt);
+    }
+
+    let arg_shard_num = custom_args.shard_num;
+
+    // check if there is scale out phase log in header
+    // we treat that there is commiting scale out phase in genesis block header
+    let scale_out_phase = match shard_info {
+        Some(shard_info) => {
+            last_block_header.digest().logs().iter().rev()
+                .filter_map(ScaleOutPhaseDigestItem::<FactoryBlockNumber<F>, u16>::as_scale_out_phase)
+                .next()
+        },
+        None => {
+            // genesis block
+            let api = client.runtime_api();
+            let last_block_id = BlockId::hash(last_block_header.hash());
+            let genesis_shard_cnt = api.get_genesis_shard_count(&last_block_id)?;
+
+            Some(ScaleOutPhase::<FactoryBlockNumber<F>, _>::Commiting {
+                shard_count: genesis_shard_cnt,
+            })
+        },
+    };
+
+    let ret_shard_info =  if let Some(ScaleOutPhase::Commiting {shard_count}) = scale_out_phase {
+        // scale out phase commiting
+        match shard_info{
+            Some((ori_shard_num, ori_shard_count)) => {
+                //not genesis block
+                if arg_shard_num == ori_shard_num || arg_shard_num == ori_shard_num + ori_shard_count {
+                    (arg_shard_num, shard_count, None)
+                }else{
+                    return Err(error::ErrorKind::Input(
+                        format!("Invalid shard num on non-genesis block scale out phase commiting")).into());
+                }
+            },
+            None => {
+                //genesis block
+                if arg_shard_num > shard_count{
+                    return Err(error::ErrorKind::Input(format!("Invalid shard num on genesis block scale out phase commiting")).into());
+                }
+                (arg_shard_num, shard_count, None)
+            }
+        }
+    }else{
+        // normal
+        let (ori_shard_num, ori_shard_count) = shard_info.expect("qed");
+        if arg_shard_num == ori_shard_num {//normal
+            (ori_shard_num, ori_shard_count, None)
+        }else if arg_shard_num == ori_shard_num + ori_shard_count {//scale out
+            (ori_shard_num, ori_shard_count, Some(ScaleOut{shard_num: arg_shard_num}))
+        }else{
+            return Err(error::ErrorKind::Input(format!("Invalid shard num")).into());
+        }
+    };
+
+    Ok(ret_shard_info)
+}
+
+fn register_inherent_data_provider(
+    inherent_data_providers: &InherentDataProviders,
+    shard_num: u16,
+    shard_cnt: u16,
+    scale_out: Option<ScaleOut>,
+) -> Result<(), consensus_common::Error> where
+{
+    if !inherent_data_providers.has_provider(&srml_sharding::INHERENT_IDENTIFIER) {
+        inherent_data_providers.register_provider(srml_sharding::InherentDataProvider::new(
+            shard_num,
+            shard_cnt,
+            scale_out.map(|x|srml_sharding::ScaleOut{shard_num: x.shard_num})
+        )).map_err(inherent_to_common_error)
+    } else {
+        Ok(())
+    }
+}
+
+fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
+    consensus_common::ErrorKind::InherentData(err.into()).into()
 }

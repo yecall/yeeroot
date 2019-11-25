@@ -47,6 +47,7 @@ use {
             DigestItemFor,
             Block,
             ProvideRuntimeApi,
+            NumberFor,
         },
     },
     foreign_chain::{ForeignChain, ForeignChainConfig},
@@ -60,8 +61,9 @@ pub use digest::CompatibleDigestItem;
 pub use pow::{PowSeal, WorkProof, ProofNonce, ProofMulti,
               MiningAlgorithm, MiningHash, OriginalMerkleProof, CompactMerkleProof};
 pub use job::{JobManager, DefaultJobManager, DefaultJob};
-use yee_sharding::ShardingDigestItem;
+use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use yee_srml_pow::RewardCondition;
+use yee_sharding_primitives::ScaleOut;
 use primitives::H256;
 use substrate_service::ServiceFactory;
 use relay_proof::ProofDigestItem;
@@ -73,11 +75,9 @@ mod verifier;
 mod worker;
 
 pub struct Params<AccountId> {
-    pub coinbase: AccountId,
     pub force_authoring: bool,
     pub mine: bool,
-    pub shard_num: u16,
-    pub shard_count: u16,
+    pub shard_extra: ShardExtra<AccountId>,
 }
 
 pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
@@ -103,8 +103,8 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     AccountId: Clone + Debug + Decode + Encode + Default + Send + Sync + 'static,
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
-    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16>,
-    DigestItemFor<B>: ProofDigestItem<B>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
+    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ProofDigestItem<B> + ShardingDigestItem<u16>,
     <B as Block>::Hash: From<H256> + Ord,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
@@ -113,6 +113,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         inherent_data_providers.clone(),
         local_key.public(),
         block_import.clone(),
+        params.shard_extra.clone(),
     ));
 
     let mut reg_lock = job_manager.write();
@@ -130,7 +131,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         inner_job_manager.clone(),
         block_import,
         inherent_data_providers.clone(),
-        params.coinbase,
+        params.shard_extra.clone(),
     ));
     worker::start_worker(
         worker,
@@ -142,12 +143,33 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
 /// POW chain import queue
 pub type PowImportQueue<B> = BasicQueue<B>;
 
+
+pub trait TriggerExit: Send + Sync{
+    fn trigger_restart(&self);
+    fn trigger_stop(&self);
+}
+
+#[derive(Clone)]
+pub struct ShardExtra<AccountId> {
+    pub coinbase: AccountId,
+    pub shard_num: u16,
+    pub shard_count: u16,
+    pub scale_out: Option<ScaleOut>,
+    pub trigger_exit: Arc<dyn TriggerExit>,
+}
+
 /// Start import queue for POW consensus
 pub fn import_queue<F, C, AccountId, AuthorityId>(
     block_import: SharedBlockImport<F::Block>,
     justification_import: Option<SharedJustificationImport<F::Block>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
+    shard_extra: ShardExtra<AccountId>
+) -> Result<PowImportQueue<B>, consensus_common::Error> where
+    B: Block,
+    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
+    C: 'static + Send + Sync,
+    AccountId: Codec + Send + Sync + Clone + 'static,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     coinbase: AccountId,
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
@@ -165,7 +187,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
-    register_inherent_data_provider(&inherent_data_providers, coinbase)?;
+    register_inherent_data_provider(&inherent_data_providers, shard_extra.coinbase.clone())?;
 
     let verifier = Arc::new(
         verifier::PowVerifier {
@@ -173,6 +195,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
             inherent_data_providers,
             foreign_chains,
             phantom: PhantomData,
+            shard_extra,
         }
     );
     Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import))

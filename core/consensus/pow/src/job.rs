@@ -50,14 +50,15 @@ use {
 	},
 };
 use std::time::Duration;
-use crate::{PowSeal, WorkProof, CompatibleDigestItem};
+use crate::{PowSeal, WorkProof, CompatibleDigestItem, ShardExtra};
 use parity_codec::{Decode, Encode};
 use log::info;
 use {
 	pow_primitives::{YeePOWApi, PowTarget},
 };
 use crate::pow::{check_proof, gen_extrinsic_proof};
-use yee_sharding::ShardingDigestItem;
+use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
+use crate::verifier::check_shard_info;
 use primitives::H256;
 use ansi_term::Colour;
 use relay_proof::ProofDigestItem;
@@ -100,16 +101,17 @@ pub trait JobManager: Send + Sync
 
 }
 
-pub struct DefaultJobManager<B, C, E, AuthorityId, I> {
+pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I> {
 	client: Arc<C>,
 	env: Arc<E>,
 	inherent_data_providers: InherentDataProviders,
 	authority_id: AuthorityId,
 	block_import: Arc<I>,
+	shard_extra: ShardExtra<AccountId>,
 	phantom: PhantomData<B>,
 }
 
-impl<B, C, E, AuthorityId, I> DefaultJobManager<B, C, E, AuthorityId, I> where
+impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, AuthorityId, I> where
 	B: Block,
 	C: ChainHead<B>,
 	E: Environment<B> + 'static,
@@ -126,6 +128,7 @@ impl<B, C, E, AuthorityId, I> DefaultJobManager<B, C, E, AuthorityId, I> where
 		inherent_data_providers: InherentDataProviders,
 		authority_id: AuthorityId,
 		block_import: Arc<I>,
+		shard_extra: ShardExtra<AccountId>
 	) -> Self {
 		Self {
 			client,
@@ -133,14 +136,15 @@ impl<B, C, E, AuthorityId, I> DefaultJobManager<B, C, E, AuthorityId, I> where
 			inherent_data_providers,
 			authority_id,
 			block_import,
+			shard_extra,
 			phantom: PhantomData,
 		}
 	}
 }
 
-impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AuthorityId, I>
+impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AccountId, AuthorityId, I>
 	where B: Block,
-	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ProofDigestItem<B> + ShardingDigestItem<u16>,
+	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ProofDigestItem<B> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
 	      C: ChainHead<B> + Send + Sync + 'static,
 	      C: HeaderBackend<B> + ProvideRuntimeApi,
 	      <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
@@ -150,6 +154,7 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 	      <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
 	      <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
 	      AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
+	      AccountId: Decode + Encode + Clone + Send + Sync + 'static,
 	      I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
           <B as Block>::Hash: From<H256> + Ord,
 {
@@ -222,6 +227,9 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
 			let number = &job.header.number().clone();
 			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
+
+			check_shard_info::<B, AccountId>(&job.header, self.shard_extra.clone())?;
+
 			let import_block: ImportBlock<B> = ImportBlock {
 				origin: BlockOrigin::Own,
 				header: job.header,
