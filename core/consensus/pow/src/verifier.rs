@@ -103,16 +103,9 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         let number = header.number().clone();
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
-        // get proof root from digest.
-        info!("number:{}, {}: {}", number, Colour::Yellow.bold().paint("digest length"), header.digest().logs().len());
-        let header_proof = header.digest().logs().iter().rev().filter_map(ProofDigestItem::as_xt_proof).next();
-        if header_proof.is_none(){
-            return Err("get proof log in header failed.".to_string());
-        }
-        let p_h = header_proof.unwrap();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<F::Block, AuthorityId>(
+        let (pre_header, seal, p_h) = check_header::<F::Block, AuthorityId>(
             header.clone(),
             hash.clone(),
         )?;
@@ -224,7 +217,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
 fn check_header<B, AccountId>(
     mut header: B::Header,
     hash: B::Hash,
-) -> Result<(B::Header, DigestItemFor<B>), String> where
+) -> Result<(B::Header, DigestItemFor<B>, H256), String> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AccountId> + ShardingDigestItem<u16>,
     AccountId: Decode + Encode + Clone,
@@ -243,5 +236,5 @@ fn check_header<B, AccountId>(
 
     check_proof(&header, &seal)?;
 
-    Ok((header, digest_item))
+    Ok((header, digest_item, seal.relay_proof.clone()))
 }

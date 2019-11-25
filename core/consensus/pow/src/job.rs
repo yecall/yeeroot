@@ -184,19 +184,16 @@ impl<B, C, E, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, Authorit
 			let pow_target = calc_pow_target(client, &header, timestamp)?;
 			let authority_id = authority_id;
 			let work_proof = WorkProof::Unknown;
+			// generate proof
+			let (relay_proof, proof) = gen_extrinsic_proof::<B>(&header, &body);
 
 			let pow_seal = PowSeal {
 				authority_id,
 				pow_target,
 				timestamp,
 				work_proof,
+				relay_proof,
 			};
-			// write extrinsic proof root to digest log.
-			let (root, proof) = gen_extrinsic_proof::<B>(&header, &body);
-			let proof_item = <DigestItemFor<B> as ProofDigestItem<B>>::gen_xt_proof(root.clone());
-			header.digest_mut().push(proof_item);
-			info!("{}. number:{}, digest:{:?}", Colour::Yellow.bold().paint("Write proof root to header's digest"), header_num, header.digest());
-
 			let mut header_with_pow_seal = header.clone();
 			let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
 			header_with_pow_seal.digest_mut().push(item);

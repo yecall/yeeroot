@@ -55,6 +55,7 @@ pub struct PowSeal<B: Block, AuthorityId: Decode + Encode + Clone> {
     pub pow_target: PowTarget,
     pub timestamp: u64,
     pub work_proof: WorkProof<B>,
+    pub relay_proof: H256,
 }
 
 /// POW proof used in block header
@@ -156,6 +157,7 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
                 pow_target: seal.pow_target,
                 timestamp: seal.timestamp,
                 work_proof: WorkProof::Unknown,
+                relay_proof: seal.relay_proof.clone(),
             };
             let mut header_with_pow_seal = header.clone();
             let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
