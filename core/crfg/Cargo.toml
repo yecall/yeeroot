@@ -20,7 +20,7 @@ client = { package = "substrate-client", git = "https://github.com/yeeco/substra
 inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, branch = "yee-v1.0" }
-srml-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+srml-finality-tracker = { package = "srml-finality-tracker", path = "../../srml/yee-tracker" }
 fg_primitives = { package = "crfg-primitives", path = "./primitives" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", features = ["derive-codec"] }
 srml-crfg = { package = "yee-srml-crfg", path = "../../srml/yee-crfg" }

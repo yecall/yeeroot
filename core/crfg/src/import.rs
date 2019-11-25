@@ -46,6 +46,8 @@ use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
 
+const DEFAULT_FINALIZE_BLOCK: u64 = 2;
+
 /// A block-import handler for CRFG.
 ///
 /// This scans each imported block for signals of changing authority set.
@@ -224,7 +226,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 						canon_hash: hash,
 						delay_kind: DelayKind::Best { median_last_finalized },
 					};
-					info!("Force pending change: {:#?}", pending_change);
+					info!(target: "afg", "Force pending change: {:#?}", pending_change);
 					Ok(Some(pending_change))
 				},
 			}
@@ -248,7 +250,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 						canon_hash: hash,
 						delay_kind: DelayKind::Finalized,
 					};
-					info!("Standard pending change: {:#?}", pending_change);
+					info!(target: "afg", "Standard pending change: {:#?}", pending_change);
 
 					Ok(Some(pending_change))
 				}
@@ -512,8 +514,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			},
 			None => {
 				use runtime_primitives::traits::As;
-				//if number == NumberFor::<Block>::sa(2) {
-				if number.as_() == 2 {
+				if number.as_() == DEFAULT_FINALIZE_BLOCK {
 					let justification=  CrfgJustification::<Block>::default_justification(hash, number);
 					self.import_justification(hash, number, justification.encode(), needs_justification).unwrap_or_else(|err| {
 						debug!(target: "afg", "Imported block #{} that enacts authority set change with \

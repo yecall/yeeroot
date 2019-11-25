@@ -195,8 +195,6 @@ decl_storage! {
 	trait Store for Module<T: Trait> as CrfgFinality {
 		// Pending change: (signaled at, scheduled change).
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
-		// next block number where we can force a change.
-		NextForced get(next_forced): Option<T::BlockNumber>;
 	}
 	add_extra_genesis {
 		config(authorities): Vec<(T::SessionKey, u64)>;
