@@ -205,6 +205,11 @@ impl crfg::Trait for Runtime {
 	type Event = Event;
 }
 
+impl finality_tracker::Trait for Runtime {
+	type Log = Log;
+	type FinalizedNum = u64;
+}
+
 impl sharding::Trait for Runtime {
     type ShardNum = u16;
     type Log = Log;
@@ -224,7 +229,7 @@ construct_runtime!(
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
-		//FinalityTracker: finality_tracker::{Module, Call, Inherent},
+		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},
 	}
 );
 
