@@ -141,7 +141,7 @@ impl Gateway {
             }
             let mt: MerkleTree<MiningHash<BlakeTwo256>, MiningAlgorithm<BlakeTwo256>> =
                 MerkleTree::from_iter(merkle_vec);
-            let merkle_root = mt.root();
+            let merkle_root = mt.root().unwrap();
 
             for i in 0..len {
                 let key = i.to_string();

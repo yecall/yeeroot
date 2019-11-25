@@ -80,18 +80,18 @@ impl MultiLayerProof {
     }
 
     /// Gen proof for special shard_num.
-    pub fn gen_proof(&self, shard_num: u16) -> Self {
+    pub fn gen_proof(&self, shard_num: u16) -> Option<Self> {
         let shard_num = shard_num as usize;
-        let mut result = Default::default();
         if self.layer1_merkles.len() != self.layer2_merkle.leafs() || shard_num >= self.layer2_merkle.leafs() {
-            return result;
+            return None;
         }
-        result.layer2_proof = self.layer2_merkle.gen_proof(shard_num).into_bytes();
+        let mut result: MultiLayerProof = Default::default();
         let layer1 = self.layer1_merkles.get(shard_num);
+        result.layer2_proof = self.layer2_merkle.gen_proof(shard_num).into_bytes();
         if let Some((num, data)) = layer1 {
             result.layer1_merkles = vec![(*num, (*data).clone())];
         }
-        result
+        Some(result)
     }
 
     /// Turns a MultiLayerProof into the raw bytes.
@@ -102,6 +102,19 @@ impl MultiLayerProof {
     /// Tries to parse `bytes` into MultiLayerProof.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, ()> {
         Decode::decode(&mut &bytes[..]).ok_or(())
+    }
+
+    /// Layer two merkle root.
+    pub fn layer2_root(&self) -> Option<ProofHash<BlakeTwo256>> {
+        if let Some(root) = self.layer2_merkle.root() {
+            return Some(root);
+        }
+        // check proof self.
+        if let Ok(mt_proof) = Proof::from_bytes(self.layer2_proof.as_slice()) {
+            let mt_proof: Proof<ProofHash<BlakeTwo256>> = mt_proof;
+            return Some(mt_proof.root())
+        }
+        None
     }
 
     /// Tries contains

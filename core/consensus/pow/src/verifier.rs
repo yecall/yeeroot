@@ -117,8 +117,8 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         if let Some(proof) = proof.clone() {
             if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
                 // check proof root.
-                let root = mlp.layer2_merkle.root();
-                if root != p_h {
+                let root = mlp.layer2_root();
+                if root.is_none() || root.unwrap() != p_h {
                     return Err("Proof is invalid.".to_string());
                 }
                 // check proof self.
@@ -139,15 +139,18 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         let mut res_proof = proof;
         let foreign_chains = self.foreign_chains.clone();
         let client = self.client.clone();
+        let digest = header.digest().clone();
         if body.is_some() {
             let check_relay_extrinsic = move |exs: Vec<<F::Block as Block>::Extrinsic>| -> Result<(), String> {
                 let err = Err("Block contains invalid extrinsic.".to_string());
-                let api = client.runtime_api();
-                let hash = hash.clone();
-                let block_id = generic::BlockId::hash(hash);
-                let tc = api.get_shard_count(&block_id).unwrap();    // total count
-                let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
-
+                let shard_info : Option<(u16, u16)> = digest.logs().iter().rev()
+                    .filter_map(ShardingDigestItem::as_sharding_info)
+                    .next();
+                if shard_info.is_none() {
+                    return Err("Can't get shard info in header".to_string());
+                }
+                let shard_info = shard_info.unwrap();
+                let (tc, cs) = (shard_info.0, shard_info.1);
                 for tx in exs {
                     let rt = RelayTransfer::decode(tx.encode());
                     if rt.is_some() {

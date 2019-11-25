@@ -248,7 +248,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
         if extrinsic_shard.contains_key(&i){
             let exs = extrinsic_shard.get(&i).unwrap();
             let tree = MerkleTree::from_iter((*exs).clone());
-            layer2_leaves.push(tree.root());
+            layer2_leaves.push(tree.root().unwrap());
             layer1_merkles.push((i, Some(tree)));
         } else {
             let hash: H256 = Default::default();
@@ -260,7 +260,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
     let layer2_root = layer2_tree.root();
     let multi_proof = MultiLayerProof::new(layer1_merkles, layer2_tree, vec![]);
     info!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
-    (layer2_root, multi_proof.into_bytes())
+    (layer2_root.unwrap(), multi_proof.into_bytes())
 }
 
 #[derive(Clone)]

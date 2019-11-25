@@ -431,7 +431,9 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let bytes = proof.as_slice();
             let tree = yee_merkle::MultiLayerProof::from_bytes(bytes);
             if let Ok(ml) = tree {
-               return Some(ml.gen_proof(shard_num).into_bytes())
+                if let Some(pf) = ml.gen_proof(shard_num) {
+                    return Some(pf.into_bytes());
+                }
             }
         }
         None
