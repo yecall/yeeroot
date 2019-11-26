@@ -66,7 +66,9 @@ use runtime_primitives::traits::{
 	DigestItemFor, DigestItem,
 };
 use fg_primitives::CrfgApi;
-use inherents::InherentDataProviders;
+use inherents::{
+	InherentDataProviders, RuntimeString,
+};
 use runtime_primitives::generic::BlockId;
 use substrate_primitives::{ed25519, H256, Blake2Hasher, Pair};
 use substrate_telemetry::{telemetry, CONSENSUS_TRACE, CONSENSUS_DEBUG, CONSENSUS_WARN, CONSENSUS_INFO};
@@ -82,6 +84,7 @@ use network::consensus_gossip as network_gossip;
 use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
+use runtime_primitives::traits::As;
 
 pub use fg_primitives::ScheduledChange;
 
@@ -828,7 +831,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	let initial_state = (initial_environment, set_state, voter_commands_rx.into_future());
 	let voter_work = future::loop_fn(initial_state, move |params| {
 		let (env, set_state, voter_commands_rx) = params;
-		debug!(target: "afg", "{}: Starting new voter with set ID {}", config.name(), env.set_id);
+		debug!(target: "afg", "{}: Starting new voter, set ID {}, new set: {:?}", config.name(), env.set_id, env.voters);
 		telemetry!(CONSENSUS_DEBUG; "afg.starting_new_voter";
 			"name" => ?config.name(), "set_id" => ?env.set_id
 		);
@@ -867,7 +870,6 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 			VoterSetState::Paused(_, _) => None,
 		};
 
-		// needs to be combined with another future otherwise it can deadlock.
 		let poll_voter = future::poll_fn(move || match maybe_voter {
 			Some(ref mut voter) => voter.poll(),
 			None => Ok(Async::NotReady),
@@ -970,4 +972,21 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		});
 
 	Ok(voter_work.select(on_exit).then(|_| Ok(())))
+}
+
+pub fn register_crfg_inherent_data_provider(
+	inherent_data_providers: &InherentDataProviders,
+	key: AuthorityId,
+) -> Result<(), consensus_common::Error> {
+	//consensus::register_inherent_data_provider(inherent_data_providers)?;
+	if !inherent_data_providers.has_provider(&srml_crfg::INHERENT_IDENTIFIER) {
+		inherent_data_providers.register_provider(srml_crfg::InherentDataProvider::new(key))
+			.map_err(inherent_to_common_error)
+	} else {
+		Ok(())
+	}
+}
+
+pub fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
+	consensus_common::ErrorKind::InherentData(err.into()).into()
 }

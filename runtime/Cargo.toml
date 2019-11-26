@@ -28,12 +28,13 @@ client = { package = "substrate-client", git = "https://github.com/yeeco/substra
 offchain-primitives = { package = "substrate-offchain-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg", default-features = false }
-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+finality-tracker = { package = "srml-finality-tracker", path = "../srml/yee-tracker" , default_features = false}
 
 [features]
 default = ["std"]
 std = [
     "crfg/std",
+    "finality-tracker/std",
     "sharding/std",
 	"pow/std",
 	"consensus-pow/std",
