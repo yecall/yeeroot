@@ -28,8 +28,8 @@ use inherents::{
 use srml_support::StorageValue;
 use primitives::traits::{As, One, Zero};
 use rstd::{prelude::*, result, cmp, vec};
-//use parity_codec::Decode;
 use system::{ensure_inherent, Trait as SystemTrait};
+
 use primitives::{
 	codec::{
 		Codec, Decode, Encode,
@@ -40,11 +40,7 @@ use primitives::{
 	},
 };
 
-//#[cfg(feature = "std")]
-//use parity_codec::Encode;
-
-pub type Log<T> = RawLog<<T as Trait>::FinalizedNum>;
-
+pub type Log<T> = RawLog<<T as Trait>::FinalNum>;
 /// The identifier for the `finalnum` inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"finalnum";
 
@@ -98,38 +94,41 @@ impl<F, N: Encode> inherents::ProvideInherentData for InherentDataProvider<F, N>
 #[derive(Encode, Decode, PartialEq, Eq, Clone)]
 pub enum RawLog<N> {
 	/// Block Header digest log for shard info
-	FinalizedNumber(N),
+	FinalizedBlockNumber(N),
 }
 
-pub trait Trait: SystemTrait {
-	/// Type for shard number
-	type FinalizedNum: Member + MaybeSerializeDebug + Default + Copy + MaybeDisplay + SimpleArithmetic + Codec;
-	/// Type for all log entries of this module.
+pub trait Trait: system::Trait {
+	type FinalNum: Member + MaybeSerializeDebug + Default + Copy + MaybeDisplay + SimpleArithmetic + Codec;
 	type Log: From<Log<Self>> + Into<system::DigestItemOf<Self>>;
 }
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Timestamp {
-		/// Finalized block number
-		Finalized get(finalized): T::FinalizedNum;
+		/// Final hint to apply in the block. `None` means "same as parent".
+		FinalizedNumber get(finalized_num): Option<T::FinalNum>;
 	}
 }
 
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-		fn write_finalized_log(origin, num: T::FinalizedNum){
+		/// Hint that the author of this block thinks the best finalized
+		/// block is the given number.
+		fn write_finalized_log(origin, hint: T::FinalNum) {
 			ensure_inherent(origin)?;
-			<Self as Store>::Finalized::put(num);
+
+			//<FinalizedNumber<T>>::put(hint);
+			<Self as Store>::FinalizedNumber::put(hint);
 		}
 
 		fn on_finalize() {
-            Self::deposit_log(RawLog::FinalizedNumber(Self::finalized()));
+			if let Some(final_num) = Self::finalized_num() {
+				Self::deposit_log(RawLog::FinalizedBlockNumber(final_num));
+			}
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
-	/// Deposit one of this module's logs.
 	fn deposit_log(log: Log<T>) {
 		<system::Module<T>>::deposit_log(<T as Trait>::Log::from(log).into());
 	}
@@ -144,6 +143,7 @@ impl<T: Trait> ProvideInherent for Module<T> {
 		let final_num =
 			data.finalized_number().expect("Gets and decodes final number inherent data");
 
+		// make hint only when not same as last to avoid bloat.
 		Some(Call::write_finalized_log(final_num))
 	}
 
@@ -151,4 +151,3 @@ impl<T: Trait> ProvideInherent for Module<T> {
 		Ok(())
 	}
 }
-
