@@ -25,3 +25,4 @@ substrate-primitives = { package = "substrate-primitives", git = "https://github
 foreign-network = { package = "yee-foreign-network", path = "../network" }
 foreign-chain = { package = "yee-foreign-chain", path = "../chain" }
 util = { package = "util", path = "../../core/util" }
+ansi_term = "0.11"

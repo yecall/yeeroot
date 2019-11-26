@@ -51,8 +51,6 @@ use crate::pow::check_proof;
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::ShardExtra;
 use crate::verifier::check_shard_info;
-use crate::pow::{check_proof};
-use yee_sharding::ShardingDigestItem;
 use primitives::H256;
 use ansi_term::Colour;
 

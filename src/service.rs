@@ -208,22 +208,22 @@ construct_service_factory! {
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
                 // foreign network
-                let config = &service.config;
+                // let config = &service.config;
                 let foreign_network_param = foreign::Params{
-                    client_version: config.network.client_version.clone(),
+                    client_version: service.config.network.client_version.clone(),
                     protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
-                    node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
-                    shard_num: config.custom.shard_num,
-                    shard_count: config.custom.shard_count,
-                    foreign_port: config.custom.foreign_port,
-                    bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
+                    node_key_pair: service.config.network.node_key.clone().into_keypair().unwrap(),
+                    shard_num: service.config.custom.shard_num,
+                    shard_count: service.config.custom.shard_count,
+                    foreign_port: service.config.custom.foreign_port,
+                    bootnodes_router_conf: service.config.custom.bootnodes_router_conf.clone(),
                 };
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
                 // foreign chain
                 let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
                 let foreign_chain = ForeignChain::<Self>::new(
-                    config,
+                    &service.config,
                     foreign_network_wrapper,
                     executor.clone(),
                 )?;
@@ -241,11 +241,11 @@ construct_service_factory! {
                 // restarter
                 let restarter_param = restarter::Params{
                     authority_id: key.clone().map(|k|k.public()),
-                    coinbase: config.custom.coinbase.clone(),
-                    shard_num: config.custom.shard_num,
-                    shard_count: config.custom.shard_count,
-                    scale_out: config.custom.scale_out.clone(),
-                    trigger_exit: config.custom.trigger_exit.clone(),
+                    coinbase: service.config.custom.coinbase.clone(),
+                    shard_num: service.config.custom.shard_num,
+                    shard_count: service.config.custom.shard_count,
+                    scale_out: service.config.custom.scale_out.clone(),
+                    trigger_exit: service.config.custom.trigger_exit.clone(),
                 };
                 start_restarter::<FullComponents<Self>>(restarter_param, service.client(), &executor);
 
@@ -325,6 +325,8 @@ construct_service_factory! {
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        config.custom.foreign_chains.clone(),
+                        config.custom.coinbase.clone(),
                         consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,
@@ -332,16 +334,12 @@ construct_service_factory! {
                             scale_out: config.custom.scale_out.clone(),
                             trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
                         }
-                        config.custom.foreign_chains.clone(),
-                        config.custom.coinbase.clone(),
                     ).map_err(Into::into)
                 }
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-                    prepare_sharding::<Self, _, _, AuthorityId, AuthoritySignature>(&config.custom, client.clone(), client.backend().to_owned())?;
                     import_queue::<Self, _, _, <Pair as PairT>::Public>(
-                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,

@@ -359,7 +359,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         };
         let max = cmp::min(request.max.unwrap_or(u32::max_value()), MAX_BLOCK_DATA_RESPONSE) as usize;
         let get_header = request.fields.contains(message::BlockAttributes::HEADER);
-        let get_body = request.fields.contains(message::BlockAttributes::BODY);
+        // let get_body = request.fields.contains(message::BlockAttributes::BODY);
         let get_justification = request
             .fields
             .contains(message::BlockAttributes::JUSTIFICATION);
@@ -391,14 +391,8 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let block_data = message::generic::BlockData {
                 hash,
                 header: if get_header { Some(header) } else { None },
-                body: if get_body {
-                    self.context_data
-                        .chain
-                        .body(&BlockId::Hash(hash))
-                        .unwrap_or(None)
-                } else {
-                    None
-                },
+                body:  None,
+
                 receipt: None,
                 message_queue: None,
                 justification,

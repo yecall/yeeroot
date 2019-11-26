@@ -57,16 +57,13 @@ use {
     yee_runtime::{AccountId, BalancesCall},
 };
 use super::CompatibleDigestItem;
-use crate::pow::check_proof;
+use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
-use log::warn;
 use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
 use std::time::Duration;
 use yee_sharding_primitives::utils::shard_num_for;
-use crate::pow::{check_proof, gen_extrinsic_proof};
 use relay_proof::ProofDigestItem;
-use yee_sharding::ShardingDigestItem;
 use merkle_light::proof::Proof as MLProof;
 use merkle_light::merkle::MerkleTree;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
@@ -77,8 +74,7 @@ use primitives::H256;
 use yee_runtime::BlockId;
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C, AccountId, AuthorityId> {
-pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
+pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
@@ -87,13 +83,10 @@ pub struct PowVerifier<F: ServiceFactory, C, AuthorityId> {
 }
 
 #[forbid(deprecated)]
-impl<B, C, AccountId, AuthorityId> Verifier<B> for PowVerifier<C, AccountId, AuthorityId> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> where
-    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16>,
+impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AccountId, AuthorityId> where
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
     C: Send + Sync,
-    AccountId: Decode + Encode + Clone + Send + Sync,
+    AccountId: Decode + Encode + Clone + Send + Sync + Default,
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
@@ -119,13 +112,10 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<B, AccountId, AuthorityId>(
+        let (pre_header, seal, p_h) = check_header::<F::Block, AccountId, AuthorityId>(
             header,
-            hash,
-            self.shard_extra.clone(),
-        let (pre_header, seal, p_h) = check_header::<F::Block, AuthorityId>(
-            header.clone(),
             hash.clone(),
+            self.shard_extra.clone(),
         )?;
 
         // TODO: verify body
@@ -156,8 +146,8 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
         }
         let mut res_proof = proof;
         let foreign_chains = self.foreign_chains.clone();
-        let client = self.client.clone();
-        let digest = header.digest().clone();
+        // let client = self.client.clone();
+        let digest = pre_header.digest().clone();
         if body.is_some() {
             let check_relay_extrinsic = move |exs: Vec<<F::Block as Block>::Extrinsic>| -> Result<(), String> {
                 let err = Err("Block contains invalid extrinsic.".to_string());
@@ -207,7 +197,7 @@ impl<F, C, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AuthorityId> wh
 
             let exs = body.clone().unwrap();
             // check proof root
-            let (root, proof) = gen_extrinsic_proof::<F::Block>(&header, &exs);
+            let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
             if root != p_h {
                 return Err("Proof is invalid.".to_string());
             }
@@ -239,7 +229,6 @@ fn check_header<B, AccountId, AuthorityId>(
     mut header: B::Header,
     hash: B::Hash,
     shard_extra: ShardExtra<AccountId>
-) -> Result<(B::Header, DigestItemFor<B>), String> where
 ) -> Result<(B::Header, DigestItemFor<B>, H256), String> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,

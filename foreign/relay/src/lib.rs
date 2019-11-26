@@ -57,15 +57,16 @@ use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
 use util::relay_decode::RelayTransfer;
+use ansi_term::Colour;
 
 const MAX_BLOCK_INTERVAL: u64 = 2;   // TODO
 
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
-    foreign_network: Arc<dyn SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash >>,
+    foreign_network: Arc<dyn SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash>>,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
-    pool: Arc<TransactionPool<A>>
+    pool: Arc<TransactionPool<A>>,
 ) -> error::Result<()>
     where F: ServiceFactory + Send + Sync,
           C: 'static + Send + Sync,
@@ -132,8 +133,19 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::RelayExtrinsics(txs) => {
                 let block_id = BlockId::number(Zero::zero());
                 let api = client_rcv.runtime_api();
-                let tc = api.get_shard_count(&block_id).unwrap();    // total count
-                let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
+                // total count
+                let tc = match api.get_shard_count(&block_id) {
+                    Ok(count) => count,
+                    Err(_) => return Ok(()),
+                };
+                // current shard
+                let cs = match api.get_curr_shard(&block_id) {
+                    Ok(shard) => match shard {
+                        Some(shard) => shard,
+                        None => return Ok(())
+                    },
+                    Err(_) => return Ok(()),
+                };
                 for tx in &txs {
                     let tx = tx.encode();
                     if let Some(r_t) = RelayTransfer::<AccountId, u128, RuntimeHash>::decode(tx.clone()) {
@@ -154,7 +166,7 @@ pub fn start_relay_transfer<F, C, A>(
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
                     pool.submit_relay_extrinsic(&block_id, tx, true).expect("Submit relay transfer into pool failed!");
                 }
-                info!(target: "foreign-relay", "received relay transaction: {:?}", txs);
+                info!(target: "foreign-relay", "{}: {:?}",Colour::Green.paint("Receive relay-transaction"), txs);
             }
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
                 let mut number: u64 = info.best_number.into();

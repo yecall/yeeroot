@@ -164,26 +164,21 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     justification_import: Option<SharedJustificationImport<F::Block>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
-    shard_extra: ShardExtra<AccountId>
-) -> Result<PowImportQueue<B>, consensus_common::Error> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-    C: 'static + Send + Sync,
-    AccountId: Codec + Send + Sync + Clone + 'static,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     coinbase: AccountId,
+    shard_extra: ShardExtra<AccountId>
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
     H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16>,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
     C: ProvideRuntimeApi + 'static + Send + Sync,
     C: HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
-    AccountId: Codec + Send + Sync + 'static,
+    AccountId: Codec + Send + Sync + Clone + Default + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
