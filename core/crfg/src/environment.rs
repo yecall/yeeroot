@@ -36,6 +36,7 @@ use runtime_primitives::traits::{
 use substrate_primitives::{Blake2Hasher, ed25519, H256, Pair};
 use substrate_telemetry::{telemetry, CONSENSUS_INFO};
 use client::blockchain::HeaderBackend;
+pub use fg_primitives::BLOCK_FINAL_LATENCY;
 
 use crate::{
 	Commit, Config, Error, Network, Precommit, Prevote,
@@ -135,8 +136,9 @@ impl<Block: BlockT<Hash=H256>, B, E, N, RA> grandpa::Chain<Block::Hash, NumberFo
 
 		let info = self.inner.backend().blockchain().info().expect("afg, Failed to get blockchain info.");
 		let mut to_finalized = info.finalized_hash.clone();
-		if info.best_number - info.finalized_number > NumberFor::<Block>::sa(6) {
-			let hash = self.inner.backend().blockchain().hash(info.best_number - NumberFor::<Block>::sa(6)).unwrap_or(None);
+        let latency = NumberFor::<Block>::sa(BLOCK_FINAL_LATENCY);
+		if info.best_number - info.finalized_number > latency {
+			let hash = self.inner.backend().blockchain().hash(info.best_number - latency).unwrap_or(None);
 			to_finalized = match hash{
 				Some(hash) => hash,
 				None => return None,

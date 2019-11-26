@@ -52,7 +52,6 @@ use inherents::{
 mod mock;
 mod tests;
 
-pub const AUTHORS_MAX_LEN: usize = 6;
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
 
 #[cfg(feature = "std")]
@@ -225,7 +224,7 @@ decl_module! {
 			use primitives::traits::{Zero, As};
 
 			let mut authorities = <Module<T>>::crfg_authorities();
-			while authorities.len() >= AUTHORS_MAX_LEN {
+			while authorities.len() >= crate::fg_primitives::MAX_AUTHORITIES_SIZE.as_() {
 				authorities.remove(0);
 			}
 			authorities.push((info, 1));

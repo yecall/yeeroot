@@ -2141,7 +2141,6 @@ dependencies = [
 [[package]]
 name = "srml-finality-tracker"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#642a5cc8cf967c0b22ae86be09b24c909cd30100"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3221,7 +3220,7 @@ dependencies = [
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-version 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-finality-tracker 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-finality-tracker 1.0.0",
  "srml-indices 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -3285,7 +3284,7 @@ dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "srml-finality-tracker 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-finality-tracker 1.0.0",
  "srml-session 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -3572,7 +3571,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
 "checksum sr-version 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
 "checksum srml-consensus 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
-"checksum srml-finality-tracker 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
 "checksum srml-indices 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
 "checksum srml-metadata 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
 "checksum srml-session 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"

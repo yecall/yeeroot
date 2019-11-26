@@ -1,3 +1,8 @@
+use fg_primitives::{
+	MAX_AUTHORITIES_SIZE,
+	BLOCK_FINAL_LATENCY,
+};
+
 use {
     primitives::{
         sr25519, Pair,
@@ -142,9 +147,7 @@ fn testnet_template_genesis(
     genesis_pow_target: primitives::U256,
     target_block_time: u64,
 ) -> GenesisConfig {
-	let crfg_authorities_size = 6u64;
-	let crfg_block_latency = 6u64;
-	let block_reward_latency = crfg_authorities_size + crfg_block_latency + 1;
+	let block_reward_latency = MAX_AUTHORITIES_SIZE + BLOCK_FINAL_LATENCY + 1;
 
 	GenesisConfig {
 		consensus: Some(ConsensusConfig {
