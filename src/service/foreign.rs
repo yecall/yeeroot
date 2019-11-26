@@ -170,6 +170,7 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
 
     let mut network_config = NetworkConfiguration::default();
     network_config.shard_num = param.shard_num;
+    network_config.shard_count = param.shard_count;
     network_config.node_key_pair = param.node_key_pair;
     network_config.client_version = param.client_version;
     network_config.listen_addresses = vec![

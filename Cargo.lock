@@ -5711,6 +5711,7 @@ dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-primitives 0.5.0",
  "yee-runtime 1.0.0",
 ]
 
@@ -5786,6 +5787,8 @@ dependencies = [
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-timestamp 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-inherents 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-sharding-primitives 0.1.0",
+ "yee-srml-sharding 0.1.0",
 ]
 
 [[package]]

@@ -15,6 +15,7 @@ parity-codec = { version = "3.2", default-features = false, features = ["derive"
 [dev-dependencies]
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 hex = "0.3.1"
+yee-primitives = { package = "yee-primitives", path = "../../primitives" }
 
 [features]
 default = ["std"]

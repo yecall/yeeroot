@@ -179,6 +179,7 @@ fn testnet_template_genesis(
 		}),
         sharding: Some(ShardingConfig {
             genesis_sharding_count: 4,
+	        scale_out_observe_blocks: 1,
         }),
 		crfg: Some(CrfgConfig {
 			authorities: vec![],

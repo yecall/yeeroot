@@ -152,6 +152,8 @@ impl pow::Trait for Runtime {
 
 	type Event = Event;
 
+	type Sharding = sharding::Module<Runtime>;
+
 }
 
 impl consensus::Trait for Runtime {

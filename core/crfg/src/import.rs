@@ -46,7 +46,7 @@ use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
 
-const DEFAULT_FINALIZE_BLOCK: u64 = 2;
+const DEFAULT_FINALIZE_BLOCK: u64 = 1;
 
 /// A block-import handler for CRFG.
 ///

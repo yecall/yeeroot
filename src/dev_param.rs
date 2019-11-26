@@ -25,6 +25,7 @@ use std::iter;
 use std::net::{Ipv4Addr, SocketAddr, IpAddr};
 use log::info;
 use network::multiaddr::Protocol;
+use yee_dev::NodeKeyConfig;
 
 pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &mut YeeCliConfig) -> error::Result<()>
     where F: ServiceFactory<Configuration=NodeConfig<F>> {
@@ -42,9 +43,11 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
         info!("  rpc port: {}", run_params.rpc_port);
         info!("  ws port: {}", run_params.ws_port);
         info!("  port: {}", run_params.port);
-        info!("  node key: {}", yee_dev::get_peer_id(&run_params.node_key_config));
+        info!("  node key: {}", run_params.node_key);
         info!("  foreign port: {}", run_params.foreign_port);
         info!("  bootnodes routers: {:?}", run_params.bootnodes_routers);
+        info!("  params: {}", get_dev_params(&run_params.coinbase, run_params.rpc_port, run_params.ws_port,
+                                             run_params.port, &run_params.node_key, run_params.foreign_port, &run_params.bootnodes_routers));
 
         custom_args.coinbase = Some(run_params.coinbase);
         custom_args.foreign_port = Some(run_params.foreign_port);
@@ -58,9 +61,25 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
                 .collect()
         ];
 
-        config.network.node_key = run_params.node_key_config;
+        let node_key_config = NodeKeyConfig::Secp256k1(yee_dev::parse_secp256k1_secret(&run_params.node_key.to_string()).unwrap());
+        config.network.node_key = node_key_config;
 
     }
 
     Ok(())
+}
+
+fn get_dev_params(
+    coinbase: &str,
+    rpc_port: u16,
+    ws_port: u16,
+    port: u16,
+    node_key: &str,
+    foreign_port: u16,
+    bootnodes_routers: &Vec<String>
+) -> String{
+    let bootnodes_routers = bootnodes_routers.iter().map(|x| format!("--bootnodes-routers={}", x)).collect::<Vec<String>>().join("");
+    let params = format!("--coinbase={} --rpc-port={} --ws-port={} --port={} --node-key={} --foreign-port={} {}",
+            coinbase, rpc_port, ws_port, port, node_key, foreign_port, bootnodes_routers);
+    params
 }
