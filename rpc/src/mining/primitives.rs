@@ -18,17 +18,18 @@
 use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
                         WorkProof as DefaultWorkProof, ProofNonce as DefaultProofNonce, ProofMulti as DefaultProofMulti};
 use yee_consensus_pow_primitives::PowTarget;
-use runtime_primitives::traits::{Block as BlockT, ProvideRuntimeApi};
+use runtime_primitives::traits::{Block as BlockT, Header as HeaderT, Digest as DigestT, ProvideRuntimeApi};
 use parity_codec::{Decode, Encode};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::DeserializeOwned;
-use yee_serde_hex::SerdeHex;
+use yee_serde_hex::{SerdeHex, Hex};
+use yee_runtime::opaque;
 
-#[derive(Clone, Serialize)]
-pub struct Job<Hash, Header, AuthorityId> where
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Job<Hash, Number: SerdeHex, AuthorityId> where
 {
     pub hash: Hash,
-    pub header: Header,
+    pub header: Header<Hash, Number>,
     pub digest_item: DigestItem<Hash, AuthorityId>,
 }
 
@@ -37,6 +38,22 @@ pub struct JobResult<Hash> where
 {
     pub hash: Hash,
     pub digest_item: ResultDigestItem<Hash>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Header<Hash, Number: SerdeHex> {
+    pub parent_hash: Hash,
+    #[serde(with = "SerdeHex")]
+    pub number: Number,
+    pub state_root: Hash,
+    pub extrinsics_root: Hash,
+    pub digest: Digest,
+}
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct Digest {
+    /// A list of logs in the digest.
+    pub logs: Vec<Hex<Vec<u8>>>,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
@@ -78,15 +95,41 @@ pub struct ProofMulti<Hash> {
     pub merkle_proof: Vec<Hash>,
 }
 
-impl<B, AuthorityId> From<DefaultJob<B, AuthorityId>> for Job<B::Hash, B::Header, AuthorityId> where
+impl<B, AuthorityId> From<DefaultJob<B, AuthorityId>> for Job<B::Hash, <B::Header as HeaderT>::Number, AuthorityId> where
     B: BlockT,
-    AuthorityId: Decode + Encode + Clone
+    AuthorityId: Decode + Encode + Clone,
+    <B::Header as HeaderT>::Number: SerdeHex,
 {
     fn from(j: DefaultJob<B, AuthorityId>) -> Self {
         Self {
             hash: j.hash,
-            header: j.header,
+            header: j.header.into(),
             digest_item: j.digest_item.into(),
+        }
+    }
+}
+
+impl<H> From<H> for Header<H::Hash, H::Number> where
+    H: HeaderT,
+    H::Number: SerdeHex,
+{
+    fn from(h: H) -> Self {
+        Self {
+            parent_hash: h.parent_hash().clone(),
+            number: h.number().clone(),
+            state_root: h.state_root().clone(),
+            extrinsics_root: h.extrinsics_root().clone(),
+            digest: h.digest().to_owned().into(),
+        }
+    }
+}
+
+impl<D> From<D> for Digest where
+    D: DigestT,
+{
+    fn from(d: D) -> Self {
+        Self {
+            logs: d.logs().iter().map(|x| Hex(x.encode())).collect(),
         }
     }
 }

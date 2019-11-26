@@ -193,7 +193,7 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct MiningAlgorithm<H: HashT>(Vec<u8>, PhantomData<H>);
 
 impl<H: HashT> MiningAlgorithm<H> {

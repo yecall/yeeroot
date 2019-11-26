@@ -49,8 +49,10 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     let rpc_address_ws = parse_address(&format!("{}:{}", ws_interface, DEFAULT_WS_PORT), cmd.ws_port)?;
 
+    let (signal, exit) = exit_future::signal();
+
     if cmd.mine {
-        yee_mining::run(rpc_config.clone(), cmd.job_refresh_interval);
+        yee_mining2::start_mining(&rpc_config).map_err(|e| "mining error")?;
     }
 
     let handler = || {
@@ -66,8 +68,6 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
             chain,
         )
     };
-
-    let (signal, exit) = exit_future::signal();
 
 
     let _server = yee_switch_rpc_servers::start_http(&rpc_address_http, handler())?;

@@ -1,0 +1,29 @@
+[package]
+name = "yee-mining2"
+version = "0.5.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+jsonrpc-core = "10.0.1"
+jsonrpc-core-client = "12.1.0"
+rand = "0.6.5"
+error-chain = "0.12"
+futures = "0.1.17"
+serde = { version = "1.0", features = ["derive"] }
+tokio = "0.1"
+log = "0.4"
+parking_lot = "0.7.1"
+exit-future = "0.1"
+parity-codec = "3.2"
+yee-runtime = { path = "../../runtime" }
+yee-serde-hex = { package = "yee-serde-hex", path = "../../rpc/serde-hex" }
+yee-switch-rpc = { package = "yee-switch-rpc", path = "../rpc" }
+yee-rpc = { package = "yee-rpc", path = "../../rpc" }
+yee-sharding = { package = "yee-sharding", path = "../../core/sharding" }
+yee-consensus-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../../core/consensus/pow/primitives" }
+yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensus/pow" }
+merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }

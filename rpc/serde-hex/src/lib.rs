@@ -67,7 +67,7 @@ pub trait SerdeHex: Sized {
 }
 
 ///Utils to wrap independent variable
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Hex<T : SerdeHex>(#[serde(with="SerdeHex")] pub T);
 
 impl SerdeHex for u64 {
