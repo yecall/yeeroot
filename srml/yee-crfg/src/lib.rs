@@ -32,22 +32,56 @@ pub use crfg_primitives as fg_primitives;
 
 #[cfg(feature = "std")]
 use serde::Serialize;
-use rstd::prelude::*;
+use rstd::{prelude::*, vec};
 use parity_codec as codec;
 use codec::{Encode, Decode};
 use fg_primitives::ScheduledChange;
 use srml_support::{Parameter, decl_event, decl_storage, decl_module};
-use srml_support::dispatch::Result;
 use srml_support::storage::StorageValue;
 use srml_support::storage::unhashed::StorageVec;
 use primitives::traits::CurrentHeight;
 use substrate_primitives::ed25519;
-use system::ensure_signed;
 use primitives::traits::MaybeSerializeDebug;
 use ed25519::Public as AuthorityId;
 
+use inherents::{
+	RuntimeString, InherentIdentifier, ProvideInherent,
+	InherentData, MakeFatalError,
+};
+
 mod mock;
 mod tests;
+
+pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"LocalKey";
+
+#[cfg(feature = "std")]
+pub struct InherentDataProvider {
+	local_key: AuthorityId,
+}
+
+#[cfg(feature = "std")]
+impl InherentDataProvider {
+	pub fn new(local_key: AuthorityId) -> Self {
+		Self {
+			local_key: local_key,
+		}
+	}
+}
+
+#[cfg(feature = "std")]
+impl inherents::ProvideInherentData for InherentDataProvider {
+	fn inherent_identifier(&self) -> &'static [u8; 8] {
+		&INHERENT_IDENTIFIER
+	}
+
+	fn provide_inherent_data(&self, inherent_data: &mut InherentData) -> Result<(), RuntimeString> {
+		inherent_data.put_data(INHERENT_IDENTIFIER, &self.local_key)
+	}
+
+	fn error_to_string(&self, error: &[u8]) -> Option<String> {
+		RuntimeString::decode(&mut &error[..]).map(Into::into)
+	}
+}
 
 struct AuthorityStorageVec<S: codec::Codec + Default>(rstd::marker::PhantomData<S>);
 impl<S: codec::Codec + Default> StorageVec for AuthorityStorageVec<S> {
@@ -135,21 +169,8 @@ pub trait Trait: system::Trait {
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-/// A stored pending change, old format.
-// TODO: remove shim
-// https://github.com/paritytech/substrate/issues/1614
-#[derive(Encode, Decode)]
-pub struct OldStoredPendingChange<N, SessionKey> {
-	/// The block number this was scheduled at.
-	pub scheduled_at: N,
-	/// The delay in blocks until it will be applied.
-	pub delay: N,
-	/// The next authority set.
-	pub next_authorities: Vec<(SessionKey, u64)>,
-}
-
 /// A stored pending change.
-#[derive(Encode)]
+#[derive(Encode, Decode)]
 pub struct StoredPendingChange<N, SessionKey> {
 	/// The block number this was scheduled at.
 	pub scheduled_at: N,
@@ -160,20 +181,6 @@ pub struct StoredPendingChange<N, SessionKey> {
 	/// If defined it means the change was forced and the given block number
 	/// indicates the median last finalized block when the change was signaled.
 	pub forced: Option<N>,
-}
-
-impl<N: Decode, SessionKey: Decode> Decode for StoredPendingChange<N, SessionKey> {
-	fn decode<I: codec::Input>(value: &mut I) -> Option<Self> {
-		let old = OldStoredPendingChange::decode(value)?;
-		let forced = <Option<N>>::decode(value).unwrap_or(None);
-
-		Some(StoredPendingChange {
-			scheduled_at: old.scheduled_at,
-			delay: old.delay,
-			next_authorities: old.next_authorities,
-			forced,
-		})
-	}
 }
 
 decl_event!(
@@ -187,8 +194,6 @@ decl_storage! {
 	trait Store for Module<T: Trait> as CrfgFinality {
 		// Pending change: (signaled at, scheduled change).
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
-		// next block number where we can force a change.
-		NextForced get(next_forced): Option<T::BlockNumber>;
 	}
 	add_extra_genesis {
 		config(authorities): Vec<(T::SessionKey, u64)>;
@@ -215,11 +220,23 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-		/// Report some misbehavior.
-		fn report_misbehavior(origin, _report: Vec<u8>) {
-			ensure_signed(origin)?;
-			// FIXME: https://github.com/paritytech/substrate/issues/1112
-		}
+        fn update_authorities(origin, info: <T as Trait>::SessionKey){
+			use primitives::traits::{Zero, As};
+
+			let mut authorities = <Module<T>>::crfg_authorities();
+			while authorities.len() >= crate::fg_primitives::MAX_AUTHORITIES_SIZE.as_() {
+				authorities.remove(0);
+			}
+			authorities.push((info, 1));
+
+			let scheduled_at = system::ChainContext::<T>::default().current_height();
+			<PendingChange<T>>::put(StoredPendingChange {
+				delay: T::BlockNumber::sa(0),
+				scheduled_at,
+				next_authorities: authorities,
+				forced: None,
+			});
+        }
 
 		fn on_finalize(block_number: T::BlockNumber) {
 			if let Some(pending_change) = <PendingChange<T>>::get() {
@@ -254,53 +271,6 @@ impl<T: Trait> Module<T> {
 	/// Get the current set of authorities, along with their respective weights.
 	pub fn crfg_authorities() -> Vec<(T::SessionKey, u64)> {
 		<AuthorityStorageVec<T::SessionKey>>::items()
-	}
-
-	/// Schedule a change in the authorities.
-	///
-	/// The change will be applied at the end of execution of the block
-	/// `in_blocks` after the current block. This value may be 0, in which
-	/// case the change is applied at the end of the current block.
-	///
-	/// If the `forced` parameter is defined, this indicates that the current
-	/// set has been synchronously determined to be offline and that after
-	/// `in_blocks` the given change should be applied. The given block number
-	/// indicates the median last finalized block number and it should be used
-	/// as the canon block when starting the new crfg voter.
-	///
-	/// No change should be signaled while any change is pending. Returns
-	/// an error if a change is already pending.
-	pub fn schedule_change(
-		next_authorities: Vec<(T::SessionKey, u64)>,
-		in_blocks: T::BlockNumber,
-		forced: Option<T::BlockNumber>,
-	) -> Result {
-		use primitives::traits::As;
-
-		if Self::pending_change().is_none() {
-			let scheduled_at = system::ChainContext::<T>::default().current_height();
-
-			if let Some(_) = forced {
-				if Self::next_forced().map_or(false, |next| next > scheduled_at) {
-					return Err("Cannot signal forced change so soon after last.");
-				}
-
-				// only allow the next forced change when twice the window has passed since
-				// this one.
-				<NextForced<T>>::put(scheduled_at + in_blocks * T::BlockNumber::sa(2));
-			}
-
-			<PendingChange<T>>::put(StoredPendingChange {
-				delay: in_blocks,
-				scheduled_at,
-				next_authorities,
-				forced,
-			});
-
-			Ok(())
-		} else {
-			Err("Attempt to signal CRFG change with one already pending.")
-		}
 	}
 
 	/// Deposit one of this module's logs.
@@ -339,44 +309,27 @@ impl<T> Default for SyncedAuthorities<T> {
 	}
 }
 
-impl<X, T> session::OnSessionChange<X> for SyncedAuthorities<T> where
-	T: Trait + consensus::Trait<SessionKey=<T as Trait>::SessionKey>,
-	<T as consensus::Trait>::Log: From<consensus::RawLog<<T as Trait>::SessionKey>>
-{
-	fn on_session_change(_: X, _: bool) {
-		use primitives::traits::Zero;
+impl<T: Trait> ProvideInherent for Module<T> {
+	type Call = Call<T>;
+	type Error = MakeFatalError<RuntimeString>;
+	const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
-		let next_authorities = <consensus::Module<T>>::authorities()
-			.into_iter()
-			.map(|key| (key, 1)) // evenly-weighted.
-			.collect::<Vec<(<T as Trait>::SessionKey, u64)>>();
+	fn create_inherent(data: &InherentData) -> Option<Self::Call> {
+		let data = extract_inherent_data(data)
+			.expect("Crfg inherent data must exist");
 
-		// instant changes
-		let last_authorities = <Module<T>>::crfg_authorities();
-		if next_authorities != last_authorities {
-			let _ = <Module<T>>::schedule_change(next_authorities, Zero::zero(), None);
-		}
+		Some(Call::update_authorities(data))
+	}
+
+	fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
+		Ok(())
 	}
 }
 
-impl<T> finality_tracker::OnFinalizationStalled<T::BlockNumber> for SyncedAuthorities<T> where
-	T: Trait + consensus::Trait<SessionKey=<T as Trait>::SessionKey>,
-	<T as consensus::Trait>::Log: From<consensus::RawLog<<T as Trait>::SessionKey>>,
-	T: finality_tracker::Trait,
+fn extract_inherent_data<SessionKey>(data: &InherentData) -> Result<SessionKey, RuntimeString>
+	where SessionKey: Decode
 {
-	fn on_stalled(further_wait: T::BlockNumber) {
-		// when we record old authority sets, we can use `finality_tracker::median`
-		// to figure out _who_ failed. until then, we can't meaningfully guard
-		// against `next == last` the way that normal session changes do.
-
-		let next_authorities = <consensus::Module<T>>::authorities()
-			.into_iter()
-			.map(|key| (key, 1)) // evenly-weighted.
-			.collect::<Vec<(<T as Trait>::SessionKey, u64)>>();
-
-		let median = <finality_tracker::Module<T>>::median();
-
-		// schedule a change for `further_wait` blocks.
-		let _ = <Module<T>>::schedule_change(next_authorities, further_wait, Some(median));
-	}
+	data.get_data::<SessionKey>(&INHERENT_IDENTIFIER)
+		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
+		.ok_or_else(|| "Authorities inherent data is not provided.".into())
 }

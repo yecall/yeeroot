@@ -15,6 +15,7 @@ use runtime_primitives::{
 	ApplyResult, transaction_validity::TransactionValidity, generic, create_runtime_str,
 	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, DigestFor, StaticLookup, Verify}
 };
+use finality_tracker;
 use crfg::fg_primitives::{self, ScheduledChange};
 use client::{
 	block_builder::api::{CheckInherentsResult, InherentData, self as block_builder_api},
@@ -201,14 +202,15 @@ impl balances::Trait for Runtime {
 	type OnFeeWithdrawn = pow::Module<Runtime>;
 }
 
+impl finality_tracker::Trait for Runtime {
+	type Log = Log;
+	type FinalNum = BlockNumber;
+}
+
 impl crfg::Trait for Runtime {
 	type SessionKey = AuthorityId;
 	type Log = Log;
 	type Event = Event;
-}
-
-impl finality_tracker::Trait for Runtime {
-	type OnFinalizationStalled = crfg::SyncedAuthorities<Runtime>;
 }
 
 impl sharding::Trait for Runtime {
@@ -233,8 +235,8 @@ construct_runtime!(
 		Indices: indices,
 		Balances: balances,
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
-		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>},
-		FinalityTracker: finality_tracker::{Module, Call, Inherent},
+		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
+		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},
 		RelayProof: relay_proof::{Module, Log()},
 	}
 );

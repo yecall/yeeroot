@@ -45,13 +45,14 @@ pub const PENDING_CHANGE_CALL: &str = "crfg_pending_change";
 /// WASM function call to get current CRFG authorities.
 pub const AUTHORITIES_CALL: &str = "crfg_authorities";
 
+pub const MAX_AUTHORITIES_SIZE: u64 = 6;
+pub const BLOCK_FINAL_LATENCY: u64 = 6;
+
 /// Well-known storage keys for CRFG.
 pub mod well_known_keys {
 	/// The key for the authorities and weights vector in storage.
-	//pub const AUTHORITY_PREFIX: &[u8] = b":crfg:auth:";
 	pub const AUTHORITY_PREFIX: &[u8] = b":crfg:auth:";
 	/// The key for the authorities count.
-	//pub const AUTHORITY_COUNT: &[u8] = b":crfg:auth:len";
 	pub const AUTHORITY_COUNT: &[u8] = b":crfg:auth:len";
 }
 

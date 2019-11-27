@@ -255,6 +255,12 @@ construct_service_factory! {
                 } else {
                     key.clone()
                 };
+
+	            crfg::register_crfg_inherent_data_provider(
+                    &service.config.custom.inherent_data_providers.clone(),
+	                local_key.clone().unwrap().public()
+	            )?;
+
                 info!("Running crfg session as Authority {}", local_key.clone().unwrap().public().to_address(service.config.custom.hrp.clone()).expect("qed"));
                 executor.spawn(crfg::run_crfg(
                     crfg::Config {
@@ -295,7 +301,7 @@ construct_service_factory! {
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
                         key.clone(),
                         client.clone(),
-                        client,
+                        block_import.clone(),
                         proposer,
                         service.network(),
                         service.on_exit(),
