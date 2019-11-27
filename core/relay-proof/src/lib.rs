@@ -6,7 +6,7 @@ use parity_codec::{Encode, Decode};
 use primitives::H256;
 use std::slice;
 
-pub const PROOF_MODULE_LOG_PREFIX: u8 = 4;
+pub const PROOF_MODULE_LOG_PREFIX: u8 = 5;
 
 /// Digest item for proof.
 pub trait ProofDigestItem<B: Block>: Sized {

@@ -15,8 +15,8 @@ srml-support = { git = "https://github.com/yeeco/substrate.git", default-feature
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "zzq/foreign-proof" }
 session = { package = "srml-session", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "zzq/foreign-proof" }
 consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "zzq/foreign-proof" }
-finality-tracker = { package = "srml-finality-tracker", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "zzq/foreign-proof" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+finality-tracker = { package = "srml-finality-tracker", path = "../yee-tracker" , default_features = false}
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
 
 [dev-dependencies]
 runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
