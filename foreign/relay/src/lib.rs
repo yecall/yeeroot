@@ -118,7 +118,7 @@ pub fn start_relay_transfer<F, C, A>(
                     let buf = relay.encode();
                     let relay = Decode::decode(&mut buf.as_slice()).unwrap();
                     let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
-                    info!(target: "foreign-relay", "shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}", ds, h.0, value, relay_hash, HexDisplay::from(&buf));
+                    info!(target: "foreign-relay", "{}: shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}", Colour::Green.paint("Send relay-transaction"), ds, h.0, value, relay_hash, HexDisplay::from(&buf));
 
                     // broadcast relay transfer
                     network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
@@ -131,33 +131,9 @@ pub fn start_relay_transfer<F, C, A>(
     let foreign_events = network_rev.out_messages().for_each(move |messages| {
         match messages {
             OutMessage::RelayExtrinsics(txs) => {
-                let block_id = BlockId::number(Zero::zero());
-                let api = client_rcv.runtime_api();
-                // total count
-                let tc = match api.get_shard_count(&block_id) {
-                    Ok(count) => count,
-                    Err(_) => return Ok(()),
-                };
-                // current shard
-                let cs = match api.get_curr_shard(&block_id) {
-                    Ok(shard) => match shard {
-                        Some(shard) => shard,
-                        None => return Ok(())
-                    },
-                    Err(_) => return Ok(()),
-                };
                 for tx in &txs {
                     let tx = tx.encode();
                     if let Some(r_t) = RelayTransfer::<AccountId, u128, RuntimeHash>::decode(tx.clone()) {
-                        let src = r_t.transfer.sender();
-                        let ds = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16);    // dest shard
-                        if ds.is_none() {
-                            continue;
-                        }
-                        let ds = ds.unwrap();
-                        if cs as u16 == ds {
-                            continue;
-                        }
                     } else {
                         continue;
                     }
@@ -166,7 +142,7 @@ pub fn start_relay_transfer<F, C, A>(
                     let tx = Decode::decode(&mut tx.as_slice()).unwrap();
                     pool.submit_relay_extrinsic(&block_id, tx, true).expect("Submit relay transfer into pool failed!");
                 }
-                info!(target: "foreign-relay", "{}: {:?}",Colour::Green.paint("Receive relay-transaction"), txs);
+                info!(target: "foreign-relay", "{}: {:?}", Colour::Green.paint("Receive relay-transaction"), txs);
             }
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
                 let mut number: u64 = info.best_number.into();
