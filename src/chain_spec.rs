@@ -174,7 +174,7 @@ fn testnet_template_genesis(
 			existential_deposit: 500,
 			transfer_fee: 0,
 			creation_fee: 0,
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 1<<20)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|k|(k, 0)).collect(),
 			vesting: vec![],
 		}),
         sharding: Some(ShardingConfig {
