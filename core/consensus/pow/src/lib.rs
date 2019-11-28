@@ -66,7 +66,6 @@ use yee_srml_pow::RewardCondition;
 use yee_sharding_primitives::ScaleOut;
 use primitives::H256;
 use substrate_service::ServiceFactory;
-use relay_proof::ProofDigestItem;
 
 mod job;
 mod digest;
@@ -104,7 +103,6 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-    DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ProofDigestItem<B> + ShardingDigestItem<u16>,
     <B as Block>::Hash: From<H256> + Ord,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
@@ -171,7 +169,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
     C: ProvideRuntimeApi + 'static + Send + Sync,
     C: HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,

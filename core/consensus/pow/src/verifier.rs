@@ -63,7 +63,6 @@ use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
 use std::time::Duration;
 use yee_sharding_primitives::utils::shard_num_for;
-use relay_proof::ProofDigestItem;
 use merkle_light::proof::Proof as MLProof;
 use merkle_light::merkle::MerkleTree;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
@@ -84,7 +83,7 @@ pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
 
 #[forbid(deprecated)]
 impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AccountId, AuthorityId> where
-    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ProofDigestItem<F::Block> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
     C: Send + Sync,
     AccountId: Decode + Encode + Clone + Send + Sync + Default,
     AuthorityId: Decode + Encode + Clone + Send + Sync,

@@ -61,7 +61,6 @@ use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::verifier::check_shard_info;
 use primitives::H256;
 use ansi_term::Colour;
-use relay_proof::ProofDigestItem;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -144,7 +143,7 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 
 impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AccountId, AuthorityId, I>
 	where B: Block,
-	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ProofDigestItem<B> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
+	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
 	      C: ChainHead<B> + Send + Sync + 'static,
 	      C: HeaderBackend<B> + ProvideRuntimeApi,
 	      <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,

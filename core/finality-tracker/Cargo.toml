@@ -1,5 +1,5 @@
 [package]
-name = "relay-proof"
+name = "finality-tracker"
 version = "0.4.0"
 authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
@@ -9,4 +9,3 @@ edition = "2018"
 [dependencies]
 parity-codec = "3.5"
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }

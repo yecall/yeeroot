@@ -27,7 +27,7 @@ use primitives::traits::{
     OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker,
 };
 use srml_support::{Dispatchable, traits::MakePayment};
-use parity_codec::{Codec, Encode, Decode, Compact};
+use parity_codec::{Codec, Encode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};

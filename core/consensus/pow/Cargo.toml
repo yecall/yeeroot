@@ -28,7 +28,6 @@ yee-merkle = { path = "../../merkle" }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 util = { package = "util", path = "../../util" }
-relay-proof = { package = "relay-proof", path = "../../relay-proof" }
 hash-db = "0.12"
 ansi_term = "0.11"
 

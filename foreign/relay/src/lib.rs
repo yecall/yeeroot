@@ -35,8 +35,8 @@ use yee_runtime::{
     Hash as RuntimeHash,
 };
 use runtime_primitives::{
-    generic::BlockId,
-    traits::{ProvideRuntimeApi, Block as BlockT, Header, Hash, Zero},
+    generic::{BlockId, DigestItem},
+    traits::{ProvideRuntimeApi, Digest, Block as BlockT, Header, Hash, Zero},
 };
 use substrate_client::{
     self,
@@ -57,6 +57,7 @@ use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
 use util::relay_decode::RelayTransfer;
+use finality_tracker::FinalityTrackerDigestItem;
 use ansi_term::Colour;
 
 const MAX_BLOCK_INTERVAL: u64 = 2;   // TODO
@@ -78,6 +79,7 @@ pub fn start_relay_transfer<F, C, A>(
           <F as ServiceFactory>::Configuration: ForeignChainConfig + Send + Sync,
           Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
           <<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Number: From<u64>,
+          <<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Digest as Digest>::Item: FinalityTrackerDigestItem,
           u64: From<<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Number>,
 {
     let network_send = foreign_network.clone();
@@ -150,14 +152,16 @@ pub fn start_relay_transfer<F, C, A>(
                     let block_id = BlockId::number(number.into());
                     let spv_header = chain.client().header(&block_id).unwrap().unwrap();
                     pool.enforce_spv(shard_num, number, info.best_hash.clone().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec());
-                    // todo for crfg
-                    if number > MAX_BLOCK_INTERVAL {
-                        number -= MAX_BLOCK_INTERVAL;
-                        let block_id = BlockId::number(number.into());
+                    if let Some(finality_num) = spv_header.digest().logs().iter().rev()
+                        .filter_map(FinalityTrackerDigestItem::as_finality_tracker)
+                        .next() {
+                        let block_id = BlockId::number(finality_num.into());
                         let spv_header = chain.client().header(&block_id).unwrap().unwrap();
                         let tag = (Compact(shard_num), Compact(number), spv_header.hash().as_ref().to_vec(), spv_header.parent_hash().as_ref().to_vec()).encode();
                         info!(target: "foreign-relay", "best block info reached. tag: {}", HexDisplay::from(&tag));
                         pool.import_provides(once(tag));
+                    } else {
+                        error!(target: "foreign-relay", "Can't get finality-tracker log. shard number:{}, number: {}!", shard_num, number);
                     }
                 } else {
                     error!(target: "foreign-relay", "Get shard component({:?}) failed!", shard_num);
