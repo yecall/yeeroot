@@ -35,7 +35,7 @@ use serde::export::fmt::Debug;
 use yee_serde_hex::SerdeHex;
 use tokio::runtime::Runtime;
 use std::thread;
-use parity_codec::{Decode};
+use parity_codec::{Decode, Encode};
 use yee_sharding::{GENERATED_MODULE_LOG_PREFIX, GENERATED_SHARDING_PREFIX};
 use yee_consensus_pow_primitives::PowTarget;
 use yee_consensus_pow::{MiningHash, MiningAlgorithm, OriginalMerkleProof, CompactMerkleProof};
@@ -64,7 +64,7 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 	Number: Clone + Debug + SerdeHex + DeserializeOwned + Send + Sync + 'static,
 	AuthorityId: Clone + Debug + DeserializeOwned + Send + Sync + 'static,
 	Hashing: HashT + Send + Sync + 'static,
-	Hashing::Output: Ord,
+	Hashing::Output: Ord + Encode + Decode,
 {
 
 	type Hashing = Hashing;
@@ -159,7 +159,7 @@ pub struct Work<Hash> {
 #[derive(Debug, Clone)]
 pub struct RawWork<Number: SerdeHex, AuthorityId, Hashing> where
 	Hashing: HashT,
-	Hashing::Output: Ord,
+	Hashing::Output: Ord + Encode + Decode,
 {
 
 	// will detect shard count according to header data of jobs
@@ -179,7 +179,7 @@ pub struct RawWork<Number: SerdeHex, AuthorityId, Hashing> where
 
 impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashing> where
 	Hashing: HashT,
-	Hashing::Output: Ord,
+	Hashing::Output: Ord + Encode + Decode,
 {
 	//update merkle_tree and work
 	fn compile(&mut self) {
@@ -202,7 +202,7 @@ impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashin
 			MerkleTree::from_iter(item_list);
 
 		let work = Work{
-			merkle_root: merkle_tree.root(),
+			merkle_root: merkle_tree.root().expect(""),
 			extra_data: EXTRA_DATA.as_bytes().to_vec(),
 			target: max_target,
 			nonce: None,
@@ -217,7 +217,7 @@ impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashin
 
 pub struct DefaultWorkManager<Number: SerdeHex, AuthorityId, Hashing> where
 	Hashing: HashT,
-	Hashing::Output: Ord,
+	Hashing::Output: Ord + Encode + Decode,
 {
 	config: Config,
 	jobs: Arc<RwLock<HashMap<u16, Job<Hashing::Output, Number, AuthorityId>>>>,
@@ -229,7 +229,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		Number: Send + Sync + Debug + DeserializeOwned + SerdeHex + Clone + 'static,
 		AuthorityId: Send + Sync + Debug + DeserializeOwned + Clone + 'static,
 		Hashing: HashT + Send + Sync + 'static,
-		Hashing::Output: Ord + DeserializeOwned + Send + Sync + 'static,
+		Hashing::Output: Ord + DeserializeOwned + Encode + Decode + Send + Sync + 'static,
 {
 
 	pub fn new(config: Config) -> Self{

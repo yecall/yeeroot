@@ -17,22 +17,33 @@
 
 //! POW work proof used in block header digest
 
+use std::collections::hash_map::HashMap;
 use runtime_primitives::{
     codec::{
         Decode, Encode,
     },
-    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT},
+    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT, BlakeTwo256},
+    Proof as ExtrinsicProof,
 };
 use {
     pow_primitives::PowTarget,
 };
 use crate::CompatibleDigestItem;
 use yee_sharding::ShardingDigestItem;
-use log::debug;
+use log::{debug, info};
 use std::marker::PhantomData;
 use std::hash::Hasher;
 use merkle_light::hash::Algorithm;
 use merkle_light::proof::Proof;
+use merkle_light::merkle::MerkleTree;
+use yee_srml_executive::decode::RelayTransfer;
+use yee_runtime::{Call, BalancesCall, UncheckedExtrinsic};
+use yee_sharding_primitives::utils::shard_num_for;
+use primitives::{Blake2Hasher, H256};
+use hash_db::Hasher as BlakeHasher;
+use std::iter::FromIterator;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
+use ansi_term::Colour;
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
@@ -44,6 +55,7 @@ pub struct PowSeal<B: Block, AuthorityId: Decode + Encode + Clone> {
     pub pow_target: PowTarget,
     pub timestamp: u64,
     pub work_proof: WorkProof<B>,
+    pub relay_proof: H256,
 }
 
 /// POW proof used in block header
@@ -145,6 +157,7 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
                 pow_target: seal.pow_target,
                 timestamp: seal.timestamp,
                 work_proof: WorkProof::Unknown,
+                relay_proof: seal.relay_proof.clone(),
             };
             let mut header_with_pow_seal = header.clone();
             let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
@@ -204,6 +217,63 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
     }
 }
 
+/// Gen extrinsic proof for foreign chain.
+pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H256, ExtrinsicProof)
+    where
+        B: Block,
+        <<<B as Block>::Header as Header>::Digest as Digest>::Item: yee_sharding::ShardingDigestItem<u16>,
+        <B as Block>::Hash: From<H256> + Ord,
+{
+    let shard_info = header.digest().logs().iter().rev()
+        .filter_map(ShardingDigestItem::as_sharding_info)
+        .next();
+    let (shard_num, shard_count) = shard_info.expect("must exist");
+    let (shard_num, shard_count) = (shard_num as u16, shard_count as u16);
+
+    let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
+    for extrinsic in body {
+        let bytes = extrinsic.encode();
+        let mut bytes = bytes.as_slice();
+        if let Some(ex) = Decode::decode(&mut bytes) {
+            let ex: UncheckedExtrinsic = ex;
+            if ex.signature.is_some() {
+                let hash = Blake2Hasher::hash(&mut bytes);
+                if let Call::Balances(BalancesCall::transfer(to, _)) = ex.function {
+                    if let Some(num) = shard_num_for(&to, shard_count) {
+                        if num != shard_num {
+                            if let Some(list) = extrinsic_shard.get_mut(&num) {
+                                list.push(hash);
+                            } else {
+                                extrinsic_shard.insert(num, vec![hash]);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut layer1_merkles = Vec::new();
+    let mut layer2_leaves = vec![];
+    for i in 0..shard_count {
+        if extrinsic_shard.contains_key(&i){
+            let exs = extrinsic_shard.get(&i).unwrap();
+            let tree = MerkleTree::from_iter((*exs).clone());
+            layer2_leaves.push(tree.root().unwrap());
+            layer1_merkles.push((i, Some(tree)));
+        } else {
+            let hash: H256 = Default::default();
+            layer2_leaves.push(hash);
+            layer1_merkles.push((i, None));
+        }
+    }
+    let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
+    let layer2_root = layer2_tree.root();
+    let multi_proof = MultiLayerProof::new(layer1_merkles, layer2_tree, vec![]);
+    info!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
+    (layer2_root.unwrap(), multi_proof.into_bytes())
+}
+
 #[derive(Clone, Debug)]
 pub struct MiningAlgorithm<H: HashT>(Vec<u8>, PhantomData<H>);
 
@@ -233,7 +303,7 @@ impl<H: HashT> Hasher for MiningAlgorithm<H> {
 
 pub type MiningHash<H> = <H as HashT>::Output;
 
-impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> {
+impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> where H::Output: Encode + Decode {
     #[inline]
     fn hash(&mut self) -> MiningHash<H> {
         H::hash(&self.0)
@@ -256,7 +326,7 @@ impl<H: HashT> Algorithm<MiningHash<H>> for MiningAlgorithm<H> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct OriginalMerkleProof<H: HashT>{
+pub struct OriginalMerkleProof<H: HashT> where H::Output: Encode + Decode {
     pub proof: Proof<MiningHash<H>>,
     pub num: u16,
     pub count: u16,
@@ -271,7 +341,7 @@ pub struct CompactMerkleProof<H: HashT> {
     pub count: u16,
 }
 
-impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H>{
+impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H> where H::Output: Encode + Decode {
     fn from(omp: OriginalMerkleProof<H>) -> Self{
         let lemma = omp.proof.lemma();
         let len = lemma.len();
@@ -298,6 +368,7 @@ impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H>{
 
 fn parse_original<H>(cmp: CompactMerkleProof<H>) -> Result<OriginalMerkleProof<H>, String> where
     H: HashT,
+    H::Output: Encode + Decode,
 {
     let num = cmp.num;
     let count = cmp.count;

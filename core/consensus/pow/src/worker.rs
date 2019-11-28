@@ -51,6 +51,8 @@ use crate::pow::check_proof;
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::ShardExtra;
 use crate::verifier::check_shard_info;
+use primitives::H256;
+use ansi_term::Colour;
 
 pub trait PowWorker<JM: JobManager> {
     type Error: Debug + Send;
@@ -104,6 +106,8 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
     AccountId: Codec + Send + Sync + Clone + 'static,
     AuthorityId: Decode + Encode + Send + Sync + Clone + 'static,
+    AuthorityId: Decode + Encode + Clone + 'static,
+    B::Hash: From<H256> + Ord,
 {
     type Error = consensus_common::Error;
     type OnJob = Box<dyn Future<Item=DefaultJob<B, AuthorityId>, Error=Self::Error> + Send>;
@@ -131,13 +135,13 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
         let shard_extra = self.shard_extra.clone();
 
         let on_proposal_block = move |job: DefaultJob<B, AuthorityId>| -> Result<(), consensus_common::Error> {
-
             let header = job.header;
             let body = job.body;
             let header_num = header.number().clone();
             let header_pre_hash = header.hash();
             let digest_item = job.digest_item;
             let pow_target = digest_item.pow_target;
+            let xts_proof = job.xts_proof.clone();
 
             info!("block template {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
 
@@ -159,6 +163,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
                         origin: BlockOrigin::Own,
                         header,
                         justification: None,
+                        proof: Some(xts_proof),
                         post_digests: vec![post_digest],
                         body: Some(body),
                         finalized: false,
@@ -167,7 +172,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
                     };
                     block_import.import_block(import_block, Default::default())?;
 
-                    info!("block mined @ {} {:?}", header_num, hash);
+                    info!("{} @ {} {:?}", Colour::Blue.bold().paint("Block Mined"), header_num, hash);
                     return Ok(());
                 }
             }

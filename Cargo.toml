@@ -49,6 +49,7 @@ substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "y
 basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+fg_primitives = { package = "crfg-primitives", path = "core/crfg/primitives" }
 crfg = { package = "yee-crfg", path = "core/crfg" }
 structopt = "0.2"
 ansi_term = "0.11"
@@ -62,6 +63,7 @@ yee-dev = { package = "yee-dev", path = "dev" }
 yee-primitives = { package = "yee-primitives", path = "core/primitives" }
 srml-sharding = { package = "yee-srml-sharding", path = "srml/yee-sharding" }
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+srml-crfg = { package = "yee-srml-crfg", path = "srml/yee-crfg" }
 foreign_chain = { package = "yee-foreign-chain", path = "foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 

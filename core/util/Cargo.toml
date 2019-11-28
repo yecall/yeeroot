@@ -1,0 +1,13 @@
+[package]
+name = "util"
+version = "0.4.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+parity-codec = "3.5"
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }

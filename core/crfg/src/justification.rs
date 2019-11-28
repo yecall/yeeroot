@@ -48,6 +48,18 @@ pub(crate) struct CrfgJustification<Block: BlockT> {
 }
 
 impl<Block: BlockT<Hash=H256>> CrfgJustification<Block> {
+	///
+	pub(crate) fn default_justification(hash: Block::Hash, number: NumberFor<Block>
+	) -> CrfgJustification<Block> {
+        let commit = Commit::<Block> {
+            target_hash: hash,
+			target_number: number,
+			precommits: Vec::new()
+		};
+
+		CrfgJustification { round: 0u64, commit, votes_ancestries: Vec::new() }
+	}
+
 	/// Create a CRFG justification from the given commit. This method
 	/// assumes the commit is valid and well-formed.
 	pub(crate) fn from_commit<B, E, RA>(

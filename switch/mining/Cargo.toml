@@ -21,7 +21,7 @@ yee-stop-handler = { package = "yee-stop-handler", path = "util/stop-handler" }
 yee-jsonrpc-types = { package = "yee-jsonrpc-types", path = "util/jsonrpc-types" }
 yee-lru-cache = { package = "yee-lru-cache", path = "util/lru-cache" }
 yee-util = { package = "yee-util", path = "util" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "v1.0" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 tokio = "0.1.7"
 exit-future = "0.1"
 futures = "0.1"

@@ -27,7 +27,7 @@ use log::info;
 use network::multiaddr::Protocol;
 use yee_dev::NodeKeyConfig;
 
-pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_args: &mut YeeCliConfig) -> error::Result<()>
+pub fn process_dev_param<F, C>(config: &mut FactoryFullConfiguration<F>, custom_args: &mut YeeCliConfig) -> error::Result<()>
     where F: ServiceFactory<Configuration=NodeConfig<F>> {
 
     let chain_spec_id = config.chain_spec.id();

@@ -56,9 +56,11 @@ use log::info;
 use {
 	pow_primitives::{YeePOWApi, PowTarget},
 };
-use crate::pow::check_proof;
+use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::verifier::check_shard_info;
+use primitives::H256;
+use ansi_term::Colour;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -73,6 +75,8 @@ pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
 	pub body: Vec<B::Extrinsic>,
 	/// Digest item
 	pub digest_item: PowSeal<B, AuthorityId>,
+	/// extrinsic proof
+	pub xts_proof: Vec<u8>,
 }
 
 impl<B: Block, AuthorityId: Decode + Encode + Clone> Job for DefaultJob<B, AuthorityId>{
@@ -151,6 +155,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 	      AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 	      AccountId: Decode + Encode + Clone + Send + Sync + 'static,
 	      I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+          <B as Block>::Hash: From<H256> + Ord,
 {
 	type Job = DefaultJob<B, AuthorityId>;
 
@@ -176,23 +181,27 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 		let authority_id = self.authority_id.clone();
 
 		let build_job = move |block: B| {
-			let (header, body) = block.deconstruct();
+			let (mut header, body) = block.deconstruct();
 			let header_num = header.number().clone();
 			let header_pre_hash = header.hash();
 			let timestamp = timestamp_now()?;
 			let pow_target = calc_pow_target(client, &header, timestamp)?;
 			let authority_id = authority_id;
 			let work_proof = WorkProof::Unknown;
+			// generate proof
+			let (relay_proof, proof) = gen_extrinsic_proof::<B>(&header, &body);
 
 			let pow_seal = PowSeal {
 				authority_id,
 				pow_target,
 				timestamp,
 				work_proof,
+				relay_proof,
 			};
 			let mut header_with_pow_seal = header.clone();
 			let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());
 			header_with_pow_seal.digest_mut().push(item);
+
 			let hash = header_with_pow_seal.hash();
 
 			info!("job {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
@@ -202,6 +211,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 				header,
 				body,
 				digest_item: pow_seal,
+				xts_proof: proof,
 			})
 		};
 
@@ -214,7 +224,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 		let block_import = self.block_import.clone();
 
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
-
+			let number = &job.header.number().clone();
 			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
 
 			check_shard_info::<B, AccountId>(&job.header, self.shard_extra.clone())?;
@@ -223,6 +233,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 				origin: BlockOrigin::Own,
 				header: job.header,
 				justification: None,
+				proof: Some(job.xts_proof),
 				post_digests: vec![post_digest],
 				body: Some(job.body),
 				finalized: false,
@@ -230,7 +241,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 				fork_choice: ForkChoiceStrategy::LongestChain,
 			};
 			block_import.import_block(import_block, Default::default())?;
-
+			info!("{} @ {} {:?}", Colour::Green.bold().paint("Block Mined"), number, hash);
 			Ok(hash)
 		};
 

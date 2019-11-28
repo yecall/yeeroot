@@ -91,6 +91,7 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 
 	vnetwork_bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
 
+	/// self full node sharding number.
 	shard_num: u16,
 
 	shard_count: u16,
@@ -233,10 +234,11 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 	}
 
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>{
-
+		// foreign network client
 		let mut info : HashMap<u16, Option<client::ClientInfo<B>>> =  self.vnetwork_holder.chain_list.read().iter()
 			.map(|(shard_num, client)|(*shard_num, client.info().ok()))
 			.collect();
+		// self full node client
 		info.insert(self.shard_num, self.chain.info().ok());
 
 		info

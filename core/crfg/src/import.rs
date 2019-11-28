@@ -46,6 +46,8 @@ use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
 
+const DEFAULT_FINALIZE_BLOCK: u64 = 1;
+
 /// A block-import handler for CRFG.
 ///
 /// This scans each imported block for signals of changing authority set.
@@ -168,6 +170,24 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	PRA: ProvideRuntimeApi,
 	PRA::Api: CrfgApi<Block>,
 {
+    fn aggregate_authorities(authorities: &Vec<(AuthorityId, u64)>) -> Vec<(AuthorityId, u64)> {
+		let mut polymer: Vec<(AuthorityId, u64)> = Vec::new();
+
+		for author in authorities {
+			match polymer.iter().position(|x| x.0 == author.0){
+				Some(pos) => {
+					let reappear = polymer.get_mut(pos);
+					reappear.unwrap().1 += 1;
+				},
+				None => {
+					polymer.push((author.0.clone(), author.1));
+				}
+			}
+		}
+
+		polymer
+	}
+
 	// check for a new authority set change.
 	fn check_new_change(&self, header: &Block::Header, hash: Block::Hash)
 		-> Result<Option<PendingChange<Block::Hash, NumberFor<Block>>>, ConsensusError>
@@ -197,13 +217,18 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 					},
 				},
 				Ok(None) => {},
-				Ok(Some((median_last_finalized, change))) => return Ok(Some(PendingChange {
-					next_authorities: change.next_authorities,
-					delay: change.delay,
-					canon_height: *header.number(),
-					canon_hash: hash,
-					delay_kind: DelayKind::Best { median_last_finalized },
-				})),
+				Ok(Some((median_last_finalized, change))) => return {
+					let authors = Self::aggregate_authorities(&change.next_authorities);
+					let pending_change = PendingChange {
+						next_authorities: authors,
+						delay: change.delay,
+						canon_height: *header.number(),
+						canon_hash: hash,
+						delay_kind: DelayKind::Best { median_last_finalized },
+					};
+					info!(target: "afg", "Force pending change: {:#?}", pending_change);
+					Ok(Some(pending_change))
+				},
 			}
 		}
 
@@ -216,13 +241,19 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 			match maybe_change {
 				Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				Ok(Some(change)) => Ok(Some(PendingChange {
-					next_authorities: change.next_authorities,
-					delay: change.delay,
-					canon_height: *header.number(),
-					canon_hash: hash,
-					delay_kind: DelayKind::Finalized,
-				})),
+				Ok(Some(change)) => {
+					let authors = Self::aggregate_authorities(&change.next_authorities);
+					let pending_change = PendingChange {
+						next_authorities: authors,
+						delay: change.delay,
+						canon_height: *header.number(),
+						canon_hash: hash,
+						delay_kind: DelayKind::Finalized,
+					};
+					info!(target: "afg", "Standard pending change: {:#?}", pending_change);
+
+					Ok(Some(pending_change))
+				}
 				Ok(None) => Ok(None),
 			}
 		}
@@ -394,6 +425,9 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		let hash = block.post_header().hash();
 		let number = block.header.number().clone();
 
+		debug!(target: "afg", "Import block, number: {}, hash: {}, origin: {:?}",
+			   number, hash, block.origin);
+
 		// early exit if block already in chain, otherwise the check for
 		// authority changes will error when trying to re-import a change block
 		match self.inner.backend().blockchain().status(BlockId::Hash(hash)) {
@@ -472,16 +506,28 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		match justification {
 			Some(justification) => {
 				self.import_justification(hash, number, justification, needs_justification).unwrap_or_else(|err| {
-					debug!(target: "finality", "Imported block #{} that enacts authority set change with \
+					debug!(target: "afg", "Imported block #{} that enacts authority set change with \
 						invalid justification: {:?}, requesting justification from peers.", number, err);
 					imported_aux.bad_justification = true;
 					imported_aux.needs_justification = true;
 				});
 			},
 			None => {
+				use runtime_primitives::traits::As;
+				if number.as_() == DEFAULT_FINALIZE_BLOCK {
+					let justification=  CrfgJustification::<Block>::default_justification(hash, number);
+					self.import_justification(hash, number, justification.encode(), needs_justification).unwrap_or_else(|err| {
+						debug!(target: "afg", "Imported block #{} that enacts authority set change with \
+						invalid justification: {:?}, requesting justification from peers.", number, err);
+						imported_aux.bad_justification = true;
+						imported_aux.needs_justification = true;
+					});
+					return Ok(ImportResult::Imported(imported_aux))
+				}
+
 				if needs_justification {
 					trace!(
-						target: "finality",
+						target: "afg",
 						"Imported unjustified block #{} that enacts authority set change, waiting for finality for enactment.",
 						number,
 					);
@@ -569,7 +615,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		match result {
 			Err(CommandOrError::VoterCommand(command)) => {
-				info!(target: "finality", "Imported justification for block #{} that triggers \
+				info!(target: "afg", "Imported justification for block #{} that triggers \
 					command {}, signaling voter.", number, command);
 
 				if let Err(e) = self.send_voter_commands.unbounded_send(command) {
