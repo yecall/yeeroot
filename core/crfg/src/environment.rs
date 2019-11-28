@@ -135,23 +135,25 @@ impl<Block: BlockT<Hash=H256>, B, E, N, RA> grandpa::Chain<Block::Hash, NumberFo
 		}
 
 		let info = self.inner.backend().blockchain().info().expect("afg, Failed to get blockchain info.");
-		let mut to_finalized = info.finalized_hash.clone();
-        let latency = NumberFor::<Block>::sa(BLOCK_FINAL_LATENCY);
+		let latency = NumberFor::<Block>::sa(BLOCK_FINAL_LATENCY);
 		if info.best_number - info.finalized_number > latency {
-			let hash = self.inner.backend().blockchain().hash(info.best_number - latency).unwrap_or(None);
-			to_finalized = match hash{
-				Some(hash) => hash,
-				None => return None,
-			};
+			let finalizing = self.inner.backend().blockchain().hash(info.best_number - latency).unwrap_or(None);
+			match finalizing {
+				Some(hash) => {
+					let finalizing_header = self.inner.header(&BlockId::Hash(hash)).unwrap_or(None);
+					match finalizing_header{
+						Some(header) => {
+							return Some((hash, *header.number()));
+						}
+						None => return Some((info.finalized_hash, info.finalized_number)),
+					}
+				},
+				None => return Some((info.finalized_hash, info.finalized_number)),
+			}
 		}
-
-		let to_finalized_header = self.inner.header(&BlockId::Hash(to_finalized)).unwrap_or(None);
-		let to_finalized_header = match to_finalized_header {
-			Some(head) => head,
-			None => return None,
-		};
-
-		return Some((to_finalized, *to_finalized_header.number()));
+		else{
+			return Some((info.finalized_hash, info.finalized_number));
+		}
 	}
 }
 
