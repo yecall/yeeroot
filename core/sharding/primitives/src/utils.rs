@@ -75,6 +75,8 @@ mod tests {
     use primitives::sr25519::Pair;
     use primitives::crypto::{Ss58Codec, Pair as PairTrait};
     use yee_primitives::{Address, AddressCodec, Hrp};
+    use rand::rngs::OsRng;
+    use schnorrkel::Keypair;
     use crate::utils::shard_num_for;
     use crate::utils::shard_num_for_bytes;
     use crate::utils::log2;
@@ -121,68 +123,69 @@ mod tests {
     #[test]
     fn test_address(){
 
+        //shard 0
+        let address = Address("tyee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(0), Some(0)));
+
         let address = Address("tyee15c2cc2uj34w5jkfzxe4dndpnngprxe4nytaj9axmzf63ur4f8awq806lv6".to_string());
         let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(0), Some(4)));
 
-        assert_eq!(shard_num_for(&public, 4u16), Some(0));
-
-        // address shard num will change on sharding scale out
-        assert_eq!(shard_num_for(&public, 8u16), Some(4));
+        //shard 1
+        let address = Address("tyee15zphhp8wmtupkf3j8uz5y6eeamkmknfgs6rj0hsyt6m8ntpvndvsmz3h3w".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(1), Some(1)));
 
         let address = Address("tyee10n605lxn7k7rfm4t9nx3jd6lu790m30hs37j7dvm6jeun2kkfg7sf6fp9j".to_string());
         let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(1), Some(5)));
 
-        assert_eq!(shard_num_for(&public, 4u16), Some(1));
-
-        // address shard num will change on sharding scale out
-        assert_eq!(shard_num_for(&public, 8u16), Some(5));
+        //shard 2
+        let address = Address("tyee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94qgr9w77".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(2), Some(2)));
 
         let address = Address("tyee16pa6aa7qnf6w5ztqdvla6kvmeg78pkmpd76d98evl88ppmarcctqdz5nu3".to_string());
         let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(2), Some(6)));
 
-        assert_eq!(shard_num_for(&public, 4u16), Some(2));
-
-        // address shard num will change on sharding scale out
-        assert_eq!(shard_num_for(&public, 8u16), Some(6));
-
+        //shard 3
         let address = Address("tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd".to_string());
         let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(3), Some(3)));
 
-        assert_eq!(shard_num_for(&public, 4u16), Some(3));
-
-        // address shard num will not change on sharding scale out
-        assert_eq!(shard_num_for(&public, 8u16), Some(3));
-
+        let address = Address("tyee18z4vztn7d0t9290d6tmlucqcelj4d4luzshnfh274vsuf62gkdrsd7hqxh".to_string());
+        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        assert_eq!((shard_num_for(&public, 4u16), shard_num_for(&public, 8u16)), (Some(3), Some(7)));
 
     }
 
     #[test]
     fn test_generate_address() {
 
-        let address = Address("tyee1yjn7neelq90y6x0jxcqavm0hv8gskxs6ctsftdjel4vwq0ecrvgqnh5efm".to_string());
-        let (public, hrp) = AccountId::from_address(&address).map_err(|e| format!("{:?}", e)).unwrap();
+        loop {
 
-        assert_eq!(shard_num_for(&public, 4u16), Some(0));
+            let mut csprng: OsRng = OsRng::new().expect("os random generator works; qed");
+            let key_pair: Keypair = Keypair::generate(&mut csprng);
 
-        // address shard num will not change on sharding scale out
-        assert_eq!(shard_num_for(&public, 8u16), Some(0));
+            let accountId = key_pair.public.to_bytes();
+            let private = key_pair.secret.to_bytes();
+            let private = format!("{}{}", hex::encode(&private[0..32]), hex::encode(&private[32..64]));
 
-//        loop {
-//            let accountId = Pair::generate().public();
-//
-//            if shard_num_for(&accountId, 4u16) != Some(0) {
-//                continue;
-//            }
-//
-//            if shard_num_for(&accountId, 8u16) != Some(0) {
-//                continue;
-//            }
-//
-//            let address = accountId.to_address(Hrp::TESTNET).unwrap();
-//
-//            assert_eq!(address, Address("".to_string()));
-//            break;
-//        }
+            if shard_num_for(&accountId, 4u16) != Some(3) {
+                continue;
+            }
+
+            if shard_num_for(&accountId, 8u16) != Some(7) {
+                continue;
+            }
+
+            let address = accountId.to_address(Hrp::TESTNET).unwrap();
+
+            assert_eq!(format!("{} {}", address, private), "");
+            break;
+        }
 
     }
 

@@ -15,28 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod metadata;
-pub mod author;
-pub mod state;
-pub mod system;
-pub mod chain;
-mod errors;
-mod client;
-use jsonrpc_core as rpc;
-use parity_codec::alloc::collections::HashMap;
+mod error;
+mod work_manager;
+mod worker;
+use yee_switch_rpc::{Config};
+use runtime_primitives::traits::{BlakeTwo256};
+use std::sync::Arc;
 
-#[derive(Clone, Debug)]
-pub struct Config{
-    pub shards: HashMap<String, Shard>,
-}
+pub fn start_mining(config: &Config) -> error::Result<()>{
 
-#[derive(Clone, Debug)]
-pub struct Shard {
-    pub rpc: Vec<String>,
-}
+	let mut work_manager = work_manager::DefaultWorkManager::<
+		yee_runtime::BlockNumber,
+		yee_runtime::AuthorityId,
+		BlakeTwo256>::new(config.clone());
+	work_manager.start()?;
 
-impl Config{
-    fn get_shard_count(&self)->u16{
-        self.shards.len() as u16
-    }
+	let worker = worker::Worker::new(config.clone(), Arc::new(work_manager));
+
+	worker.start()?;
+
+	Ok(())
 }

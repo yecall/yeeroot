@@ -40,17 +40,19 @@ use parity_codec::{Decode, Encode};
 use std::ops::Add;
 use self::primitives::{Job, WorkProof, ProofNonce, ProofMulti, JobResult};
 use std::fmt::Debug;
+use serde::de::DeserializeOwned;
+use yee_serde_hex::SerdeHex;
 
 const JOB_LIFE: Duration = Duration::from_secs(300);
 
 #[rpc]
-pub trait MiningApi<Hash, Header, AuthorityId> where
+pub trait MiningApi<Hash, Number, AuthorityId> where
     Hash: Encode,
-    Header: Encode,
+    Number: Encode + SerdeHex,
     AuthorityId: Decode + Encode + Clone
 {
     #[rpc(name = "mining_getJob")]
-    fn get_job(&self) -> BoxFuture<Job<Hash, Header, AuthorityId>>;
+    fn get_job(&self) -> BoxFuture<Job<Hash, Number, AuthorityId>>;
 
     #[rpc(name = "mining_submitJob")]
     fn submit_job(&self, job_result: JobResult<Hash>) -> BoxFuture<Hash>;
@@ -108,11 +110,12 @@ impl<B, AuthorityId> Mining<B, AuthorityId> where
     }
 }
 
-impl<B, AuthorityId> MiningApi<B::Hash, B::Header, AuthorityId> for Mining<B, AuthorityId> where
+impl<B, AuthorityId> MiningApi<B::Hash, <B::Header as Header>::Number, AuthorityId> for Mining<B, AuthorityId> where
     B: BlockT,
-    AuthorityId: Decode + Encode + Clone + Send + Sync + Debug + 'static
+    AuthorityId: Decode + Encode + Clone + Send + Sync + Debug + 'static,
+    <B::Header as Header>::Number: SerdeHex,
 {
-    fn get_job(&self) -> BoxFuture<Job<B::Hash, B::Header, AuthorityId>> {
+    fn get_job(&self) -> BoxFuture<Job<B::Hash, <B::Header as Header>::Number, AuthorityId>> {
         let job_manager = match self.job_manager.read().as_ref() {
             Some(j) => j.to_owned(),
             None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::NotReady).into())),

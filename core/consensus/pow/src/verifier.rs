@@ -300,16 +300,53 @@ pub fn check_shard_info<B, AccountId>(
 
     }
 
-    //check header shard info
-    let shard_info : (u16, u16) = header.digest().logs().iter().rev()
+    //check header shard info (normal or scaling)
+    let (header_shard_num, header_shard_count) : (u16, u16) = header.digest().logs().iter().rev()
         .filter_map(ShardingDigestItem::as_sharding_info)
         .next().expect("non-genesis block always has shard info");
 
-    if (shard_num, shard_count) != shard_info {
+    let original_shard_num = get_original_shard_num(shard_num, shard_count, header_shard_count)?;
+    if header_shard_num != original_shard_num {
         return Err(format!("Invalid header shard info"));
     }
 
     // TODO: check shard info other criteria
 
     Ok(())
+}
+
+fn get_original_shard_num(shard_num: u16, shard_count: u16, original_shard_count: u16) -> Result<u16, String> {
+
+    let mut shard_num = shard_num;
+    let mut shard_count = shard_count;
+    while shard_count > original_shard_count{
+        shard_count = shard_count / 2;
+        shard_num = if shard_num >= shard_count { shard_num - shard_count } else { shard_num };
+    }
+
+    if shard_count != original_shard_count {
+        return Err(format!("Invalid header shard info"));
+    }
+
+    Ok(shard_num)
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::verifier::get_original_shard_num;
+
+    #[test]
+    fn test_get_original_shard_num() {
+
+        assert_eq!(Ok(0), get_original_shard_num(0u16, 8u16, 8u16));
+        assert_eq!(Ok(0), get_original_shard_num(0u16, 8u16, 4u16));
+        assert_eq!(Ok(1), get_original_shard_num(1u16, 8u16, 4u16));
+        assert_eq!(Ok(2), get_original_shard_num(2u16, 8u16, 4u16));
+        assert_eq!(Ok(0), get_original_shard_num(4u16, 8u16, 4u16));
+        assert_eq!(Ok(1), get_original_shard_num(13u16, 16u16, 4u16));
+        assert_eq!(Err(format!("Invalid header shard info")), get_original_shard_num(5u16, 8u16, 16u16));
+
+
+    }
 }

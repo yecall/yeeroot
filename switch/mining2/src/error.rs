@@ -15,28 +15,26 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-pub mod metadata;
-pub mod author;
-pub mod state;
-pub mod system;
-pub mod chain;
-mod errors;
-mod client;
-use jsonrpc_core as rpc;
-use parity_codec::alloc::collections::HashMap;
+use error_chain::*;
 
-#[derive(Clone, Debug)]
-pub struct Config{
-    pub shards: HashMap<String, Shard>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Shard {
-    pub rpc: Vec<String>,
-}
-
-impl Config{
-    fn get_shard_count(&self)->u16{
-        self.shards.len() as u16
-    }
+error_chain! {
+	errors {
+		/// Not implemented yet
+		Unimplemented {
+			description("not yet implemented"),
+			display("Method Not Implemented"),
+		}
+		ShardsDown {
+			description("all the shards are down"),
+			display("All the shards are down"),
+		}
+		WorkExpired {
+			description("work expired"),
+			display("Work expired"),
+		}
+		ShardNotFound {
+			description("shard not found"),
+			display("Shard not found"),
+		}
+	}
 }
