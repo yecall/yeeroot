@@ -73,6 +73,8 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 
 		let jobs = &*self.jobs.read();
 
+		debug!("jobs: {:?}", jobs);
+
 		if jobs.len() == 0 {
 			return Err(error::ErrorKind::ShardsDown.into());
 		}
@@ -97,10 +99,13 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 			if let Some((actual_shard_num, actual_shard_count)) = shard_info_map.get(&config_shard_num) {
 				//normal or scale out
 				if config_shard_num == *actual_shard_num || config_shard_num == *actual_shard_num + *actual_shard_count {
-					shard_jobs.entry(*actual_shard_num).or_insert(vec![(config_shard_num, (*job).clone())]);
+					let entry = shard_jobs.entry(*actual_shard_num).or_insert(vec![]);
+					entry.push((config_shard_num, (*job).clone()));
 				}
 			}
 		}
+
+		debug!("shard_jobs: {:?}", shard_jobs);
 
 		//random job if needed
 		let mut rng =rand::thread_rng();
@@ -255,33 +260,16 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 				let shard = shard.clone();
 				let jobs = jobs.clone();
 
-				let get_job = Self::get_job_future(&shard).then(|job| {
-					match job {
-						Ok(job) => jobs.write().insert(config_shard_num, job),
-						Err(_e) => jobs.write().remove(&config_shard_num),
-					};
-					Ok(())
-				});
-
 				let task = Interval::new(Instant::now(), Duration::from_secs(1)).for_each(move |_instant| {
 
-//					Self::get_job_future(&shard).then(|job| {
-//						match job {
-//							Ok(job) => jobs.write().insert(config_shard_num, job),
-//							Err(_e) => jobs.write().remove(&config_shard_num),
-//						};
-//					})
-
-//					println!("{}", config_shard_num);
-//					let job = Self::get_job_in_future(&shard);
-//					println!("config_shard_num: {:?}, job: {:?}", config_shard_num, job);
-//					debug!("Refresh job: config_shard_num: {}, job: {:?}", config_shard_num, job);
-//					match job {
-//						Ok(job) => jobs.write().insert(config_shard_num, job),
-//						Err(_e) => jobs.write().remove(&config_shard_num),
-//					};
-
-					get_job
+					let jobs = jobs.clone();
+					Self::get_job_future(&shard).then(move |job| {
+						match job {
+							Ok(job) => jobs.write().insert(config_shard_num, job),
+							Err(_e) => jobs.write().remove(&config_shard_num),
+						};
+						Ok(())
+					})
 
 				}).map_err(|e| warn!("{:?}", e));
 
@@ -420,7 +408,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		rx.recv_timeout(Duration::from_secs(3)).map_err(|e| format!("Get job error: {:?}", e).into())
 	}
 
-	fn get_job_future(shard: &Shard) -> Box<dyn Future<Item=Job<Hashing::Output, Number, AuthorityId>, Error=error::Error>> {
+	fn get_job_future(shard: &Shard) -> Box<dyn Future<Item=Job<Hashing::Output, Number, AuthorityId>, Error=error::Error> + Send> {
 		let rpc = &shard.rpc;
 		let mut rng =rand::thread_rng();
 		let i = rng.gen_range(0, rpc.len());

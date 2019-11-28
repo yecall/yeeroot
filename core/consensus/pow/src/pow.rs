@@ -151,13 +151,24 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             header_with_pow_seal.digest_mut().push(item);
             let pre_hash = header_with_pow_seal.hash();
 
-            //merkle proof validate
+            let merkle_proof_item_count = 1u16 << proof_multi.merkle_proof.len() as u16;
+
+            // merkle_proof_item_count should match shard_count (normal or scaling)
+            let (num, count) = if merkle_proof_item_count == shard_count {
+                (shard_num, shard_count)
+            } else if merkle_proof_item_count == shard_count * 2u16 {
+                (shard_num, shard_count * 2u16)
+            } else {
+                return Err(format!("Invalid merkle proof item count"));
+            };
+
+            // merkle proof validate
             let compact_proof = CompactMerkleProof::<<B::Header as Header>::Hashing> {
                 proof: proof_multi.merkle_proof.clone(),
                 item: pre_hash,
                 root: proof_multi.merkle_root.clone(),
-                num: shard_num,
-                count: shard_count,
+                num: num,
+                count: count,
             };
             let original_proof = parse_original(compact_proof)?;
 

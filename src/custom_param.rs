@@ -61,6 +61,10 @@ pub struct YeeCliConfig {
     #[structopt(long = "dev-params")]
     pub dev_params: bool,
 
+    /// Specify params number
+    #[structopt(long = "dev-params-num")]
+    pub dev_params_num: Option<u16>,
+
     /// Whether mine
     #[structopt(long = "mine")]
     pub mine: bool,

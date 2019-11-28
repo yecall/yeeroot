@@ -62,7 +62,6 @@ pub const SHARD_CONF : [(u16, (&str, u16, u16, u16, &str, u16)); 8] = [
 const BOOTNODES_ROUTER : &str = "http://127.0.0.1:50001";
 
 pub struct RunParams{
-    pub shard_num: u16,
     pub coinbase: String,
     pub rpc_port: u16,
     pub ws_port: u16,
@@ -84,12 +83,12 @@ pub struct BootnodesRouterParams{
     pub foreign_port: u16,
 }
 
-pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
+pub fn get_run_params(params_num: u16) -> error::Result<RunParams>{
 
     let shard_conf_map: HashMap<u16, (&str, u16, u16, u16, &str, u16)> = SHARD_CONF
         .iter().cloned().collect();
 
-    let one = shard_conf_map.get(&shard_num);
+    let one = shard_conf_map.get(&params_num);
     let one = one.ok_or(error::ErrorKind::Msg("Invalid shard num".to_string().into()))?;
 
     let coinbase = one.0.to_string();
@@ -102,7 +101,6 @@ pub fn get_run_params(shard_num: u16) -> error::Result<RunParams>{
     let bootnodes_routers = vec![BOOTNODES_ROUTER.to_string()];
 
     Ok(RunParams{
-        shard_num,
         coinbase,
         rpc_port,
         ws_port,

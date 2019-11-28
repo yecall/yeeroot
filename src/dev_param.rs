@@ -36,7 +36,12 @@ pub fn process_dev_param<F>(config: &mut FactoryFullConfiguration<F>, custom_arg
 
         let shard_num = custom_args.shard_num;
 
-        let run_params = yee_dev::get_run_params(shard_num).map_err(|e| format!("{:?}", e))?;
+        let params_num = match custom_args.dev_params_num {
+            Some(dev_params_num) => dev_params_num,
+            None => shard_num,
+        };
+
+        let run_params = yee_dev::get_run_params(params_num).map_err(|e| format!("{:?}", e))?;
 
         info!("Dev params: ");
         info!("  coinbase: {}", run_params.coinbase);
