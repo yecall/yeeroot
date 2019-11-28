@@ -360,9 +360,9 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         let max = cmp::min(request.max.unwrap_or(u32::max_value()), MAX_BLOCK_DATA_RESPONSE) as usize;
         let get_header = request.fields.contains(message::BlockAttributes::HEADER);
         // let get_body = request.fields.contains(message::BlockAttributes::BODY);
-        let get_justification = request
-            .fields
-            .contains(message::BlockAttributes::JUSTIFICATION);
+//        let get_justification = request
+//            .fields
+//            .contains(message::BlockAttributes::JUSTIFICATION);
         let get_proof = request.fields.contains(message::BlockAttributes::PROOF);
         while let Some(header) = self.context_data.chain.header(&id).unwrap_or(None) {
             if blocks.len() >= max {
@@ -371,11 +371,11 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let number = header.number().clone();
             let hash = header.hash();
             let parent_hash = header.parent_hash().clone();
-            let justification = if get_justification {
-                self.context_data.chain.justification(&BlockId::Hash(hash)).unwrap_or(None)
-            } else {
-                None
-            };
+//            let justification = if get_justification {
+//                self.context_data.chain.justification(&BlockId::Hash(hash)).unwrap_or(None)
+//            } else {
+//                None
+//            };
             let proof = if get_proof {
                 self.protocol_context_data.read().peers.get(&peer).map(|p| {
                     self.get_proof_by_shard_num(hash, p.info.shard_num)
@@ -395,7 +395,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
 
                 receipt: None,
                 message_queue: None,
-                justification,
+                justification: None,
                 proof,
             };
             blocks.push(block_data);

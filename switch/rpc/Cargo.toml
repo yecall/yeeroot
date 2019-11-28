@@ -17,11 +17,11 @@ parity-codec = "3.2"
 serde = { version = "1.0", features = ["derive"] }
 impl-serde = { version = "0.1"}
 serde_json = "1.0"
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
-runtime_version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
-sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 yee-runtime = { package = "yee-runtime", path = "../../runtime" }
 yee-sharding-primitives= { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
 tokio = "0.1.7"

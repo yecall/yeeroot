@@ -111,7 +111,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal, p_h) = check_header::<F::Block, AccountId, AuthorityId>(
+        let (pre_header, seal) = check_header::<F::Block, AccountId, AuthorityId>(
             header,
             hash.clone(),
             self.shard_extra.clone(),
@@ -119,9 +119,14 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
 
         // TODO: verify body
 
+        let proof_seal = seal.as_pow_seal().ok_or_else(|| {
+            format!("Header {:?} not sealed", hash)
+        })?;
+        let p_h = proof_seal.relay_proof.clone();
+
         // check proof.
-        let mut validate_proof = false;
         if let Some(proof) = proof.clone() {
+            let mut validate_proof = false;
             if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
                 // check proof root.
                 let root = mlp.layer2_root();
@@ -136,12 +141,12 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
                     }
                 }
             }
-        }
-        if !validate_proof {
-            warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
-            return Err("Proof validate failed.".to_string());
-        } else {
-            debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
+            if !validate_proof {
+                warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
+                return Err("Proof validate failed.".to_string());
+            } else {
+                debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
+            }
         }
         let mut res_proof = proof;
         let foreign_chains = self.foreign_chains.clone();
@@ -207,7 +212,9 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
                 return Err(check_relay.err().unwrap());
             }
         }
-
+        if justification.is_some() {
+            info!("justification is some");
+        }
         let import_block = ImportBlock {
             origin,
             header: pre_header,
@@ -228,7 +235,7 @@ fn check_header<B, AccountId, AuthorityId>(
     mut header: B::Header,
     hash: B::Hash,
     shard_extra: ShardExtra<AccountId>
-) -> Result<(B::Header, DigestItemFor<B>, H256), String> where
+) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     AuthorityId: Decode + Encode + Clone,
@@ -249,7 +256,7 @@ fn check_header<B, AccountId, AuthorityId>(
 
     check_proof(&header, &seal)?;
 
-    Ok((header, digest_item, seal.relay_proof.clone()))
+    Ok((header, digest_item))
 }
 
 pub fn check_shard_info<B, AccountId>(

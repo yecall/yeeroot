@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 parity-codec = "3.5"
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "zzq/foreign-proof" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

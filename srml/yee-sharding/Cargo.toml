@@ -10,10 +10,10 @@ edition = "2018"
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 sharding_primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default_features = false }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "zzq/foreign-proof" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 
 [features]
 default = ["std"]
