@@ -51,7 +51,8 @@ pub struct Protocol<B: BlockT, H: ExHashT> {
 	from_network_port: Receiver<FromNetworkMsg<B>>,
 	config: ProtocolConfig,
 	genesis_hash: B::Hash,
-	context_data: ContextData<B, H>,
+	/// record for remote full node
+	context_data: Arc<RwLock<ContextData<B, H>>>,
 	// Connected peers pending Status message.
 	handshaking_peers: HashMap<PeerId, HandshakingPeer>,
 	vprotocol: VProtocol<B, H>,
@@ -65,8 +66,8 @@ struct HandshakingPeer {
 
 /// Peer information
 #[derive(Debug)]
-struct Peer<B: BlockT, H: ExHashT> {
-	info: PeerInfo<B>,
+pub struct Peer<B: BlockT, H: ExHashT> {
+	pub info: PeerInfo<B>,
 	/// Holds a set of transactions known to this peer.
 	known_extrinsics: LruHashSet<H>,
 }
@@ -85,9 +86,9 @@ pub struct PeerInfo<B: BlockT> {
 }
 
 /// Data necessary to create a context.
-struct ContextData<B: BlockT, H: ExHashT> {
+pub struct ContextData<B: BlockT, H: ExHashT> {
 	// All connected peers
-	peers: HashMap<PeerId, Peer<B, H>>,
+	pub peers: HashMap<PeerId, Peer<B, H>>,
 	pub chain: Arc<Client<B>>,
 }
 
@@ -137,10 +138,16 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		let (from_network_sender, from_network_port) = channel::bounded(4);
 		let info = chain.info()?;
 
+		let context = Arc::new(RwLock::new(
+			ContextData {
+				peers: HashMap::<PeerId, Peer<B, H>>::new(),
+				chain: chain.clone(),
+			}));
 		let vprotocol = VProtocol::new(
 			network_chan.clone(),
 			chain.clone(),
-				 config.shard_num
+			config.shard_num,
+			context.clone(),
 		)?;
 
 		let _ = thread::Builder::new()
@@ -153,10 +160,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 					config,
 					port,
 					genesis_hash: info.chain.genesis_hash,
-					context_data: ContextData {
-						peers: HashMap::<PeerId, Peer<B, H>>::new(),
-						chain,
-					},
+					context_data: context,
 					handshaking_peers: HashMap::new(),
 					vprotocol,
 				};
@@ -258,7 +262,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		// lock all the the peer lists so that add/remove peer events are in order
 		let removed = {
 			self.handshaking_peers.remove(&peer);
-			self.context_data.peers.remove(&peer).is_some()
+			self.context_data.write().peers.remove(&peer).is_some()
 		};
 
 		self.vprotocol.on_peer_disconnected(peer, debug_info);
@@ -268,7 +272,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	/// our messaging rate fast enough.
 	pub fn on_clogged_peer(&self, who: PeerId, _msg: Option<Message<B>>) {
 		trace!(target: "sync-foreign", "Clogged peer {}", who);
-		if let Some(peer) = self.context_data.peers.get(&who) {
+		if let Some(peer) = self.context_data.read().peers.get(&who) {
 			debug!(target: "sync-foreign", "Clogged peer {} (protocol_version: {:?}; \
 				known_extrinsics: {:?}; best_hash: {:?}; best_number: {:?})",
 				   who, peer.info.protocol_version, peer.known_extrinsics,
@@ -282,7 +286,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_status_message(&mut self, who: PeerId, status: message::Status<B>) {
 		trace!(target: "sync-foreign", "New peer {} {:?}", who, status);
 		{
-			if self.context_data.peers.contains_key(&who) {
+			if self.context_data.read().peers.contains_key(&who) {
 				debug!("Unexpected status packet from {}", who);
 				return;
 			}
@@ -328,7 +332,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				info,
 				known_extrinsics: LruHashSet::new(cache_limit),
 			};
-			self.context_data.peers.insert(who.clone(), peer);
+			self.context_data.write().peers.insert(who.clone(), peer);
 
 			debug!(target: "sync-foreign", "Connected {}", who);
 		}
@@ -345,31 +349,28 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	fn on_relay_extrinsics(&mut self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>){
 		debug!(target: "sync-foreign", "Relay extrinsics");
 
-		let targets = self.context_data.peers.iter_mut().filter(|(_, peer)| peer.info.shard_num == shard_num);
+        for (who, peer) in self.context_data.write().peers.iter_mut().filter(|(_, peer)| peer.info.shard_num == shard_num) {
+            let (hashes, to_send): (Vec<_>, Vec<_>) = extrinsics
+                .iter()
+                .filter(|&(ref hash, _)| peer.known_extrinsics.insert(hash.clone()))
+                .cloned()
+                .unzip();
 
-		for (who, peer) in targets{
-
-			let (hashes, to_send): (Vec<_>, Vec<_>) = extrinsics
-				.iter()
-				.filter(|&(ref hash, _)| peer.known_extrinsics.insert(hash.clone()))
-				.cloned()
-				.unzip();
-
-			if !to_send.is_empty() {
-				trace!(target: "sync-foreign", "Sending {} transactions to {}", to_send.len(), who);
-				self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::RelayExtrinsics(to_send)));
-			}
-		}
+            if !to_send.is_empty() {
+                trace!(target: "sync-foreign", "Sending {} transactions to {}", to_send.len(), who);
+                self.network_chan.send(NetworkMsg::Outgoing(who.clone(), GenericMessage::RelayExtrinsics(to_send)));
+            }
+        }
 	}
 
 	fn on_block_imported(&mut self, hash: B::Hash, header: &B::Header) {
-
 		self.vprotocol.on_block_imported(hash, header);
 	}
 
 	/// Send Status message
 	fn send_status(&mut self, who: PeerId) {
-		if let Ok(info) = self.context_data.chain.info() {
+        let info = self.context_data.read().chain.info();
+		if let Ok(info) = info {
 			let status = message::generic::Status {
 				version: CURRENT_VERSION,
 				min_supported_version: MIN_VERSION,

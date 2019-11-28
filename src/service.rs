@@ -76,6 +76,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub mine: bool,
+    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub hrp: Hrp,
     pub scale_out: Option<ScaleOut>,
     pub trigger_exit: Option<Arc<CliTriggerExit<CliSignal>>>,
@@ -93,6 +94,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
             mine: Default::default(),
+            foreign_chains: Arc::new(RwLock::new(None)),
             hrp: Default::default(),
             scale_out: Default::default(),
             trigger_exit: None,
@@ -117,6 +119,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             inherent_data_providers: Default::default(),
             bootnodes_router_conf: None,
             job_manager: Arc::new(RwLock::new(None)),
+            foreign_chains: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -205,43 +208,44 @@ construct_service_factory! {
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
                 // foreign network
-                let config = &service.config;
+                // let config = &service.config;
                 let foreign_network_param = foreign::Params{
-                    client_version: config.network.client_version.clone(),
+                    client_version: service.config.network.client_version.clone(),
                     protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
-                    node_key_pair: config.network.node_key.clone().into_keypair().unwrap(),
-                    shard_num: config.custom.shard_num,
-                    shard_count: config.custom.shard_count,
-                    foreign_port: config.custom.foreign_port,
-                    bootnodes_router_conf: config.custom.bootnodes_router_conf.clone(),
+                    node_key_pair: service.config.network.node_key.clone().into_keypair().unwrap(),
+                    shard_num: service.config.custom.shard_num,
+                    shard_count: service.config.custom.shard_count,
+                    foreign_port: service.config.custom.foreign_port,
+                    bootnodes_router_conf: service.config.custom.bootnodes_router_conf.clone(),
                 };
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
 
                 // foreign chain
                 let foreign_network_wrapper = NetworkWrapper { inner: foreign_network.clone()};
-                let foreigh_chain = ForeignChain::<Self>::new(
-                    config,
+                let foreign_chain = ForeignChain::<Self>::new(
+                    &service.config,
                     foreign_network_wrapper,
                     executor.clone(),
                 )?;
+                service.config.custom.foreign_chains = Arc::new(RwLock::new(Some(foreign_chain)));
 
                 // relay
                 yee_relay::start_relay_transfer::<Self, _, _>(
                     service.client(),
                     &executor,
                     foreign_network.clone(),
-                    Arc::new(foreigh_chain),
+                    service.config.custom.foreign_chains.clone(),
                     service.transaction_pool()
                 ).map_err(|e| format!("{:?}", e))?;
 
                 // restarter
                 let restarter_param = restarter::Params{
                     authority_id: key.clone().map(|k|k.public()),
-                    coinbase: config.custom.coinbase.clone(),
-                    shard_num: config.custom.shard_num,
-                    shard_count: config.custom.shard_count,
-                    scale_out: config.custom.scale_out.clone(),
-                    trigger_exit: config.custom.trigger_exit.clone(),
+                    coinbase: service.config.custom.coinbase.clone(),
+                    shard_num: service.config.custom.shard_num,
+                    shard_count: service.config.custom.shard_count,
+                    scale_out: service.config.custom.scale_out.clone(),
+                    trigger_exit: service.config.custom.trigger_exit.clone(),
                 };
                 start_restarter::<FullComponents<Self>>(restarter_param, service.client(), &executor);
 
@@ -322,11 +326,13 @@ construct_service_factory! {
                     let justification_import = block_import.clone();
                     config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
 
-                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
+                    import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        config.custom.foreign_chains.clone(),
+                        config.custom.coinbase.clone(),
                         consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,
@@ -339,11 +345,13 @@ construct_service_factory! {
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-                    import_queue::<Self::Block, _, _, <Pair as PairT>::Public>(
+                    import_queue::<Self, _, _, <Pair as PairT>::Public>(
                         client.clone(),
                         None,
                         client,
                         config.custom.inherent_data_providers.clone(),
+                        Arc::new(RwLock::new(None)),
+                        config.custom.coinbase.clone(),
                         consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,

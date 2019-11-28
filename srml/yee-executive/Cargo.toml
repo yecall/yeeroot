@@ -15,6 +15,7 @@ system = { package = "srml-system", git = "https://github.com/yeeco/substrate.gi
 balances = { package = "yee-srml-balances", path = "../yee-balances", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 
 
 [dev-dependencies]

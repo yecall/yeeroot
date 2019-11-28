@@ -30,61 +30,196 @@ use {
     runtime_primitives::{
         codec::{Decode, Encode},
         Justification,
+        Proof,
+        generic,
         traits::{
             Block, Header,
             AuthorityIdFor, Digest, DigestItemFor,
             NumberFor,
+            BlakeTwo256,
+            ProvideRuntimeApi,
         },
     },
+    substrate_service::{
+        ServiceFactory,
+        FactoryBlock,
+    },
+    client::{
+        self,
+        BlockchainEvents,
+        ChainHead,
+        blockchain::HeaderBackend,
+        BlockBody,
+    },
+    yee_sharding_primitives::ShardingAPI,
+    util::relay_decode::RelayTransfer,
+    foreign_chain::{ForeignChain, ForeignChainConfig},
+    yee_runtime::{AccountId, BalancesCall},
 };
 use super::CompatibleDigestItem;
-use crate::pow::check_proof;
+use crate::pow::{check_proof, gen_extrinsic_proof};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
-use log::warn;
 use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
 use std::time::Duration;
 use yee_sharding_primitives::utils::shard_num_for;
+use merkle_light::proof::Proof as MLProof;
+use merkle_light::merkle::MerkleTree;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
+use ansi_term::Colour;
+use log::{debug, info, warn};
+use parking_lot::RwLock;
+use primitives::H256;
+use yee_runtime::BlockId;
 
 /// Verifier for POW blocks.
-pub struct PowVerifier<C, AccountId, AuthorityId> {
+pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
     pub client: Arc<C>,
     pub inherent_data_providers: InherentDataProviders,
+    pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub phantom: PhantomData<AuthorityId>,
     pub shard_extra: ShardExtra<AccountId>,
 }
 
 #[forbid(deprecated)]
-impl<B, C, AccountId, AuthorityId> Verifier<B> for PowVerifier<C, AccountId, AuthorityId> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
+impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, AccountId, AuthorityId> where
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
     C: Send + Sync,
-    AccountId: Decode + Encode + Clone + Send + Sync,
+    AccountId: Decode + Encode + Clone + Send + Sync + Default,
     AuthorityId: Decode + Encode + Clone + Send + Sync,
+    F: ServiceFactory + Send + Sync,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
+    C : ProvideRuntimeApi,
+    C : HeaderBackend<<F as ServiceFactory>::Block>,
+    C : BlockBody<<F as ServiceFactory>::Block>,
+    C : BlockchainEvents<<F as ServiceFactory>::Block>,
+    C : ChainHead<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    H256: From<<F::Block as Block>::Hash>,
+    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
     fn verify(
         &self,
         origin: BlockOrigin,
-        header: <B as Block>::Header,
+        header: <F::Block as Block>::Header,
         justification: Option<Justification>,
-        body: Option<Vec<<B as Block>::Extrinsic>>,
-    ) -> Result<(ImportBlock<B>, Option<Vec<AuthorityIdFor<B>>>), String> {
+        proof: Option<Proof>,
+        body: Option<Vec<<F::Block as Block>::Extrinsic>>,
+    ) -> Result<(ImportBlock<F::Block>, Option<Vec<AuthorityIdFor<F::Block>>>), String> {
+        let number = header.number().clone();
         let hash = header.hash();
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<B, AccountId, AuthorityId>(
+        let (pre_header, seal) = check_header::<F::Block, AccountId, AuthorityId>(
             header,
-            hash,
+            hash.clone(),
             self.shard_extra.clone(),
         )?;
 
         // TODO: verify body
 
+        let proof_seal = seal.as_pow_seal().ok_or_else(|| {
+            format!("Header {:?} not sealed", hash)
+        })?;
+        let p_h = proof_seal.relay_proof.clone();
+
+        // check proof.
+        if let Some(proof) = proof.clone() {
+            let mut validate_proof = false;
+            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
+                // check proof root.
+                let root = mlp.layer2_root();
+                if root.is_none() || root.unwrap() != p_h {
+                    return Err("Proof is invalid.".to_string());
+                }
+                // check proof self.
+                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_slice()) {
+                    let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
+                    if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
+                        validate_proof = true;
+                    }
+                }
+            }
+            if !validate_proof {
+                warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
+                return Err("Proof validate failed.".to_string());
+            } else {
+                debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
+            }
+        }
+        let mut res_proof = proof;
+        let foreign_chains = self.foreign_chains.clone();
+        // let client = self.client.clone();
+        let digest = pre_header.digest().clone();
+        if body.is_some() {
+            let check_relay_extrinsic = move |exs: Vec<<F::Block as Block>::Extrinsic>| -> Result<(), String> {
+                let err = Err("Block contains invalid extrinsic.".to_string());
+                let shard_info : Option<(u16, u16)> = digest.logs().iter().rev()
+                    .filter_map(ShardingDigestItem::as_sharding_info)
+                    .next();
+                if shard_info.is_none() {
+                    return Err("Can't get shard info in header".to_string());
+                }
+                let shard_info = shard_info.unwrap();
+                let (tc, cs) = (shard_info.0, shard_info.1);
+                for tx in exs {
+                    let rt = RelayTransfer::decode(tx.encode());
+                    if rt.is_some() {
+                        let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
+                        let h = rt.hash();
+                        let id = generic::BlockId::hash(h);
+                        let src = rt.transfer.sender();
+                        if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16) {
+                            if let Some(lc) = foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
+                                let proof = lc.client().proof(&id);
+                                if proof.is_err() {
+                                    return err;
+                                }
+                                let proof = proof.unwrap();
+                                if proof.is_none() {
+                                    return err;
+                                }
+                                let proof = proof.unwrap();
+                                let proof =  MultiLayerProof::from_bytes(proof.as_slice());
+                                if proof.is_err() {
+                                    return err;
+                                }
+                                let proof = proof.unwrap();
+                                if proof.contains(ds, h){
+                                    continue;
+                                }
+                                return err;
+                            }
+                        }
+                        panic!("Internal error. Get shard num or component failed.");
+                    }
+                }
+
+                Ok(())
+            };
+
+            let exs = body.clone().unwrap();
+            // check proof root
+            let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
+            if root != p_h {
+                return Err("Proof is invalid.".to_string());
+            }
+            res_proof = Some(proof);
+            // check relay extrinsic.
+            let check_relay : Result<(), String> = check_relay_extrinsic(exs);
+            if check_relay.is_err() {
+                return Err(check_relay.err().unwrap());
+            }
+        }
+        if justification.is_some() {
+            info!("justification is some");
+        }
         let import_block = ImportBlock {
             origin,
             header: pre_header,
             justification,
+            proof: res_proof,
             post_digests: vec![seal],
             body,
             finalized: false,

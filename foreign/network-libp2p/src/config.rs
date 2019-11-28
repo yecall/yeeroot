@@ -26,7 +26,7 @@ use std::collections::HashMap;
 /// Network service configuration.
 #[derive(Clone)]
 pub struct NetworkConfiguration {
-	/// Shard num
+	/// self full node Shard num
 	pub shard_num: u16,
 	/// Shard count
 	pub shard_count: u16,

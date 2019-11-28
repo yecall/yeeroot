@@ -26,8 +26,8 @@ use runtime_primitives::{
     generic::DigestItem,
     traits::Block,
 };
-
 use pow_primitives::YEE_POW_ENGINE_ID;
+use ansi_term::Colour;
 use super::PowSeal;
 
 /// Digest item acts as a valid POW consensus digest.

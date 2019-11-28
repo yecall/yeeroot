@@ -51,7 +51,6 @@ pub fn run<I, T, E>(args: I, exit: E, version: VersionInfo) -> error::Result<()>
 				    Err(e) => return Err(e),
 			    }
 		    }
-
 		}
 	).and_then(run_custom_command::<service::Factory, _, _>).map_err(Into::into).map(|_| ())
 }
@@ -71,9 +70,9 @@ where
 	info!("Node name: {}", config.name);
 	info!("Roles: {:?}", config.roles);
 
-	process_dev_param::<F>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
+	process_dev_param::<F, FullClient<service::Factory>>(&mut config, &mut custom_args).map_err(|e| format!("{:?}", e))?;
 
-	process_custom_args::<F>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
+	process_custom_args::<F, FullClient<service::Factory>>(&mut config, &custom_args).map_err(|e| format!("{:?}", e))?;
 
 	let (exit, trigger_exit) = exit.into_exit();
 

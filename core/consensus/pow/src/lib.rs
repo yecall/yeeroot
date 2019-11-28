@@ -20,13 +20,15 @@
 use {
     std::{fmt::Debug, marker::PhantomData, sync::Arc},
     futures::{Future, IntoFuture},
-    log::{warn},
+    log::warn,
     parking_lot::RwLock,
 };
 use {
     client::{
         ChainHead,
         blockchain::HeaderBackend,
+        BlockBody,
+        BlockchainEvents,
     },
     consensus_common::{
         BlockImport, Environment, Proposer, SyncOracle,
@@ -48,6 +50,8 @@ use {
             NumberFor,
         },
     },
+    foreign_chain::{ForeignChain, ForeignChainConfig},
+    yee_sharding_primitives::ShardingAPI,
 };
 use {
     pow_primitives::YeePOWApi,
@@ -60,6 +64,8 @@ pub use job::{JobManager, DefaultJobManager, DefaultJob};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use yee_srml_pow::RewardCondition;
 use yee_sharding_primitives::ScaleOut;
+use primitives::H256;
+use substrate_service::ServiceFactory;
 
 mod job;
 mod digest;
@@ -97,6 +103,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     SO: SyncOracle + Send + Sync + Clone,
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
+    <B as Block>::Hash: From<H256> + Ord,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
@@ -150,18 +157,28 @@ pub struct ShardExtra<AccountId> {
 }
 
 /// Start import queue for POW consensus
-pub fn import_queue<B, C, AccountId, AuthorityId>(
-    block_import: SharedBlockImport<B>,
-    justification_import: Option<SharedJustificationImport<B>>,
+pub fn import_queue<F, C, AccountId, AuthorityId>(
+    block_import: SharedBlockImport<F::Block>,
+    justification_import: Option<SharedJustificationImport<F::Block>>,
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
+    foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
+    coinbase: AccountId,
     shard_extra: ShardExtra<AccountId>
-) -> Result<PowImportQueue<B>, consensus_common::Error> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-    C: 'static + Send + Sync,
-    AccountId: Codec + Send + Sync + Clone + 'static,
+) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
+    H256: From<<F::Block as Block>::Hash>,
+    F: ServiceFactory + Send + Sync,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
+    C: ProvideRuntimeApi + 'static + Send + Sync,
+    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: BlockBody<<F as ServiceFactory>::Block>,
+    C: BlockchainEvents<<F as ServiceFactory>::Block>,
+    C: ChainHead<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    AccountId: Codec + Send + Sync + Clone + Default + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
+    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
     register_inherent_data_provider(&inherent_data_providers, shard_extra.coinbase.clone())?;
 
@@ -169,11 +186,12 @@ pub fn import_queue<B, C, AccountId, AuthorityId>(
         verifier::PowVerifier {
             client,
             inherent_data_providers,
+            foreign_chains,
             phantom: PhantomData,
             shard_extra,
         }
     );
-    Ok(BasicQueue::new(verifier, block_import, justification_import))
+    Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import))
 }
 
 pub fn register_inherent_data_provider<AccountId: 'static + Codec + Send + Sync>(
