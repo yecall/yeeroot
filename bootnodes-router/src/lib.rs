@@ -91,7 +91,7 @@ pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> error::Resul
 fn get_config(cmd: &BootnodesRouterCommandCmd, version: &VersionInfo) -> error::Result<BootnodesRouterConf> {
 
     if cmd.dev_params {
-        return get_dev_config();
+        return get_dev_config(cmd);
     }
 
     let conf: BootnodesRouterConf = get_from_conf_file(cmd, version)?;
@@ -112,9 +112,9 @@ pub struct BootnodesRouterConf {
     pub shards: HashMap<String, Shard>,
 }
 
-fn get_dev_config() -> error::Result<BootnodesRouterConf> {
+fn get_dev_config(cmd: &BootnodesRouterCommandCmd) -> error::Result<BootnodesRouterConf> {
 
-    let params = yee_dev::get_bootnodes_router_params().map_err(|e| format!("{:?}", e))?;
+    let params = yee_dev::get_bootnodes_router_params(cmd.dev_shard_count).map_err(|e| format!("{:?}", e))?;
 
     let mut shards = HashMap::new();
 

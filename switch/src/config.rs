@@ -71,7 +71,7 @@ impl From<SwitchConf> for yee_switch_rpc::Config {
 
 pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> error::Result<SwitchConf> {
     if cmd.dev_params {
-        return get_dev_config();
+        return get_dev_config(cmd);
     }
 
     let conf_path = conf_path(&base_path(cmd, version));
@@ -90,9 +90,9 @@ pub fn get_config(cmd: &SwitchCommandCmd, version: &VersionInfo) -> error::Resul
     Ok(conf)
 }
 
-fn get_dev_config() -> error::Result<SwitchConf> {
+fn get_dev_config(cmd: &SwitchCommandCmd) -> error::Result<SwitchConf> {
 
-    let params = yee_dev::get_switch_params().map_err(|e| format!("{:?}", e))?;
+    let params = yee_dev::get_switch_params(cmd.dev_shard_count).map_err(|e| format!("{:?}", e))?;
 
     let mut shards = HashMap::new();
 

@@ -60,6 +60,10 @@ pub struct SwitchCommandCmd {
     #[structopt( long = "mine")]
     pub mine: bool,
 
+    /// Shard count on dev mode
+    #[structopt(long = "dev-shard-count")]
+    pub dev_shard_count: Option<u16>,
+
 }
 
 impl substrate_cli::GetLogFilter for SwitchCommandCmd {

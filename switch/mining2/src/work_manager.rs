@@ -45,6 +45,7 @@ use std::iter::FromIterator;
 use std::ops::Add;
 use crate::error;
 use log::{info, debug};
+use futures::future::IntoFuture;
 
 const EXTRA_DATA : &str = "yee-switch";
 const RAW_WORK_LIFE: Duration = Duration::from_secs(60);
@@ -223,7 +224,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		Number: Send + Sync + Debug + DeserializeOwned + SerdeHex + Clone + 'static,
 		AuthorityId: Send + Sync + Debug + DeserializeOwned + Clone + 'static,
 		Hashing: HashT + Send + Sync + 'static,
-		Hashing::Output: Ord + DeserializeOwned,
+		Hashing::Output: Ord + DeserializeOwned + Send + Sync + 'static,
 {
 
 	pub fn new(config: Config) -> Self{
@@ -254,15 +255,34 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 				let shard = shard.clone();
 				let jobs = jobs.clone();
 
-				let task = Interval::new(Instant::now(), Duration::from_secs(1)).for_each(move |_instant| {
-					let job = Self::get_job_in_future(&shard);
-					debug!("Refresh job: config_shard_num: {}, job: {:?}", config_shard_num, job);
+				let get_job = Self::get_job_future(&shard).then(|job| {
 					match job {
 						Ok(job) => jobs.write().insert(config_shard_num, job),
 						Err(_e) => jobs.write().remove(&config_shard_num),
 					};
-
 					Ok(())
+				});
+
+				let task = Interval::new(Instant::now(), Duration::from_secs(1)).for_each(move |_instant| {
+
+//					Self::get_job_future(&shard).then(|job| {
+//						match job {
+//							Ok(job) => jobs.write().insert(config_shard_num, job),
+//							Err(_e) => jobs.write().remove(&config_shard_num),
+//						};
+//					})
+
+//					println!("{}", config_shard_num);
+//					let job = Self::get_job_in_future(&shard);
+//					println!("config_shard_num: {:?}, job: {:?}", config_shard_num, job);
+//					debug!("Refresh job: config_shard_num: {}, job: {:?}", config_shard_num, job);
+//					match job {
+//						Ok(job) => jobs.write().insert(config_shard_num, job),
+//						Err(_e) => jobs.write().remove(&config_shard_num),
+//					};
+
+					get_job
+
 				}).map_err(|e| warn!("{:?}", e));
 
 				executor.spawn(task);
@@ -400,19 +420,19 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		rx.recv_timeout(Duration::from_secs(3)).map_err(|e| format!("Get job error: {:?}", e).into())
 	}
 
-	fn get_job_in_future(shard: &Shard) -> error::Result<Job<Hashing::Output, Number, AuthorityId>> {
+	fn get_job_future(shard: &Shard) -> Box<dyn Future<Item=Job<Hashing::Output, Number, AuthorityId>, Error=error::Error>> {
 		let rpc = &shard.rpc;
 		let mut rng =rand::thread_rng();
 		let i = rng.gen_range(0, rpc.len());
 		let uri = rpc.get(i).expect("qed");
 		let method = "mining_getJob";
 
-		jsonrpc_core_client::transports::http::connect(uri)
+		Box::new(jsonrpc_core_client::transports::http::connect(uri)
 			.and_then(move |client: TypedClient| {
 				client.call_method(&method, "returns", ()).and_then(move |result| {
 					Ok(result)
 				})
-			}).map_err(|e| format!("Get job error: {:?}", e).into()).wait()
+			}).map_err(|e| format!("Get job error: {:?}", e).into()))
 	}
 
 	fn put_cache(cache: Arc<RwLock<HashMap<Hashing::Output, (RawWork<Number, AuthorityId, Hashing>, Instant)>>>, raw_work: RawWork<Number, AuthorityId, Hashing>) {

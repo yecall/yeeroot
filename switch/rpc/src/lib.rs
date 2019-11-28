@@ -25,12 +25,12 @@ mod client;
 use jsonrpc_core as rpc;
 use parity_codec::alloc::collections::HashMap;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Config{
     pub shards: HashMap<String, Shard>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Shard {
     pub rpc: Vec<String>,
 }
