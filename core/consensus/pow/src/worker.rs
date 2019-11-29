@@ -172,7 +172,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
                     };
                     block_import.import_block(import_block, Default::default())?;
 
-                    info!("{} @ {} {:?}", Colour::Blue.bold().paint("Block Mined"), header_num, hash);
+                    info!("{} @ {} {:?}", Colour::Green.bold().paint("Block mined"), header_num, hash);
                     return Ok(());
                 }
             }

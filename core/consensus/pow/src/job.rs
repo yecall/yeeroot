@@ -241,7 +241,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 				fork_choice: ForkChoiceStrategy::LongestChain,
 			};
 			block_import.import_block(import_block, Default::default())?;
-			info!("{} @ {} {:?}", Colour::Green.bold().paint("Block Mined"), number, hash);
+			info!("{} @ {} {:?}", Colour::Green.bold().paint("Block mined"), number, hash);
 			Ok(hash)
 		};
 
