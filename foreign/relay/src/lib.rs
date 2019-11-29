@@ -158,7 +158,7 @@ pub fn start_relay_transfer<F, C, A>(
                         let block_id = BlockId::number(finality_num.into());
                         let crfg_header = chain.client().header(&block_id).unwrap().unwrap();
                         let tag = (Compact(shard_num), Compact(finality_num), crfg_header.hash().as_ref().to_vec(), crfg_header.parent_hash().as_ref().to_vec()).encode();
-                        info!(target: "foreign-relay", "{}. shard_num: {}, number: {}", Colour::Green.paint("CRFG reached"), shard_num, finality_num);
+                        debug!(target: "foreign-relay", "{}. shard_num: {}, number: {}", Colour::Green.bold().paint("CRFG reached"), shard_num, finality_num);
                         pool.import_provides(once(tag));
                     } else {
                         error!(target: "foreign-relay", "Can't get finality-tracker log. shard number:{}, number: {}!", shard_num, number);

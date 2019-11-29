@@ -256,7 +256,7 @@ fn get_status<B: BlockT>(network_state: &NetworkState, client_info: &HashMap<u16
             None => "-".to_string(),
         };
         status.push_str(&format!("{} (peers: {}, best: {}) ",
-                                 Colour::White.bold().paint(&format!("Shard#{}", i)),
+                                 Colour::Green.bold().paint(&format!("Shard#{}", i)),
                                  peer_count,
                                  best_number,
         ));
