@@ -226,7 +226,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 						canon_hash: hash,
 						delay_kind: DelayKind::Best { median_last_finalized },
 					};
-					info!(target: "afg", "Force pending change: {:?}", pending_change);
+					debug!(target: "afg", "Force pending change: {:?}", pending_change);
 					Ok(Some(pending_change))
 				},
 			}
@@ -250,7 +250,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 						canon_hash: hash,
 						delay_kind: DelayKind::Finalized,
 					};
-					info!(target: "afg", "Standard pending change: {:?}", pending_change);
+					debug!(target: "afg", "Standard pending change: {:?}", pending_change);
 
 					Ok(Some(pending_change))
 				}
