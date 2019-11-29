@@ -133,7 +133,7 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
 }
 
 fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-    let code = include_bytes!("../prebuilt/yee_runtime/poc_testnet.wasm").to_vec();
+    let code = include_bytes!("../prebuilt/yee_runtime/pocnet.wasm").to_vec();
     testnet_template_genesis(
         endowed_accounts, code,
         primitives::U256::from(0x00003fff) << 224,
