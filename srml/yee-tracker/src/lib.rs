@@ -116,7 +116,6 @@ decl_module! {
 		fn write_finalized_log(origin, hint: T::FinalNum) {
 			ensure_inherent(origin)?;
 
-			//<FinalizedNumber<T>>::put(hint);
 			<Self as Store>::FinalizedNumber::put(hint);
 		}
 
