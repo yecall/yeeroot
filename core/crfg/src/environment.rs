@@ -135,9 +135,9 @@ impl<Block: BlockT<Hash=H256>, B, E, N, RA> grandpa::Chain<Block::Hash, NumberFo
 		}
 
 		let info = self.inner.backend().blockchain().info().expect("afg, Failed to get blockchain info.");
-		let latency = NumberFor::<Block>::sa(BLOCK_FINAL_LATENCY);
-		if info.best_number - info.finalized_number > latency {
-			let finalizing = self.inner.backend().blockchain().hash(info.best_number - latency).unwrap_or(None);
+		if info.best_number - info.finalized_number > NumberFor::<Block>::sa(BLOCK_FINAL_LATENCY) {
+			let increase_num = NumberFor::<Block>::sa(1);
+			let finalizing = self.inner.backend().blockchain().hash(info.finalized_number + increase_num).unwrap_or(None);
 			match finalizing {
 				Some(hash) => {
 					let finalizing_header = self.inner.header(&BlockId::Hash(hash)).unwrap_or(None);
