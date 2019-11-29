@@ -1,4 +1,4 @@
-FROM rust:1.36 AS builder
+FROM rust:1.39 AS builder
 
 RUN set -eux; \
     apt-get update; \
@@ -9,7 +9,7 @@ WORKDIR /yeeroot
 COPY . /yeeroot
 
 RUN mkdir -p /yeeroot/runtime/wasm/target/wasm32-unknown-unknown/release && \
-    ln -s ../../../../../prebuilt/yee_runtime/poc_testnet.wasm \
+    ln -s ../../../../../prebuilt/yee_runtime/pocnet.wasm \
         /yeeroot/runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm && \
     cargo build --release
 
@@ -28,7 +28,7 @@ RUN set -eux; \
 RUN mkdir -p /root/.local/share/YeeRoot && \
     ln -s /root/.local/share/YeeRoot /data
 
-EXPOSE 30333 9933 9944
+EXPOSE 30333 30334 9933 9944
 VOLUME ["/data"]
 
 CMD ["/usr/local/bin/yee"]

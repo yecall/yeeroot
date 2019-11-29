@@ -60,8 +60,6 @@ use util::relay_decode::RelayTransfer;
 use finality_tracker::FinalityTrackerDigestItem;
 use ansi_term::Colour;
 
-const MAX_BLOCK_INTERVAL: u64 = 2;   // TODO
-
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
