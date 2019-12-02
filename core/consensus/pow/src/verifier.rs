@@ -134,7 +134,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
                     return Err("Proof is invalid.".to_string());
                 }
                 // check proof self.
-                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_slice()) {
+                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_ref().unwrap().as_slice()) {
                     let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
                     if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
                         validate_proof = true;
