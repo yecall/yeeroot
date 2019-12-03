@@ -36,5 +36,9 @@ error_chain! {
 			description("shard not found"),
 			display("Shard not found"),
 		}
+		TargetNotAccpect {
+			description("target not accept"),
+			display("Target not accept"),
+		}
 	}
 }
