@@ -9,6 +9,6 @@ edition = "2018"
 [dependencies]
 parity-codec = "3.2"
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "zzq/fix" }
+merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
 primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 log = "0.4"

@@ -202,7 +202,7 @@ impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashin
 			MerkleTree::from_iter(item_list);
 
 		let work = Work{
-			merkle_root: merkle_tree.root().expect(""),
+			merkle_root: merkle_tree.root(),
 			extra_data: EXTRA_DATA.as_bytes().to_vec(),
 			target: max_target,
 			nonce: None,

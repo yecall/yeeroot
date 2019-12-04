@@ -123,7 +123,7 @@ impl MultiLayerProof {
     /// Layer two merkle root.
     pub fn layer2_root(&self) -> Option<ProofHash<BlakeTwo256>> {
         if self.layer2_merkle.is_some() {
-            return self.layer2_merkle.as_ref().unwrap().root();
+            return Some(self.layer2_merkle.as_ref().unwrap().root());
         }
         if self.layer2_proof.is_none() {
             return None;
