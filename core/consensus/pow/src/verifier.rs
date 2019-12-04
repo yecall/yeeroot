@@ -117,54 +117,38 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
             self.shard_extra.clone(),
         )?;
 
-        // TODO: verify body
-
         let proof_seal = seal.as_pow_seal().ok_or_else(|| {
             format!("Header {:?} not sealed", hash)
         })?;
         let p_h = proof_seal.relay_proof.clone();
 
         // check proof.
-        if let Some(proof) = proof.clone() {
-            let mut validate_proof = false;
-            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
-                // check proof root.
-                let root = mlp.layer2_root();
-                if root.is_none() || root.unwrap() != p_h {
-                    return Err("Proof is invalid.".to_string());
-                }
-                // check proof self.
-                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_ref().unwrap().as_slice()) {
-                    let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
-                    if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
-                        validate_proof = true;
-                    }
-                }
-            }
-            if !validate_proof {
+        match self.check_proof(proof.clone(), p_h) {
+            Err(e) => {
                 warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
-                return Err("Proof validate failed.".to_string());
-            } else {
-                debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
-            }
+                return Err(e);
+            },
+            Ok(()) => { debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone()); }
         }
         let mut res_proof = proof;
-        let foreign_chains = self.foreign_chains.clone();
-        // let client = self.client.clone();
-        let logs = pre_header.digest().logs();
-        if body.is_some() {
-            let exs = body.clone().unwrap();
-            // check proof root
-            let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
-            if root != p_h {
-                return Err("Proof is invalid.".to_string());
-            }
-            res_proof = Some(proof);
-            // check relay extrinsic.
-            let check_relay = self.check_relay_transfer(logs, exs);
-            if check_relay.is_err() {
-                return Err(check_relay.err().unwrap());
-            }
+        match body.as_ref() {
+            Some(exs) => {
+                /// TODO validate body
+
+                // check proof root
+                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
+                if root != p_h {
+                    return Err("Proof is invalid.".to_string());
+                }
+                res_proof = Some(proof);
+                let logs = pre_header.digest().logs();
+                // check relay extrinsic.
+                let check_relay = self.check_relay_transfer(logs, exs);
+                if check_relay.is_err() {
+                    return Err(check_relay.err().unwrap());
+                }
+            },
+            None => {}
         }
         if justification.is_some() {
             debug!("justification is some");
@@ -200,8 +184,31 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
 {
+    fn check_proof(&self, proof: Option<Proof>, p_h: H256) -> Result<(), String> {
+        if let Some(proof) = proof.clone() {
+            let mut validate_proof = false;
+            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
+                // check proof root.
+                let root = mlp.layer2_root();
+                if root.is_none() || root.unwrap() != p_h {
+                    return Err("Proof is invalid.".to_string());
+                }
+                // check proof self.
+                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_ref().unwrap().as_slice()) {
+                    let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
+                    if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
+                        validate_proof = true;
+                    }
+                }
+            }
+            if !validate_proof {
+                return Err("Proof validate failed.".to_string());
+            }
+        }
+        Ok(())
+    }
 
-    fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: Vec<<F::Block as Block>::Extrinsic>) -> Result<(), String> {
+    fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: &[<F::Block as Block>::Extrinsic]) -> Result<(), String> {
         let err = Err("Block contains invalid extrinsic.".to_string());
         let shard_info : Option<(u16, u16)> = logs.iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info)
@@ -246,7 +253,6 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
         Ok(())
     }
-
 }
 
 /// Check if block header has a valid POW target

@@ -122,16 +122,18 @@ impl MultiLayerProof {
 
     /// Layer two merkle root.
     pub fn layer2_root(&self) -> Option<ProofHash<BlakeTwo256>> {
-        if self.layer2_merkle.is_some() {
-            return Some(self.layer2_merkle.as_ref().unwrap().root());
+        if let Some(tree) = self.layer2_merkle.as_ref() {
+            return Some(tree.root());
         }
-        if self.layer2_proof.is_none() {
-            return None;
-        }
-        // check proof self.
-        if let Ok(mt_proof) = Proof::from_bytes(self.layer2_proof.as_ref().unwrap().as_slice()) {
-            let mt_proof: Proof<ProofHash<BlakeTwo256>> = mt_proof;
-            return Some(mt_proof.root());
+        match self.layer2_proof.as_ref() {
+            Some(proof)=>{
+                // check proof self.
+                if let Ok(mt_proof) = Proof::from_bytes(proof.as_slice()) {
+                    let mt_proof: Proof<ProofHash<BlakeTwo256>> = mt_proof;
+                     return Some(mt_proof.root());
+                }
+            },
+            None => {},
         }
         None
     }
