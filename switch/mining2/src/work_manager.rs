@@ -300,10 +300,84 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 
 		let shard_count = raw_work.shard_count;
 
-		let shard_jobs = &raw_work.shard_jobs;
-		let merkle_tree = &raw_work.merkle_tree.expect("qed");
+		let shard_jobs = raw_work.shard_jobs;
+		let merkle_tree = raw_work.merkle_tree.expect("qed");
 
-		let mut submit_job_futures = Vec::new();
+		let merkle_tree = Arc::new(merkle_tree);
+		let work = Arc::new(work);
+
+		let mut tasks = Vec::new();
+
+		for actual_shard_num in 0..shard_count {
+			if let Some((config_shard_num, job)) = shard_jobs.get(&actual_shard_num) {
+
+				let job_target = job.digest_item.pow_target;
+
+				let config_shard_num = config_shard_num.clone();
+				let job = job.clone();
+				let merkle_tree = merkle_tree.clone();
+				let work = work.clone();
+
+				let shard = Arc::new(self.config.shards.get(&format!("{}", config_shard_num)).expect("qed").to_owned());
+				let shard2 = shard.clone();
+
+				let jobs = self.jobs.clone();
+
+				let task = future::lazy(move ||{
+					debug!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job_target);
+
+					if nonce_target <= job_target {
+						let merkle_proof = merkle_tree.gen_proof(actual_shard_num as usize);
+
+						let merkle_proof = OriginalMerkleProof {
+							proof: merkle_proof,
+							num: actual_shard_num,
+							count: shard_count,
+						};
+						let merkle_proof: CompactMerkleProof<Hashing> = merkle_proof.into();
+
+						let job_result = JobResult {
+							hash: job.hash,
+							digest_item: ResultDigestItem {
+								work_proof: WorkProof::Multi(ProofMulti {
+									extra_data: work.extra_data.clone(),
+									merkle_root: work.merkle_root.clone(),
+									merkle_proof: merkle_proof.proof,
+									nonce,
+								})
+							}
+						};
+						future::ok(job_result)
+					} else{
+						future::err(error::Error::from(error::ErrorKind::TargetNotAccpect))
+					}
+				}).and_then( move |job_result| {
+					info!("New block mined: actual_shard_num: {}, config_shard_num: {}, nonce_target: {:#x}, job_target: {:#x}", actual_shard_num, config_shard_num, nonce_target, job_target);
+					Self::submit_job_future(&shard, job_result)
+				}).and_then(move |result| {
+					info!("Job submitted: actual_shard_num: {}, config_shard_num: {}, new_block_hash: {:?}", actual_shard_num, config_shard_num, result);
+					Delay::new(Instant::now().add(REFRESH_JOB_DELAY)).then(move |_| {
+						Self::get_job_future(&shard2).then(move |job| {
+							info!("Job refreshed: actual_shard_num: {}, config_shard_num: {}, job_hash: {:?}", actual_shard_num, config_shard_num, job.as_ref().map(|job|job.hash));
+							match job {
+								Ok(job) => jobs.write().insert(config_shard_num, job),
+								Err(_e) => jobs.write().remove(&config_shard_num),
+							};
+							Ok(())
+						})
+					})
+				});
+				tasks.push(task);
+
+			}
+		}
+
+		let task = future::join_all(tasks).map(|_|()).map_err(|e| warn!("{:?}", e));
+
+		tokio::run(task);
+
+		/*
+		let mut tasks = Vec::new();
 
 		for actual_shard_num in 0..shard_count {
 			if let Some((config_shard_num, job)) = shard_jobs.get(&actual_shard_num) {
@@ -320,7 +394,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 				let jobs = self.jobs.clone();
 				let job_target = job.digest_item.pow_target;
 
-				let submit_job_future = future::lazy(move ||{
+				let task = future::lazy(move ||{
 					debug!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job_target);
 
 					if nonce_target <= job_target {
@@ -364,13 +438,15 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 						})
 					})
 				});
-				submit_job_futures.push(submit_job_future);
+				tasks.push(task);
 			}
 		}
 
-		let task = future::join_all(submit_job_futures).map(|_|()).map_err(|e| warn!("{:?}", e));
+		let task = future::join_all(tasks).map(|_|()).map_err(|e| warn!("{:?}", e));
 
 		tokio::run(task);
+
+		*/
 
 		Ok(())
 	}
