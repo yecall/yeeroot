@@ -26,6 +26,7 @@ use futures::Stream;
 use yee_rpc::mining::primitives::{Job, JobResult, ResultDigestItem, WorkProof, ProofMulti};
 use serde::de::DeserializeOwned;
 use tokio::timer::Interval;
+use tokio::timer::Delay;
 use std::time::{Instant, Duration};
 use log::{warn};
 use parking_lot::RwLock;
@@ -45,10 +46,11 @@ use std::iter::FromIterator;
 use std::ops::Add;
 use crate::error;
 use log::{info, debug};
-use futures::future::IntoFuture;
+use futures::future;
 
 const EXTRA_DATA : &str = "yee-switch";
 const RAW_WORK_LIFE: Duration = Duration::from_secs(60);
+const REFRESH_JOB_DELAY: Duration = Duration::from_secs(2);
 
 pub trait WorkManager {
 	type Hashing: HashT;
@@ -143,7 +145,7 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 
 	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output>) -> error::Result<()>{
 
-		self.accept_work(&work)
+		self.accept_work(work)
 	}
 }
 
@@ -285,7 +287,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 
 	}
 
-	fn accept_work(&self, work: &Work<Hashing::Output>) -> error::Result<()> {
+	fn accept_work(&self, work: Work<Hashing::Output>) -> error::Result<()> {
 
 		let nonce = work.nonce.expect("qed");
 		let nonce_target = work.nonce_target.expect("qed");
@@ -298,64 +300,81 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 
 		let shard_count = raw_work.shard_count;
 
-		let shard_jobs = &raw_work.shard_jobs;
+		let shard_jobs = raw_work.shard_jobs;
+		let merkle_tree = raw_work.merkle_tree.expect("qed");
 
-		let merkle_tree = &raw_work.merkle_tree.expect("qed");
+		let merkle_tree = Arc::new(merkle_tree);
+		let work = Arc::new(work);
 
-		let mut mined_config_shard_num_list = Vec::new();
+		let mut tasks = Vec::new();
 
 		for actual_shard_num in 0..shard_count {
-			if let Some((config_shard_num, job)) =  shard_jobs.get(&actual_shard_num) {
+			if let Some((config_shard_num, job)) = shard_jobs.get(&actual_shard_num) {
 
-				debug!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job.digest_item.pow_target);
-				if nonce_target <= job.digest_item.pow_target {
+				let job_target = job.digest_item.pow_target;
 
-					let merkle_proof = merkle_tree.gen_proof(actual_shard_num as usize);
+				let config_shard_num = config_shard_num.clone();
+				let job = job.clone();
+				let merkle_tree = merkle_tree.clone();
+				let work = work.clone();
 
-					let merkle_proof = OriginalMerkleProof {
-						proof: merkle_proof,
-						num: actual_shard_num,
-						count: shard_count,
-					};
-					let merkle_proof : CompactMerkleProof<Hashing> = merkle_proof.into();
+				let shard = Arc::new(self.config.shards.get(&format!("{}", config_shard_num)).expect("qed").to_owned());
+				let shard2 = shard.clone();
 
-					let job_result = JobResult {
-						hash: job.hash,
-						digest_item: ResultDigestItem {
-							work_proof: WorkProof::Multi(ProofMulti {
-								extra_data: work.extra_data.clone(),
-								merkle_root: work.merkle_root.clone(),
-								merkle_proof: merkle_proof.proof,
-								nonce,
-							})
-						}
-					};
+				let jobs = self.jobs.clone();
 
-					match self.submit_job(*config_shard_num, job_result){
-						Ok(new_block_hash) => {
-							info!("New block mined: actual_shard_num: {}, config_shard_num: {}, new_block_hash: {:?}", actual_shard_num, config_shard_num, new_block_hash);
-							mined_config_shard_num_list.push(config_shard_num);
-						},
-						Err(e) => {
-							warn!("Submit job error: {:?}", e);
-						}
+				let task = future::lazy(move ||{
+					debug!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job_target);
+
+					if nonce_target <= job_target {
+						let merkle_proof = merkle_tree.gen_proof(actual_shard_num as usize);
+
+						let merkle_proof = OriginalMerkleProof {
+							proof: merkle_proof,
+							num: actual_shard_num,
+							count: shard_count,
+						};
+						let merkle_proof: CompactMerkleProof<Hashing> = merkle_proof.into();
+
+						let job_result = JobResult {
+							hash: job.hash,
+							digest_item: ResultDigestItem {
+								work_proof: WorkProof::Multi(ProofMulti {
+									extra_data: work.extra_data.clone(),
+									merkle_root: work.merkle_root.clone(),
+									merkle_proof: merkle_proof.proof,
+									nonce,
+								})
+							}
+						};
+						future::ok(job_result)
+					} else{
+						future::err(error::Error::from(error::ErrorKind::TargetNotAccpect))
 					}
+				}).and_then( move |job_result| {
+					info!("New block mined: actual_shard_num: {}, config_shard_num: {}, nonce_target: {:#x}, job_target: {:#x}", actual_shard_num, config_shard_num, nonce_target, job_target);
+					Self::submit_job_future(&shard, job_result)
+				}).and_then(move |result| {
+					info!("Job submitted: actual_shard_num: {}, config_shard_num: {}, new_block_hash: {:?}", actual_shard_num, config_shard_num, result);
+					Delay::new(Instant::now().add(REFRESH_JOB_DELAY)).then(move |_| {
+						Self::get_job_future(&shard2).then(move |job| {
+							info!("Job refreshed: actual_shard_num: {}, config_shard_num: {}, job_hash: {:?}", actual_shard_num, config_shard_num, job.as_ref().map(|job|job.hash));
+							match job {
+								Ok(job) => jobs.write().insert(config_shard_num, job),
+								Err(_e) => jobs.write().remove(&config_shard_num),
+							};
+							Ok(())
+						})
+					})
+				});
+				tasks.push(task);
 
-
-				}
 			}
 		}
 
-		// refresh job
-		for config_shard_num in mined_config_shard_num_list{
-			let job = self.get_job(*config_shard_num);
+		let task = future::join_all(tasks).map(|_|()).map_err(|e| warn!("{:?}", e));
 
-			debug!("Refresh job immediately: config_shard_num: {}, job: {:?}", config_shard_num, job);
-			match job {
-				Ok(job) => self.jobs.write().insert(*config_shard_num, job),
-				Err(_e) => self.jobs.write().remove(&config_shard_num),
-			};
-		}
+		tokio::run(task);
 
 		Ok(())
 	}
@@ -406,6 +425,22 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		tokio::run(task);
 
 		rx.recv_timeout(Duration::from_secs(3)).map_err(|e| format!("Get job error: {:?}", e).into())
+	}
+
+	fn submit_job_future(shard: &Shard, job_result: JobResult<Hashing::Output>)  -> Box<dyn Future<Item=Hashing::Output, Error=error::Error> + Send> {
+
+		let rpc = &shard.rpc;
+		let mut rng =rand::thread_rng();
+		let i = rng.gen_range(0, rpc.len());
+		let uri = rpc.get(i).expect("qed");
+		let method = "mining_submitJob";
+
+		Box::new(jsonrpc_core_client::transports::http::connect(uri)
+			.and_then(move |client: TypedClient| {
+				client.call_method(&method, "returns", (job_result, )).and_then(move |result| {
+					Ok(result)
+				})
+			}).map_err(|e| format!("Submit job error: {:?}", e).into()))
 	}
 
 	fn get_job_future(shard: &Shard) -> Box<dyn Future<Item=Job<Hashing::Output, Number, AuthorityId>, Error=error::Error> + Send> {
