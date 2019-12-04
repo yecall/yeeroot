@@ -133,7 +133,7 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::RelayExtrinsics(txs) => {
                 for tx in &txs {
                     let tx = tx.encode();
-                    if let Some(r_t) = RelayTransfer::<AccountId, u128, RuntimeHash>::decode(tx.clone()) {
+                    if let Some(r_t) = RelayTransfer::<AccountId, u128, RuntimeHash>::decode(tx.clone().as_slice()) {
                     } else {
                         continue;
                     }

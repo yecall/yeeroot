@@ -212,7 +212,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         let shard_info = shard_info.unwrap();
         let (tc, cs) = (shard_info.0, shard_info.1);
         for tx in exs {
-            let rt = RelayTransfer::decode(tx.encode());
+            let rt = RelayTransfer::decode(tx.encode().as_slice());
             if rt.is_some() {
                 let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
                 let h = rt.hash();

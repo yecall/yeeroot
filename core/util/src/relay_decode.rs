@@ -26,8 +26,8 @@ impl<Address, Balance> OriginTransfer<Address, Balance>
         Address: Decode + Default + Clone,
         Balance: Decode + Zero + Clone
 {
-    pub fn decode(data: Vec<u8>) -> Option<Self> {
-        let mut input = data.as_slice();
+    pub fn decode(data: &[u8]) -> Option<Self> {
+        let mut input = data;
         if input.len() < 64 + 1 + 1 {
             return None;
         }
@@ -152,8 +152,8 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
         Balance: Decode + Zero + Clone,
         Hash: Decode + Clone + Default,
 {
-    pub fn decode(data: Vec<u8>) -> Option<Self> {
-        let mut input = data.as_slice();
+    pub fn decode(data: &[u8]) -> Option<Self> {
+        let mut input = data;
         // length
         let _len: Vec<()> = match Decode::decode(&mut input) {
             Some(len) => len,
@@ -205,7 +205,7 @@ impl<Address, Balance, Hash> RelayTransfer<Address, Balance, Hash>
             None => return None
         };
         // decode origin transfer and build relay transfer
-        if let Some(ot) = OriginTransfer::decode(origin.clone()) {
+        if let Some(ot) = OriginTransfer::decode(origin.clone().as_slice()) {
             return Some(RelayTransfer {
                 transfer: ot,
                 number,
