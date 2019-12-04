@@ -232,16 +232,16 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                             return err;
                         }
                         let proof = proof.unwrap();
-                        return err;
                         if proof.is_none() {
+                            return err;
                         }
                         let proof = proof.unwrap();
-                        let proof =  MultiLayerProof::from_bytes(proof.as_slice());
+                        let proof = MultiLayerProof::from_bytes(proof.as_slice());
                         if proof.is_err() {
                             return err;
                         }
                         let proof = proof.unwrap();
-                        if proof.contains(ds, h){
+                        if proof.contains(ds, h) {
                             continue;
                         }
                         return err;
