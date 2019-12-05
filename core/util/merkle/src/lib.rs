@@ -8,6 +8,7 @@ use merkle_light::{
 };
 use parity_codec::{Encode, Decode};
 use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
+use log::error;
 
 #[derive(Debug, Clone)]
 pub struct ProofAlgorithm<H: HashT>(Vec<u8>, PhantomData<H>);
@@ -62,36 +63,51 @@ impl<H: HashT> Algorithm<ProofHash<H>> for ProofAlgorithm<H> {
 
 #[derive(Debug, Default, Clone, Encode, Decode)]
 pub struct MultiLayerProof {
-    pub layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
-    pub layer2_proof: Vec<u8>,
+    pub layer2_merkle: Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>,
+    pub layer2_proof: Option<Vec<u8>>,
     layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>,
 }
 
 impl MultiLayerProof {
-    /// construct a object
-    pub fn new(layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>,
-               layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
-               layer2_proof: Vec<u8>) -> Self {
+    /// construct a object with layer-2.
+    pub fn new_with_layer2(layer2_merkle: MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>,
+                           layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>) -> Self {
         Self {
-            layer2_merkle,
-            layer2_proof,
+            layer2_merkle: Some(layer2_merkle),
+            layer2_proof: None,
+            layer1_merkles,
+        }
+    }
+
+    /// construct a object with proof.
+    pub fn new_with_poof(layer2_proof: Vec<u8>, layer1_merkles: Vec<(u16, Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>)>) -> Self {
+        Self {
+            layer2_merkle: None,
+            layer2_proof: Some(layer2_proof),
             layer1_merkles,
         }
     }
 
     /// Gen proof for special shard_num.
     pub fn gen_proof(&self, shard_num: u16) -> Option<Self> {
+        if self.layer2_merkle.is_none() {
+            return None;
+        }
+        let tree = self.layer2_merkle.as_ref().unwrap();
         let shard_num = shard_num as usize;
-        if self.layer1_merkles.len() != self.layer2_merkle.leafs() || shard_num >= self.layer2_merkle.leafs() {
+        if self.layer1_merkles.len() != tree.leafs() || shard_num >= tree.leafs() {
             return None;
         }
         let mut result: MultiLayerProof = Default::default();
         let layer1 = self.layer1_merkles.get(shard_num);
-        result.layer2_proof = self.layer2_merkle.gen_proof(shard_num).into_bytes();
-        if let Some((num, data)) = layer1 {
-            result.layer1_merkles = vec![(*num, (*data).clone())];
-        }
-        Some(result)
+        let (num, data) = match layer1 {
+            Some((num, data)) => (num, data),
+            None => {
+                error!("failed to get special layer1 merkle tree");
+                return None;
+            }
+        };
+        Some(MultiLayerProof::new_with_poof(tree.gen_proof(shard_num).into_bytes(), vec![(*num, (*data).clone())]))
     }
 
     /// Turns a MultiLayerProof into the raw bytes.
@@ -106,20 +122,25 @@ impl MultiLayerProof {
 
     /// Layer two merkle root.
     pub fn layer2_root(&self) -> Option<ProofHash<BlakeTwo256>> {
-        if let Some(root) = self.layer2_merkle.root() {
-            return Some(root);
+        if let Some(tree) = self.layer2_merkle.as_ref() {
+            return Some(tree.root());
         }
-        // check proof self.
-        if let Ok(mt_proof) = Proof::from_bytes(self.layer2_proof.as_slice()) {
-            let mt_proof: Proof<ProofHash<BlakeTwo256>> = mt_proof;
-            return Some(mt_proof.root())
+        match self.layer2_proof.as_ref() {
+            Some(proof)=>{
+                // check proof self.
+                if let Ok(mt_proof) = Proof::from_bytes(proof.as_slice()) {
+                    let mt_proof: Proof<ProofHash<BlakeTwo256>> = mt_proof;
+                     return Some(mt_proof.root());
+                }
+            },
+            None => {},
         }
         None
     }
 
     /// Tries contains
     pub fn contains(&self, shard: u16, hash: ProofHash<BlakeTwo256>) -> bool {
-        for (num ,tr) in &self.layer1_merkles {
+        for (num, tr) in &self.layer1_merkles {
             if *num == shard {
                 if tr.is_some() {
                     return tr.as_ref().unwrap().contains(hash);

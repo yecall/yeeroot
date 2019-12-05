@@ -89,14 +89,14 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    C : ProvideRuntimeApi,
-    C : HeaderBackend<<F as ServiceFactory>::Block>,
-    C : BlockBody<<F as ServiceFactory>::Block>,
-    C : BlockchainEvents<<F as ServiceFactory>::Block>,
-    C : ChainHead<<F as ServiceFactory>::Block>,
+    C: ProvideRuntimeApi,
+    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: BlockBody<<F as ServiceFactory>::Block>,
+    C: BlockchainEvents<<F as ServiceFactory>::Block>,
+    C: ChainHead<<F as ServiceFactory>::Block>,
     <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
     H256: From<<F::Block as Block>::Hash>,
-    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
+    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
     fn verify(
         &self,
@@ -117,103 +117,41 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
             self.shard_extra.clone(),
         )?;
 
-        // TODO: verify body
-
         let proof_seal = seal.as_pow_seal().ok_or_else(|| {
             format!("Header {:?} not sealed", hash)
         })?;
         let p_h = proof_seal.relay_proof.clone();
 
         // check proof.
-        if let Some(proof) = proof.clone() {
-            let mut validate_proof = false;
-            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()){
-                // check proof root.
-                let root = mlp.layer2_root();
-                if root.is_none() || root.unwrap() != p_h {
-                    return Err("Proof is invalid.".to_string());
-                }
-                // check proof self.
-                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_slice()) {
-                    let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
-                    if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
-                        validate_proof = true;
-                    }
-                }
-            }
-            if !validate_proof {
+        match self.check_proof(proof.clone(), p_h) {
+            Err(e) => {
                 warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
-                return Err("Proof validate failed.".to_string());
-            } else {
-                debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone());
+                return Err(e);
             }
+            Ok(()) => { debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone()); }
         }
         let mut res_proof = proof;
-        let foreign_chains = self.foreign_chains.clone();
-        // let client = self.client.clone();
-        let digest = pre_header.digest().clone();
-        if body.is_some() {
-            let check_relay_extrinsic = move |exs: Vec<<F::Block as Block>::Extrinsic>| -> Result<(), String> {
-                let err = Err("Block contains invalid extrinsic.".to_string());
-                let shard_info : Option<(u16, u16)> = digest.logs().iter().rev()
-                    .filter_map(ShardingDigestItem::as_sharding_info)
-                    .next();
-                if shard_info.is_none() {
-                    return Err("Can't get shard info in header".to_string());
-                }
-                let shard_info = shard_info.unwrap();
-                let (tc, cs) = (shard_info.0, shard_info.1);
-                for tx in exs {
-                    let rt = RelayTransfer::decode(tx.encode());
-                    if rt.is_some() {
-                        let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
-                        let h = rt.hash();
-                        let id = generic::BlockId::hash(h);
-                        let src = rt.transfer.sender();
-                        if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16) {
-                            if let Some(lc) = foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
-                                let proof = lc.client().proof(&id);
-                                if proof.is_err() {
-                                    return err;
-                                }
-                                let proof = proof.unwrap();
-                                if proof.is_none() {
-                                    return err;
-                                }
-                                let proof = proof.unwrap();
-                                let proof =  MultiLayerProof::from_bytes(proof.as_slice());
-                                if proof.is_err() {
-                                    return err;
-                                }
-                                let proof = proof.unwrap();
-                                if proof.contains(ds, h){
-                                    continue;
-                                }
-                                return err;
-                            }
-                        }
-                        panic!("Internal error. Get shard num or component failed.");
-                    }
-                }
+        match body.as_ref() {
+            Some(exs) => {
+                /// TODO validate body
 
-                Ok(())
-            };
-
-            let exs = body.clone().unwrap();
-            // check proof root
-            let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
-            if root != p_h {
-                return Err("Proof is invalid.".to_string());
+                // check proof root
+                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
+                if root != p_h {
+                    return Err("Proof is invalid.".to_string());
+                }
+                res_proof = Some(proof);
+                let logs = pre_header.digest().logs();
+                // check relay extrinsic.
+                let check_relay = self.check_relay_transfer(logs, exs);
+                if check_relay.is_err() {
+                    return Err(check_relay.err().unwrap());
+                }
             }
-            res_proof = Some(proof);
-            // check relay extrinsic.
-            let check_relay : Result<(), String> = check_relay_extrinsic(exs);
-            if check_relay.is_err() {
-                return Err(check_relay.err().unwrap());
-            }
+            None => {}
         }
         if justification.is_some() {
-            info!("justification is some");
+            debug!("justification is some");
         }
         let import_block = ImportBlock {
             origin,
@@ -230,11 +168,91 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     }
 }
 
+impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> where
+    DigestItemFor<F::Block>: CompatibleDigestItem<F::Block, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<F::Block>, u16>,
+    C: Send + Sync,
+    AccountId: Decode + Encode + Clone + Send + Sync + Default,
+    AuthorityId: Decode + Encode + Clone + Send + Sync,
+    F: ServiceFactory + Send + Sync,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
+    C: ProvideRuntimeApi,
+    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: BlockBody<<F as ServiceFactory>::Block>,
+    C: BlockchainEvents<<F as ServiceFactory>::Block>,
+    C: ChainHead<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    H256: From<<F::Block as Block>::Hash>,
+    substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
+{
+    fn check_proof(&self, proof: Option<Proof>, p_h: H256) -> Result<(), String> {
+        if let Some(proof) = proof.clone() {
+            let mut validate_proof = false;
+            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()) {
+                // check proof root.
+                let checked = match mlp.layer2_root() {
+                    Some(root) => root == p_h,
+                    None => false
+                };
+                if !checked {
+                    return Err("Proof is invalid.".to_string());
+                }
+                // check proof self.
+                if let Ok(mt_proof) = MLProof::from_bytes(mlp.layer2_proof.as_ref().unwrap().as_slice()) {
+                    let mt_proof: MLProof<ProofHash<BlakeTwo256>> = mt_proof;
+                    if mt_proof.validate::<ProofAlgorithm<BlakeTwo256>>() {
+                        validate_proof = true;
+                    }
+                }
+            }
+            if !validate_proof {
+                return Err("Proof validate failed.".to_string());
+            }
+        }
+        Ok(())
+    }
+
+    fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: &[<F::Block as Block>::Extrinsic]) -> Result<(), String> {
+        let err_str = "Block contains invalid extrinsic.";
+        let shard_info: Option<(u16, u16)> = logs.iter().rev()
+            .filter_map(ShardingDigestItem::as_sharding_info)
+            .next();
+        let (tc, cs) = match shard_info {
+            Some(info) => info,
+            None => { return Err("Can't get shard info in header".to_string()); }
+        };
+        for tx in exs {
+            let rt = RelayTransfer::decode(tx.encode().as_slice());
+            if rt.is_some() {
+                let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
+                let h = rt.hash();
+                let id = generic::BlockId::hash(h);
+                let src = rt.transfer.sender();
+                if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16) {
+                    if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
+                        let proof = lc.client().proof(&id).map_err(|_| err_str)?;
+                        match proof {
+                            Some(proof) => {
+                                let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
+                                if proof.contains(ds, h) {
+                                    continue;
+                                }
+                            }
+                            None => { return Err(err_str.to_string()); }
+                        }
+                    }
+                }
+                panic!("Internal error. Get shard num or component failed.");
+            }
+        }
+        Ok(())
+    }
+}
+
 /// Check if block header has a valid POW target
 fn check_header<B, AccountId, AuthorityId>(
     mut header: B::Header,
     hash: B::Hash,
-    shard_extra: ShardExtra<AccountId>
+    shard_extra: ShardExtra<AccountId>,
 ) -> Result<(B::Header, DigestItemFor<B>), String> where
     B: Block,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
@@ -261,7 +279,7 @@ fn check_header<B, AccountId, AuthorityId>(
 
 pub fn check_shard_info<B, AccountId>(
     header: &B::Header,
-    shard_extra: ShardExtra<AccountId>
+    shard_extra: ShardExtra<AccountId>,
 ) -> Result<(), String> where
     B: Block,
     DigestItemFor<B>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
@@ -274,17 +292,15 @@ pub fn check_shard_info<B, AccountId>(
     let trigger_exit = shard_extra.trigger_exit;
 
     //check arg shard info and coinbase when scale out phase committed
-    if let Some(ScaleOutPhase::Committed {shard_num: scale_shard_num, shard_count: scale_shard_count}) = header.digest().logs().iter().rev()
+    if let Some(ScaleOutPhase::Committed { shard_num: scale_shard_num, shard_count: scale_shard_count }) = header.digest().logs().iter().rev()
         .filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase)
-        .next(){
-
-        let target_shard_num = match scale_out{
+        .next() {
+        let target_shard_num = match scale_out {
             Some(scale_out) => scale_out.shard_num,
             None => shard_num,
         };
 
         if shard_count != scale_shard_count {
-
             let coinbase_shard_num = shard_num_for(&coinbase, scale_shard_count).expect("qed");
             if target_shard_num != coinbase_shard_num {
                 warn!("Stop service for invalid arg coinbase");
@@ -297,11 +313,10 @@ pub fn check_shard_info<B, AccountId>(
 
             return Err(format!("Invalid arg shard info"));
         }
-
     }
 
     //check header shard info (normal or scaling)
-    let (header_shard_num, header_shard_count) : (u16, u16) = header.digest().logs().iter().rev()
+    let (header_shard_num, header_shard_count): (u16, u16) = header.digest().logs().iter().rev()
         .filter_map(ShardingDigestItem::as_sharding_info)
         .next().expect("non-genesis block always has shard info");
 
@@ -316,10 +331,9 @@ pub fn check_shard_info<B, AccountId>(
 }
 
 fn get_original_shard_num(shard_num: u16, shard_count: u16, original_shard_count: u16) -> Result<u16, String> {
-
     let mut shard_num = shard_num;
     let mut shard_count = shard_count;
-    while shard_count > original_shard_count{
+    while shard_count > original_shard_count {
         shard_count = shard_count / 2;
         shard_num = if shard_num >= shard_count { shard_num - shard_count } else { shard_num };
     }
@@ -333,12 +347,10 @@ fn get_original_shard_num(shard_num: u16, shard_count: u16, original_shard_count
 
 #[cfg(test)]
 mod tests {
-
     use crate::verifier::get_original_shard_num;
 
     #[test]
     fn test_get_original_shard_num() {
-
         assert_eq!(Ok(0), get_original_shard_num(0u16, 8u16, 8u16));
         assert_eq!(Ok(0), get_original_shard_num(0u16, 8u16, 4u16));
         assert_eq!(Ok(1), get_original_shard_num(1u16, 8u16, 4u16));
@@ -346,7 +358,5 @@ mod tests {
         assert_eq!(Ok(0), get_original_shard_num(4u16, 8u16, 4u16));
         assert_eq!(Ok(1), get_original_shard_num(13u16, 16u16, 4u16));
         assert_eq!(Err(format!("Invalid header shard info")), get_original_shard_num(5u16, 8u16, 16u16));
-
-
     }
 }

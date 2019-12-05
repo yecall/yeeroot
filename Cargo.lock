@@ -2048,7 +2048,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "merkle_light"
 version = "0.3.1"
-source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#d12152f57c781711f88a6f337fdce8e063b03510"
+source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#81d11e0c6dbd9a6b87c4d7c21aa9b9c1a52e302b"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
