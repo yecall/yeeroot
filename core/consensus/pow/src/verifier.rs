@@ -189,8 +189,11 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             let mut validate_proof = false;
             if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()) {
                 // check proof root.
-                let root = mlp.layer2_root();
-                if root.is_none() || root.unwrap() != p_h {
+                let checked = match mlp.layer2_root() {
+                    Some(root) => root == p_h,
+                    None => false
+                };
+                if !checked {
                     return Err("Proof is invalid.".to_string());
                 }
                 // check proof self.
