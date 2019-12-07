@@ -266,6 +266,7 @@ fn calc_pow_target<B, C, AuthorityId>(
 	<C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
 	AuthorityId: Encode + Decode + Clone,
 {
+	let next_num = *header.number();
 	let curr_block_id = BlockId::hash(*header.parent_hash());
 	let api = client.runtime_api();
 	let genesis_pow_target = api.genesis_pow_target(&curr_block_id)
@@ -275,9 +276,11 @@ fn calc_pow_target<B, C, AuthorityId>(
 	let curr_header = client.header(curr_block_id)
 		.expect("parent block must exist for sealer; qed")
 		.expect("parent block must exist for sealer; qed");
-
+	let one = <NumberFor<B> as As<u64>>::sa(1u64);
 	// not on adjustment, reuse parent pow target
-	if *header.number() % adj != Zero::zero() {
+	if next_num == one {
+		return Ok(genesis_pow_target)
+	} else if (next_num - one) % adj != Zero::zero() {
 		let curr_pow_target = curr_header.digest().logs().iter().rev()
 			.filter_map(CompatibleDigestItem::as_pow_seal).next()
 			.and_then(|seal| Some(seal.pow_target))
@@ -285,32 +288,49 @@ fn calc_pow_target<B, C, AuthorityId>(
 		return Ok(curr_pow_target);
 	}
 
-	let mut curr_header = curr_header;
-	let mut curr_seal = curr_header.digest().logs().iter().rev()
+	// let mut curr_header = curr_header;
+	let curr_seal = curr_header.digest().logs().iter().rev()
 		.filter_map(CompatibleDigestItem::as_pow_seal).next()
 		.expect("Seal must exist when adjustment comes; qed");
 	let curr_pow_target = curr_seal.pow_target;
-	let (last_num, last_time) = loop {
-		let prev_header = client.header(BlockId::hash(*curr_header.parent_hash()))
+//	let (last_num, last_time) = loop {
+//		let prev_header = client.header(BlockId::hash(*curr_header.parent_hash()))
+//			.expect("parent block must exist for sealer; qed")
+//			.expect("parent block must exist for sealer; qed");
+//		assert!(*prev_header.number() + One::one() == *curr_header.number());
+//		let prev_seal = prev_header.digest().logs().iter().rev()
+//			.filter_map(CompatibleDigestItem::as_pow_seal).next();
+//		if *prev_header.number() % adj == Zero::zero() {
+//			break (curr_header.number(), curr_seal.timestamp);
+//		}
+//		if let Some(prev_seal) = prev_seal {
+//			curr_header = prev_header;
+//			curr_seal = prev_seal;
+//		} else {
+//			break (curr_header.number(), curr_seal.timestamp);
+//		}
+//	};
+
+	let (block_gap, last_time) = {
+		let id = BlockId::<B>::number(next_num - adj);
+		let ancestor_header = client.header(id)
 			.expect("parent block must exist for sealer; qed")
 			.expect("parent block must exist for sealer; qed");
-		assert!(*prev_header.number() + One::one() == *curr_header.number());
-		let prev_seal = prev_header.digest().logs().iter().rev()
+		let ancestor_seal = ancestor_header.digest().logs().iter().rev()
 			.filter_map(CompatibleDigestItem::as_pow_seal).next();
-		if *prev_header.number() % adj == Zero::zero() {
-			break (curr_header.number(), curr_seal.timestamp);
-		}
-		if let Some(prev_seal) = prev_seal {
-			curr_header = prev_header;
-			curr_seal = prev_seal;
-		} else {
-			break (curr_header.number(), curr_seal.timestamp);
+		match ancestor_seal {
+			Some(seal) => {
+				(adj.as_(), seal.timestamp)
+			}
+			None => {
+				panic!("can't get PowSeal in pre-block's header")
+			}
 		}
 	};
 
 	let target_block_time = api.target_block_time(&curr_block_id)
 		.map_err(to_common_error)?;
-	let block_gap = As::<u64>::as_(*header.number() - *last_num);
+	// let block_gap = As::<u64>::as_(*header.number() - *last_num);
 	let time_gap = timestamp - last_time;
 	let expected_gap = target_block_time * 1000 * block_gap;
 	let new_pow_target = (curr_pow_target / expected_gap) * time_gap;
