@@ -288,28 +288,10 @@ fn calc_pow_target<B, C, AuthorityId>(
 		return Ok(curr_pow_target);
 	}
 
-	// let mut curr_header = curr_header;
 	let curr_seal = curr_header.digest().logs().iter().rev()
 		.filter_map(CompatibleDigestItem::as_pow_seal).next()
 		.expect("Seal must exist when adjustment comes; qed");
 	let curr_pow_target = curr_seal.pow_target;
-//	let (last_num, last_time) = loop {
-//		let prev_header = client.header(BlockId::hash(*curr_header.parent_hash()))
-//			.expect("parent block must exist for sealer; qed")
-//			.expect("parent block must exist for sealer; qed");
-//		assert!(*prev_header.number() + One::one() == *curr_header.number());
-//		let prev_seal = prev_header.digest().logs().iter().rev()
-//			.filter_map(CompatibleDigestItem::as_pow_seal).next();
-//		if *prev_header.number() % adj == Zero::zero() {
-//			break (curr_header.number(), curr_seal.timestamp);
-//		}
-//		if let Some(prev_seal) = prev_seal {
-//			curr_header = prev_header;
-//			curr_seal = prev_seal;
-//		} else {
-//			break (curr_header.number(), curr_seal.timestamp);
-//		}
-//	};
 
 	let (block_gap, last_time) = {
 		let id = BlockId::<B>::number(next_num - adj);
@@ -330,12 +312,11 @@ fn calc_pow_target<B, C, AuthorityId>(
 
 	let target_block_time = api.target_block_time(&curr_block_id)
 		.map_err(to_common_error)?;
-	// let block_gap = As::<u64>::as_(*header.number() - *last_num);
 	let time_gap = timestamp - last_time;
 	let expected_gap = target_block_time * 1000 * block_gap;
 	let new_pow_target = (curr_pow_target / expected_gap) * time_gap;
 	info!("pow target adjustment: gap: {}, time: {}", block_gap, time_gap);
-	info!("    new pow target: {:#x}", new_pow_target);
+	info!("old pow target: {:#x}, new pow target: {:#x}",curr_pow_target, new_pow_target);
 
 	Ok(new_pow_target)
 }
