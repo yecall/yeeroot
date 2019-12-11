@@ -309,7 +309,26 @@ impl<T: Trait> ProvideInherent for Module<T> {
         Some(Call::set_pow_info(data))
     }
 
-    fn check_inherent(_: &Self::Call, _: &InherentData) -> Result<(), Self::Error> {
+    fn check_inherent(_: &Self::Call, data: &InherentData) -> Result<(), Self::Error> {
+        let d = data.get_data(&INHERENT_IDENTIFIER)
+            .and_then(|r| r.ok_or_else(|| "YeePow inherent data not found".into()));
+        let d: InherentType<T::AccountId> = match d {
+            Ok(d) => d,
+            _ => return Ok(())
+        };
+
+        let shard = data.get_data(&sharding::INHERENT_IDENTIFIER)
+            .and_then(|r| r.ok_or_else(|| "Sharding inherent data not found".into()));
+        let shard: sharding::InherentType = match shard {
+            Ok(s) => s,
+            _ => return Ok(())
+        };
+
+        let shard_num = yee_sharding_primitives::utils::shard_num_for(&d.coinbase, shard.count).unwrap();
+
+        if shard_num != shard.num {
+            return Err(RuntimeString::from("shard and coinbase not match").into());
+        }
         Ok(())
     }
 }
