@@ -175,7 +175,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block> + YeePOWApi<<F as ServiceFactory>::Block>,
     AccountId: Codec + Send + Sync + Clone + Default + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,

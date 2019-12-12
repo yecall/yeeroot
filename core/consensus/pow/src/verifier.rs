@@ -38,6 +38,9 @@ use {
             NumberFor,
             BlakeTwo256,
             ProvideRuntimeApi,
+            Zero,
+            One,
+            As,
         },
     },
     substrate_service::{
@@ -55,9 +58,11 @@ use {
     util::relay_decode::RelayTransfer,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     yee_runtime::{AccountId, BalancesCall},
+    pow_primitives::YeePOWApi,
 };
 use super::CompatibleDigestItem;
-use crate::pow::{check_proof, gen_extrinsic_proof};
+use super::worker::to_common_error;
+use crate::pow::{PowSeal, check_proof, gen_extrinsic_proof};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
 use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
@@ -70,7 +75,7 @@ use ansi_term::Colour;
 use log::{debug, info, warn};
 use parking_lot::RwLock;
 use primitives::H256;
-use yee_runtime::BlockId;
+// use yee_runtime::BlockId;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -94,7 +99,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block> + YeePOWApi<<F as ServiceFactory>::Block>,
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
@@ -111,7 +116,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<F::Block, AccountId, AuthorityId>(
+        let (pre_header, seal) = self.check_header(
             header,
             hash.clone(),
             self.shard_extra.clone(),
@@ -175,12 +180,11 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    C: ProvideRuntimeApi,
-    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: ProvideRuntimeApi + HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block> + YeePOWApi<<F as ServiceFactory>::Block>,
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
@@ -246,35 +250,76 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         }
         Ok(())
     }
-}
 
-/// Check if block header has a valid POW target
-fn check_header<B, AccountId, AuthorityId>(
-    mut header: B::Header,
-    hash: B::Hash,
-    shard_extra: ShardExtra<AccountId>,
-) -> Result<(B::Header, DigestItemFor<B>), String> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-    AuthorityId: Decode + Encode + Clone,
-    AccountId: Encode + Decode + Clone,
-{
-    // pow work proof MUST be last digest item
-    let digest_item = match header.digest_mut().pop() {
-        Some(x) => x,
-        None => return Err(format!("")),
-    };
-    let seal = digest_item.as_pow_seal().ok_or_else(|| {
-        format!("Header {:?} not sealed", hash)
-    })?;
+    /// Check if block header has a valid POW target
+    fn check_header(&self, mut header: <F::Block as Block>::Header, hash: <F::Block as Block>::Hash, shard_extra: ShardExtra<AccountId>) -> Result<(<F::Block as Block>::Header, DigestItemFor<F::Block>), String> {
+        // pow work proof MUST be last digest item
+        let digest_item = match header.digest_mut().pop() {
+            Some(x) => x,
+            None => return Err(format!("")),
+        };
+        let seal = digest_item.as_pow_seal().ok_or_else(|| {
+            format!("Header {:?} not sealed", hash)
+        })?;
 
-    // TODO: check pow_target in seal
+        self.check_pow_target(&header, &seal)?;
 
-    check_shard_info::<B, AccountId>(&header, shard_extra)?;
+        check_shard_info::<F::Block, AccountId>(&header, shard_extra)?;
 
-    check_proof(&header, &seal)?;
+        check_proof(&header, &seal)?;
 
-    Ok((header, digest_item))
+        Ok((header, digest_item))
+    }
+
+    /// check pow_target in seal
+    fn check_pow_target(&self, header: &<F::Block as Block>::Header, seal: &PowSeal<F::Block, AuthorityId>) -> Result<(), String> {
+        let num = *header.number();
+        let parent_id = generic::BlockId::<F::Block>::hash(*header.parent_hash());
+        let api = self.client.runtime_api();
+        let one = One::one();
+        let genesis_pow_target = api.genesis_pow_target(&parent_id)
+            .map_err(|e| format!("{:?}", e))?;
+        let adj = api.pow_target_adj(&parent_id)
+            .map_err(|e| format!("{:?}", e))?;
+
+        let pow_target = if num == one {
+            genesis_pow_target
+        } else {
+            // in same period
+            if (num - one) % adj != Zero::zero() {
+                header.digest().logs().iter().rev()
+                    .filter_map(CompatibleDigestItem::as_pow_seal).next()
+                    .and_then(|seal| Some(seal.pow_target))
+                    .unwrap_or(genesis_pow_target)
+            } else { // change pow difficulty
+                let parent = self.client.header(parent_id)
+                    .expect("parent block must exist for sealer; qed")
+                    .expect("parent block must exist for sealer; qed");
+                let parent_seal = parent.digest().logs().iter().rev()
+                    .filter_map(CompatibleDigestItem::as_pow_seal).next()
+                    .expect("Seal must exist when adjustment comes; qed");
+                let ancestor_id = generic::BlockId::<F::Block>::number(num - adj);
+                let ancestor_header = self.client.header(ancestor_id)
+                    .expect("parent block must exist for sealer; qed")
+                    .expect("parent block must exist for sealer; qed");
+                let ancestor_seal = ancestor_header.digest().logs().iter().rev()
+                    .filter_map(CompatibleDigestItem::as_pow_seal).next()
+                    .expect("Seal must exist when adjustment comes; qed");
+
+                let parent_time = api.target_block_time(&parent_id)
+                    .map_err(|e| format!("{:?}", e))?;
+                let time_gap = parent_seal.timestamp - ancestor_seal.timestamp;
+                let block_gap = adj.as_();
+                let expected_gap = parent_time * 1000 * block_gap;
+                (parent_seal.pow_target / expected_gap) * time_gap
+            }
+        };
+        if pow_target == seal.pow_target {
+            return Ok(());
+        } else {
+            return Err("pow target validate failed".to_string());
+        }
+    }
 }
 
 pub fn check_shard_info<B, AccountId>(
