@@ -262,7 +262,13 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             format!("Header {:?} not sealed", hash)
         })?;
 
-        self.check_pow_target(&header, &seal)?;
+        match self.check_pow_target(&header, &seal) {
+            Err(err) => {
+                warn!("validate pow target failed. {}", err);
+                return Err(err);
+            }
+            _ => {}
+        }
 
         check_shard_info::<F::Block, AccountId>(&header, shard_extra)?;
 

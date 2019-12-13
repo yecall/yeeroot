@@ -16,18 +16,20 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 //! POW work proof used in block header digest
-
+use std::sync::Arc;
+use std::fmt::Debug;
 use std::collections::hash_map::HashMap;
 use runtime_primitives::{
     codec::{
         Decode, Encode,
     },
-    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT, BlakeTwo256},
+    traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT, BlakeTwo256,
+             Zero, One, As, SimpleArithmetic, ProvideRuntimeApi, NumberFor},
+    generic::BlockId,
     Proof as ExtrinsicProof,
 };
-use {
-    pow_primitives::PowTarget,
-};
+use client::blockchain::HeaderBackend;
+use pow_primitives::{PowTarget, YeePOWApi};
 use crate::CompatibleDigestItem;
 use yee_sharding::ShardingDigestItem;
 use log::{debug, info};
@@ -215,6 +217,76 @@ pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Authori
             Ok((post_digest, hash))
         }
     }
+}
+
+fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
+    consensus_common::ErrorKind::ClientImport(format!("{:?}", e)).into()
+}
+
+/// calculate pow target
+pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>::Header, timestamp: u64)
+    -> Result<PowTarget, consensus_common::Error> where
+    B: Block,
+    NumberFor<B>: SimpleArithmetic,
+    DigestFor<B>: Digest,
+    DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId>,
+    C: HeaderBackend<B> + ProvideRuntimeApi,
+    <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
+    AuthorityId: Encode + Decode + Clone,
+{
+    let next_num = *header.number();
+    let curr_block_id = BlockId::hash(*header.parent_hash());
+    let api = client.runtime_api();
+    let genesis_pow_target = api.genesis_pow_target(&curr_block_id)
+        .map_err(to_common_error)?;
+    let adj = api.pow_target_adj(&curr_block_id)
+        .map_err(to_common_error)?;
+    let curr_header = client.header(curr_block_id)
+        .expect("parent block must exist for sealer; qed")
+        .expect("parent block must exist for sealer; qed");
+    let one = <NumberFor<B> as As<u64>>::sa(1u64);
+    // not on adjustment, reuse parent pow target
+    if next_num == one {
+        return Ok(genesis_pow_target)
+    } else if (next_num - one) % adj != Zero::zero() {
+        let curr_pow_target = curr_header.digest().logs().iter().rev()
+            .filter_map(CompatibleDigestItem::as_pow_seal).next()
+            .and_then(|seal| Some(seal.pow_target))
+            .unwrap_or(genesis_pow_target);
+        return Ok(curr_pow_target);
+    }
+
+    let curr_seal = curr_header.digest().logs().iter().rev()
+        .filter_map(CompatibleDigestItem::as_pow_seal).next()
+        .expect("Seal must exist when adjustment comes; qed");
+    let curr_pow_target = curr_seal.pow_target;
+
+    let (block_gap, last_time) = {
+        let id = BlockId::<B>::number(next_num - adj);
+        let ancestor_header = client.header(id)
+            .expect("parent block must exist for sealer; qed")
+            .expect("parent block must exist for sealer; qed");
+        let ancestor_seal = ancestor_header.digest().logs().iter().rev()
+            .filter_map(CompatibleDigestItem::as_pow_seal).next();
+        match ancestor_seal {
+            Some(seal) => {
+                (adj.as_(), seal.timestamp)
+            }
+            None => {
+                panic!("can't get PowSeal in pre-block's header")
+            }
+        }
+    };
+
+    let target_block_time = api.target_block_time(&curr_block_id)
+        .map_err(to_common_error)?;
+    let time_gap = timestamp - last_time;
+    let expected_gap = target_block_time * 1000 * block_gap;
+    let new_pow_target = (curr_pow_target / expected_gap) * time_gap;
+    info!("pow target adjustment: gap: {}, time: {}", block_gap, time_gap);
+    info!("old pow target: {:#x}, new pow target: {:#x}",curr_pow_target, new_pow_target);
+
+    Ok(new_pow_target)
 }
 
 /// Gen extrinsic proof for foreign chain.
