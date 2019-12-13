@@ -62,7 +62,7 @@ use {
 };
 use super::CompatibleDigestItem;
 use super::worker::to_common_error;
-use crate::pow::{PowSeal, check_proof, gen_extrinsic_proof};
+use crate::pow::{PowSeal, check_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
 use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
@@ -279,52 +279,11 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
     /// check pow_target in seal
     fn check_pow_target(&self, header: &<F::Block as Block>::Header, seal: &PowSeal<F::Block, AuthorityId>) -> Result<(), String> {
-        let num = *header.number();
-        let parent_id = generic::BlockId::<F::Block>::hash(*header.parent_hash());
-        let api = self.client.runtime_api();
-        let one = One::one();
-        let genesis_pow_target = api.genesis_pow_target(&parent_id)
-            .map_err(|e| format!("{:?}", e))?;
-        let adj = api.pow_target_adj(&parent_id)
-            .map_err(|e| format!("{:?}", e))?;
-
-        let pow_target = if num == one {
-            genesis_pow_target
-        } else {
-            // in same period
-            if (num - one) % adj != Zero::zero() {
-                header.digest().logs().iter().rev()
-                    .filter_map(CompatibleDigestItem::as_pow_seal).next()
-                    .and_then(|seal| Some(seal.pow_target))
-                    .unwrap_or(genesis_pow_target)
-            } else { // change pow difficulty
-                let parent = self.client.header(parent_id)
-                    .expect("parent block must exist for sealer; qed")
-                    .expect("parent block must exist for sealer; qed");
-                let parent_seal = parent.digest().logs().iter().rev()
-                    .filter_map(CompatibleDigestItem::as_pow_seal).next()
-                    .expect("Seal must exist when adjustment comes; qed");
-                let ancestor_id = generic::BlockId::<F::Block>::number(num - adj);
-                let ancestor_header = self.client.header(ancestor_id)
-                    .expect("parent block must exist for sealer; qed")
-                    .expect("parent block must exist for sealer; qed");
-                let ancestor_seal = ancestor_header.digest().logs().iter().rev()
-                    .filter_map(CompatibleDigestItem::as_pow_seal).next()
-                    .expect("Seal must exist when adjustment comes; qed");
-
-                let parent_time = api.target_block_time(&parent_id)
-                    .map_err(|e| format!("{:?}", e))?;
-                let time_gap = parent_seal.timestamp - ancestor_seal.timestamp;
-                let block_gap = adj.as_();
-                let expected_gap = parent_time * 1000 * block_gap;
-                (parent_seal.pow_target / expected_gap) * time_gap
-            }
-        };
-        if pow_target == seal.pow_target {
-            return Ok(());
-        } else {
-            return Err("pow target validate failed".to_string());
+        let pow_target = calc_pow_target(self.client.clone(), header, seal.timestamp).map_err(|e| format!("{:?}", e))?;
+        if seal.pow_target != pow_target {
+            return Err("check pow target failed.".to_string());
         }
+        Ok(())
     }
 }
 
