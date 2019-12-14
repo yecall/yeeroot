@@ -237,10 +237,11 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
     let next_num = *header.number();
     let curr_block_id = BlockId::hash(*header.parent_hash());
     let api = client.runtime_api();
-    let genesis_pow_target = api.genesis_pow_target(&curr_block_id)
-        .map_err(to_common_error)?;
-    let adj = api.pow_target_adj(&curr_block_id)
-        .map_err(to_common_error)?;
+    let zero_id = BlockId::number(<NumberFor<B> as As<u64>>::sa(0u64));
+    let genesis_pow_target = api.genesis_pow_target(&zero_id);
+    let genesis_pow_target = genesis_pow_target.map_err(to_common_error)?;
+    let adj = api.pow_target_adj(&zero_id);
+    let adj = adj.map_err(to_common_error)?;
     let curr_header = client.header(curr_block_id)
         .expect("parent block must exist for sealer; qed")
         .expect("parent block must exist for sealer; qed");
@@ -278,8 +279,8 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
         }
     };
 
-    let target_block_time = api.target_block_time(&curr_block_id)
-        .map_err(to_common_error)?;
+    let target_block_time = api.target_block_time(&curr_block_id);
+    let target_block_time = target_block_time.map_err(to_common_error)?;
     let time_gap = timestamp - last_time;
     let expected_gap = target_block_time * 1000 * block_gap;
     let new_pow_target = (curr_pow_target / expected_gap) * time_gap;

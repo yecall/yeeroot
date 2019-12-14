@@ -19,6 +19,7 @@
 
 use {
     std::{marker::PhantomData, sync::Arc},
+    std::collections::hash_map::HashMap,
 };
 use {
     consensus_common::{
@@ -75,7 +76,6 @@ use ansi_term::Colour;
 use log::{debug, info, warn};
 use parking_lot::RwLock;
 use primitives::H256;
-// use yee_runtime::BlockId;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -94,8 +94,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    C: ProvideRuntimeApi,
-    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: HeaderBackend<<F as ServiceFactory>::Block> + ProvideRuntimeApi,
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
