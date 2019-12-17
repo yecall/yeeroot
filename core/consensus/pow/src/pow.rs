@@ -113,7 +113,7 @@ pub struct ProofMulti<B: Block> {
 /// Check proof
 ///
 /// Returns (post_digest, hash)
-pub fn check_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, AuthorityId>) -> Result<(DigestItemFor<B>, B::Hash), String> where
+pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, AuthorityId>) -> Result<(DigestItemFor<B>, B::Hash), String> where
     B: Block,
     AuthorityId: Decode + Encode + Clone,
     DigestFor<B>: Digest,

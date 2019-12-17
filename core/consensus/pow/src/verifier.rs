@@ -63,7 +63,7 @@ use {
 };
 use super::CompatibleDigestItem;
 use super::worker::to_common_error;
-use crate::pow::{PowSeal, check_proof, gen_extrinsic_proof, calc_pow_target};
+use crate::pow::{PowSeal, check_work_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
 use crate::{TriggerExit, ScaleOut, ShardExtra};
 use std::thread::sleep;
@@ -112,50 +112,19 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     ) -> Result<(ImportBlock<F::Block>, Option<Vec<AuthorityIdFor<F::Block>>>), String> {
         let number = header.number().clone();
         let hash = header.hash();
-        let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = self.check_header(
-            header,
-            hash.clone(),
-            self.shard_extra.clone(),
-        )?;
-
-        let proof_seal = seal.as_pow_seal().ok_or_else(|| {
-            format!("Header {:?} not sealed", hash)
-        })?;
-        let p_h = proof_seal.relay_proof.clone();
-
+        let (pre_header, seal) = self.check_header(header, hash.clone(), self.shard_extra.clone())?;
+        let proof_root = seal.as_pow_seal().ok_or_else(|| { format!("Header {:?} not sealed", hash) })?.relay_proof;
         // check proof.
-        match self.check_proof(proof.clone(), p_h) {
-            Err(e) => {
-                warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
-                return Err(e);
-            }
-            Ok(()) => { debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone()); }
-        }
-        let mut res_proof = proof;
-        match body.as_ref() {
-            Some(exs) => {
-                /// TODO validate body
+        self.check_relay_merkle_proof(proof.clone(), proof_root)
+            .map_err(|e|  {warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone()); e})?;
 
-                // check proof root
-                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
-                if root != p_h {
-                    return Err("Proof is invalid.".to_string());
-                }
-                res_proof = Some(proof);
-                let logs = pre_header.digest().logs();
-                // check relay extrinsic.
-                let check_relay = self.check_relay_transfer(logs, exs);
-                if check_relay.is_err() {
-                    return Err(check_relay.err().unwrap());
-                }
-            }
-            None => {}
-        }
-        if justification.is_some() {
-            debug!("justification is some");
+        let mut res_proof = proof;
+        // check body if not none
+        match self.check_body(&body, &pre_header, proof_root)? {
+            Some(p) => res_proof = Some(p),
+            None =>{}
         }
         let import_block = ImportBlock {
             origin,
@@ -187,10 +156,31 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
-    fn check_proof(&self, proof: Option<Proof>, p_h: H256) -> Result<(), String> {
-        if let Some(proof) = proof.clone() {
+    /// check body
+    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<Option<Proof>, String> {
+        match body.as_ref() {
+            Some(exs) => {
+                /// TODO validate body
+
+                // check proof root
+                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
+                if root != proof_root {
+                    return Err("Proof is invalid.".to_string());
+                }
+                // check relay extrinsic.
+                self.check_relay_transfer(pre_header.digest().logs(), exs)?;
+                return Ok(Some(proof));
+            }
+            None => {}
+        }
+        Ok(None)
+    }
+
+    /// check relay transfer merkle proof
+    fn check_relay_merkle_proof(&self, proof: Option<Proof>, p_h: H256) -> Result<(), String> {
+        if let Some(proof) = proof.as_ref() {
             let mut validate_proof = false;
-            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()) {
+            if let Ok(mlp) = MultiLayerProof::from_bytes(proof) {
                 // check proof root.
                 let checked = match mlp.layer2_root() {
                     Some(root) => root == p_h,
@@ -214,6 +204,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         Ok(())
     }
 
+    /// chekc relay transfer
     fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: &[<F::Block as Block>::Extrinsic]) -> Result<(), String> {
         let err_str = "Block contains invalid extrinsic.";
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
@@ -271,7 +262,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
         check_shard_info::<F::Block, AccountId>(&header, shard_extra)?;
 
-        check_proof(&header, &seal)?;
+        check_work_proof(&header, &seal)?;
 
         Ok((header, digest_item))
     }

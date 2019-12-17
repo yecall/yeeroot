@@ -56,7 +56,7 @@ use log::info;
 use {
 	pow_primitives::{YeePOWApi, PowTarget},
 };
-use crate::pow::{check_proof, gen_extrinsic_proof, calc_pow_target};
+use crate::pow::{check_work_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::verifier::check_shard_info;
 use primitives::H256;
@@ -225,7 +225,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 
 		let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
 			let number = &job.header.number().clone();
-			let (post_digest, hash) = check_proof(&job.header, &job.digest_item)?;
+			let (post_digest, hash) = check_work_proof(&job.header, &job.digest_item)?;
 
 			check_shard_info::<B, AccountId>(&job.header, self.shard_extra.clone())?;
 
