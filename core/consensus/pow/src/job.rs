@@ -58,7 +58,7 @@ use {
 };
 use crate::pow::{check_work_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
-use crate::verifier::check_shard_info;
+use crate::verifier::check_scale;
 use primitives::H256;
 use ansi_term::Colour;
 
@@ -227,7 +227,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 			let number = &job.header.number().clone();
 			let (post_digest, hash) = check_work_proof(&job.header, &job.digest_item)?;
 
-			check_shard_info::<B, AccountId>(&job.header, self.shard_extra.clone())?;
+			check_scale::<B, AccountId>(&job.header, self.shard_extra.clone())?;
 
 			let import_block: ImportBlock<B> = ImportBlock {
 				origin: BlockOrigin::Own,

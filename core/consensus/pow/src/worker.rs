@@ -50,7 +50,7 @@ use crate::job::{JobManager, DefaultJob};
 use crate::pow::check_work_proof;
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::ShardExtra;
-use crate::verifier::check_shard_info;
+use crate::verifier::check_scale;
 use primitives::H256;
 use ansi_term::Colour;
 
@@ -157,7 +157,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
 
                 if let Ok((post_digest, hash)) = check_work_proof(&header, &seal){
 
-                    check_shard_info::<B, AccountId>(&header, shard_extra)?;
+                    check_scale::<B, AccountId>(&header, shard_extra)?;
 
                     let import_block: ImportBlock<B> = ImportBlock {
                         origin: BlockOrigin::Own,

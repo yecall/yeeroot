@@ -118,13 +118,16 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let proof_root = seal.as_pow_seal().ok_or_else(|| { format!("Header {:?} not sealed", hash) })?.relay_proof;
         // check proof.
         self.check_relay_merkle_proof(proof.clone(), proof_root)
-            .map_err(|e|  {warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone()); e})?;
+            .map_err(|e| {
+                warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
+                e
+            })?;
 
         let mut res_proof = proof;
         // check body if not none
         match self.check_body(&body, &pre_header, proof_root)? {
             Some(p) => res_proof = Some(p),
-            None =>{}
+            None => {}
         }
         let import_block = ImportBlock {
             origin,
@@ -260,7 +263,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             _ => {}
         }
 
-        check_shard_info::<F::Block, AccountId>(&header, shard_extra)?;
+        self.check_shard_info(&header)?;
 
         check_work_proof(&header, &seal)?;
 
@@ -275,9 +278,120 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         }
         Ok(())
     }
+
+    fn check_shard_info(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
+        let (digest_shard_num, digest_shard_count): (u16, u16) = header.digest().logs().iter().rev()
+            .filter_map(ShardingDigestItem::as_sharding_info).next()
+            .expect("shard info must exist");
+        let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+            .expect("parent header must exist.")
+            .expect("parent header must exist.");
+        let (p_digest_shard_num, p_digest_shard_count): (u16, u16) = parent.digest().logs().iter().rev()
+            .filter_map(ShardingDigestItem::as_sharding_info).next()
+            .expect("sharding digest item must exist");
+
+        let ok = match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+            Some(ScaleOutPhase::Started{observe_util:p_observe_util, shard_num: p_shard_num}) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started{observe_util:observe_util, shard_num:shard_num}) => {
+                        p_observe_util == observe_util && p_shard_num == shard_num && p_shard_num % digest_shard_count == digest_shard_num//todo
+                    }
+                    Some(ScaleOutPhase::NativeReady{observe_util:observe_util, shard_num:shard_num}) => {
+                        p_observe_util == observe_util && p_shard_num == shard_num
+                    }
+                    None => true,
+                    _ => false
+                }
+            }
+            Some(ScaleOutPhase::NativeReady {observe_util:p_observe_util, shard_num: p_shard_num}) => {
+
+            }
+            Some(ScaleOutPhase::Ready {observe_util:p_observe_util, shard_num: p_shard_num}) => {
+
+            }
+            Some(ScaleOutPhase::Commiting { shard_count: shard_count }) => {
+
+            }
+            _ => true
+        };
+
+        match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+            Some(ScaleOutPhase::Started) => {
+
+                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started) | None => {},
+                    _ => return Err("check_shard_info failed.".to_string())
+                };
+            }
+            Some(ScaleOutPhase::NativeReady) => {
+                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+                    .expect("parent header must exist.")
+                    .expect("parent header must exist.");
+                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started) | Some(ScaleOutPhase::NativeReady) | None => {},
+                    _ => return Err("check_shard_info failed.".to_string())
+                };
+            }
+            Some(ScaleOutPhase::Ready) => {
+                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+                    .expect("parent header must exist.")
+                    .expect("parent header must exist.");
+                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started) | Some(ScaleOutPhase::NativeReady) | Some(ScaleOutPhase::Ready) | None => {},
+                    _ => return Err("check_shard_info failed.".to_string())
+                };
+            }
+            Some(ScaleOutPhase::Commiting) => {
+                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+                    .expect("parent header must exist.")
+                    .expect("parent header must exist.");
+                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Ready) => {},
+                    _ => return Err("check_shard_info failed.".to_string())
+                };
+            }
+            Some(ScaleOutPhase::Committed) => {
+                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+                    .expect("parent header must exist.")
+                    .expect("parent header must exist.");
+                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Commiting) => {},
+                    _ => return Err("check_shard_info failed.".to_string())
+                };
+            }
+            None => {
+                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+                    .expect("parent header must exist.")
+                    .expect("parent header must exist.");
+                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Commiting) => return Err("check_shard_info failed.".to_string()),
+                    _ => {}
+                };
+            }
+            _ => {}
+        }
+
+        // check scale
+        check_scale::<F::Block, AccountId>(header, self.shard_extra.clone())?;
+
+        //check header shard info (normal or scaling)
+        let (header_shard_num, header_shard_count): (u16, u16) = header.digest().logs().iter().rev()
+            .filter_map(ShardingDigestItem::as_sharding_info)
+            .next().expect("non-genesis block always has shard info");
+
+        let original_shard_num = get_original_shard_num(self.shard_extra.shard_num, self.shard_extra.shard_count, header_shard_count)?;
+        if header_shard_num != original_shard_num {
+            return Err(format!("Invalid header shard info"));
+        }
+
+        // TODO: check shard info other criteria
+
+        Ok(())
+    }
 }
 
-pub fn check_shard_info<B, AccountId>(
+/// check scale
+pub fn check_scale<B, AccountId>(
     header: &B::Header,
     shard_extra: ShardExtra<AccountId>,
 ) -> Result<(), String> where
@@ -314,18 +428,6 @@ pub fn check_shard_info<B, AccountId>(
             return Err(format!("Invalid arg shard info"));
         }
     }
-
-    //check header shard info (normal or scaling)
-    let (header_shard_num, header_shard_count): (u16, u16) = header.digest().logs().iter().rev()
-        .filter_map(ShardingDigestItem::as_sharding_info)
-        .next().expect("non-genesis block always has shard info");
-
-    let original_shard_num = get_original_shard_num(shard_num, shard_count, header_shard_count)?;
-    if header_shard_num != original_shard_num {
-        return Err(format!("Invalid header shard info"));
-    }
-
-    // TODO: check shard info other criteria
 
     Ok(())
 }
