@@ -28,12 +28,11 @@ use {
     },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
-        AccountId, AuthorityId, AuthoritySignature,
+        AccountId,
     },
     yee_rpc::{FullRpcHandlerConstructor, LightRpcHandlerConstructor},
     yee_sharding::identify_specialization::ShardingIdentifySpecialization,
 };
-use yee_primitives::{AddressCodec};
 use substrate_cli::{TriggerExit};
 use sharding_primitives::ScaleOut;
 

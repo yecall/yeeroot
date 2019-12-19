@@ -24,7 +24,7 @@ use runtime_primitives::{
         Decode, Encode,
     },
     traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT, BlakeTwo256,
-             Zero, One, As, SimpleArithmetic, ProvideRuntimeApi, NumberFor},
+             Zero, As, SimpleArithmetic, ProvideRuntimeApi, NumberFor},
     generic::BlockId,
     Proof as ExtrinsicProof,
 };
@@ -38,7 +38,6 @@ use std::hash::Hasher;
 use merkle_light::hash::Algorithm;
 use merkle_light::proof::Proof;
 use merkle_light::merkle::MerkleTree;
-use yee_srml_executive::decode::RelayTransfer;
 use yee_runtime::{Call, BalancesCall, UncheckedExtrinsic};
 use yee_sharding_primitives::utils::shard_num_for;
 use primitives::{Blake2Hasher, H256};

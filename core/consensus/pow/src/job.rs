@@ -40,8 +40,7 @@ use {
 	},
 	inherents::InherentDataProviders,
 	runtime_primitives::{
-		generic::BlockId,
-		traits::{Block, ProvideRuntimeApi, As, DigestItemFor, NumberFor, SimpleArithmetic, DigestFor, Digest, Header},
+		traits::{Block, ProvideRuntimeApi, DigestItemFor, NumberFor, Digest, Header},
 	},
 };
 use {
@@ -54,7 +53,7 @@ use crate::{PowSeal, WorkProof, CompatibleDigestItem, ShardExtra};
 use parity_codec::{Decode, Encode};
 use log::info;
 use {
-	pow_primitives::{YeePOWApi, PowTarget},
+	pow_primitives::YeePOWApi,
 };
 use crate::pow::{check_work_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
@@ -181,7 +180,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 		let authority_id = self.authority_id.clone();
 
 		let build_job = move |block: B| {
-			let (mut header, body) = block.deconstruct();
+			let (header, body) = block.deconstruct();
 			let header_num = header.number().clone();
 			let header_pre_hash = header.hash();
 			let timestamp = timestamp_now()?;

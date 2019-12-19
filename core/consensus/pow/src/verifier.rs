@@ -19,7 +19,6 @@
 
 use {
     std::{marker::PhantomData, sync::Arc},
-    std::collections::hash_map::HashMap,
 };
 use {
     consensus_common::{
@@ -40,14 +39,9 @@ use {
             BlakeTwo256,
             ProvideRuntimeApi,
             Zero,
-            One,
-            As,
         },
     },
-    substrate_service::{
-        ServiceFactory,
-        FactoryBlock,
-    },
+    substrate_service::ServiceFactory,
     client::{
         self,
         BlockchainEvents,
@@ -58,19 +52,14 @@ use {
     yee_sharding_primitives::ShardingAPI,
     util::relay_decode::RelayTransfer,
     foreign_chain::{ForeignChain, ForeignChainConfig},
-    yee_runtime::{AccountId, BalancesCall},
     pow_primitives::YeePOWApi,
 };
 use super::CompatibleDigestItem;
-use super::worker::to_common_error;
 use crate::pow::{PowSeal, check_work_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
-use crate::{TriggerExit, ScaleOut, ShardExtra};
-use std::thread::sleep;
-use std::time::Duration;
+use crate::ShardExtra;
 use yee_sharding_primitives::utils::shard_num_for;
 use merkle_light::proof::Proof as MLProof;
-use merkle_light::merkle::MerkleTree;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
 use log::{debug, info, warn};
@@ -114,7 +103,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let hash = header.hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = self.check_header(header, hash.clone(), self.shard_extra.clone())?;
+        let (pre_header, seal) = self.check_header(header, hash.clone())?;
         let proof_root = seal.as_pow_seal().ok_or_else(|| { format!("Header {:?} not sealed", hash) })?.relay_proof;
         // check proof.
         self.check_relay_merkle_proof(proof.clone(), proof_root)
@@ -163,8 +152,6 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<Option<Proof>, String> {
         match body.as_ref() {
             Some(exs) => {
-                /// TODO validate body
-
                 // check proof root
                 let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
                 if root != proof_root {
@@ -213,21 +200,20 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info)
             .next();
-        let (tc, cs) = match shard_info {
+        let (tc, _cs) = match shard_info {
             Some(info) => info,
             None => { return Err("Can't get shard info in header".to_string()); }
         };
         for tx in exs {
-            let rt = RelayTransfer::decode(tx.encode().as_slice());
-            if rt.is_some() {
-                let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
-                let h = rt.hash();
-                let id = generic::BlockId::hash(h);
-                let src = rt.transfer.sender();
-                if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16) {
+            match RelayTransfer::decode(tx.encode().as_slice()) {
+                Some(rt) => {
+                    let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt;
+                    let h = rt.hash();
+                    let id = generic::BlockId::hash(h);
+                    let ds = yee_sharding_primitives::utils::shard_num_for(&rt.transfer.sender(), tc as u16)
+                        .expect("Internal error. Get shard num failed.");
                     if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
-                        let proof = lc.client().proof(&id).map_err(|_| err_str)?;
-                        match proof {
+                        match lc.client().proof(&id).map_err(|_| err_str)? {
                             Some(proof) => {
                                 let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
                                 if proof.contains(ds, h) {
@@ -237,15 +223,16 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                             None => { return Err(err_str.to_string()); }
                         }
                     }
+                    panic!("Internal error. Can't get shard component");
                 }
-                panic!("Internal error. Get shard num or component failed.");
+                None => continue,
             }
         }
         Ok(())
     }
 
     /// Check if block header has a valid POW target
-    fn check_header(&self, mut header: <F::Block as Block>::Header, hash: <F::Block as Block>::Hash, shard_extra: ShardExtra<AccountId>) -> Result<(<F::Block as Block>::Header, DigestItemFor<F::Block>), String> {
+    fn check_header(&self, mut header: <F::Block as Block>::Header, hash: <F::Block as Block>::Hash) -> Result<(<F::Block as Block>::Header, DigestItemFor<F::Block>), String> {
         // pow work proof MUST be last digest item
         let digest_item = match header.digest_mut().pop() {
             Some(x) => x,
@@ -291,14 +278,14 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         let scale_out = self.client.runtime_api().get_scale_out_observe_blocks(&generic::BlockId::<F::Block>::number(Zero::zero()))
             .expect("scale_out_observe_blocks must exist");
         let ok = match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-            Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: p_shard_num }) => {
+            Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
                         p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
                             && number < observe_util
                     }
-                    Some(ScaleOutPhase::NativeReady { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
                         p_observe_util == number
                             && shard_num % digest_shard_count == digest_shard_num
                             && number + scale_out == observe_util
@@ -307,14 +294,14 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     _ => false
                 }
             }
-            Some(ScaleOutPhase::NativeReady { observe_util: p_observe_util, shard_num: p_shard_num }) => {
+            Some(ScaleOutPhase::NativeReady { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::NativeReady { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
                         p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
                             && number < observe_util
                     }
-                    Some(ScaleOutPhase::Ready { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
                         p_observe_util == number
                             && shard_num % digest_shard_count == digest_shard_num
                             && number + scale_out == observe_util
@@ -323,14 +310,14 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     _ => false
                 }
             }
-            Some(ScaleOutPhase::Ready { observe_util: p_observe_util, shard_num: p_shard_num }) => {
+            Some(ScaleOutPhase::Ready { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Ready { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
                         p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
                             && number < observe_util
                     }
-                    Some(ScaleOutPhase::Commiting { shard_count: shard_count }) => {
+                    Some(ScaleOutPhase::Commiting { shard_count }) => {
                         p_observe_util == number
                             && shard_count == digest_shard_count * 2
                     }
@@ -339,7 +326,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             }
             Some(ScaleOutPhase::Commiting { shard_count: p_shard_count }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Committed { shard_num: shard_num, shard_count: shard_count }) => {
+                    Some(ScaleOutPhase::Committed { shard_num, shard_count }) => {
                         shard_num % digest_shard_count == digest_shard_num
                             && shard_count == p_shard_count * 2
                             && digest_shard_count == shard_count
@@ -347,9 +334,9 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     _ => false
                 }
             }
-            Some(ScaleOutPhase::Committed { shard_num: p_shard_num, shard_count: p_shard_count }) => {
+            Some(ScaleOutPhase::Committed { shard_num: _p_shard_num, shard_count: _p_shard_count }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
                         observe_util == number + scale_out
                             && shard_num % digest_shard_count == digest_shard_num
                     }
@@ -359,7 +346,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             }
             None => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started { observe_util: observe_util, shard_num: shard_num }) => {
+                    Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
                         number + scale_out == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
                     }
@@ -407,7 +394,7 @@ pub fn check_scale<B, AccountId>(
     let trigger_exit = shard_extra.trigger_exit;
 
     //check arg shard info and coinbase when scale out phase committed
-    if let Some(ScaleOutPhase::Committed { shard_num: scale_shard_num, shard_count: scale_shard_count }) = header.digest().logs().iter().rev()
+    if let Some(ScaleOutPhase::Committed { shard_num: _scale_shard_num, shard_count: scale_shard_count }) = header.digest().logs().iter().rev()
         .filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase)
         .next() {
         let target_shard_num = match scale_out {
