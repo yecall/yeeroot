@@ -280,95 +280,96 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     }
 
     fn check_shard_info(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
+        // actual shard num in this node util status to Committed
         let (digest_shard_num, digest_shard_count): (u16, u16) = header.digest().logs().iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info).next()
             .expect("shard info must exist");
-        let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
+        let parent = self.client.header(generic::BlockId::hash(*header.parent_hash()))
             .expect("parent header must exist.")
             .expect("parent header must exist.");
-        let (p_digest_shard_num, p_digest_shard_count): (u16, u16) = parent.digest().logs().iter().rev()
-            .filter_map(ShardingDigestItem::as_sharding_info).next()
-            .expect("sharding digest item must exist");
-
+        let number = *header.number();
+        let scale_out = self.client.runtime_api().get_scale_out_observe_blocks(&generic::BlockId::<F::Block>::number(Zero::zero()))
+            .expect("scale_out_observe_blocks must exist");
         let ok = match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-            Some(ScaleOutPhase::Started{observe_util:p_observe_util, shard_num: p_shard_num}) => {
+            Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started{observe_util:observe_util, shard_num:shard_num}) => {
-                        p_observe_util == observe_util && p_shard_num == shard_num && p_shard_num % digest_shard_count == digest_shard_num//todo
+                    Some(ScaleOutPhase::Started { observe_util: observe_util, shard_num: shard_num }) => {
+                        p_observe_util == observe_util
+                            && shard_num % digest_shard_count == digest_shard_num
+                            && number < observe_util
                     }
-                    Some(ScaleOutPhase::NativeReady{observe_util:observe_util, shard_num:shard_num}) => {
-                        p_observe_util == observe_util && p_shard_num == shard_num
+                    Some(ScaleOutPhase::NativeReady { observe_util: observe_util, shard_num: shard_num }) => {
+                        p_observe_util == number
+                            && shard_num % digest_shard_count == digest_shard_num
+                            && number + scale_out == observe_util
                     }
                     None => true,
                     _ => false
                 }
             }
-            Some(ScaleOutPhase::NativeReady {observe_util:p_observe_util, shard_num: p_shard_num}) => {
-
+            Some(ScaleOutPhase::NativeReady { observe_util: p_observe_util, shard_num: p_shard_num }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::NativeReady { observe_util: observe_util, shard_num: shard_num }) => {
+                        p_observe_util == observe_util
+                            && shard_num % digest_shard_count == digest_shard_num
+                            && number < observe_util
+                    }
+                    Some(ScaleOutPhase::Ready { observe_util: observe_util, shard_num: shard_num }) => {
+                        p_observe_util == number
+                            && shard_num % digest_shard_count == digest_shard_num
+                            && number + scale_out == observe_util
+                    }
+                    None => true,
+                    _ => false
+                }
             }
-            Some(ScaleOutPhase::Ready {observe_util:p_observe_util, shard_num: p_shard_num}) => {
-
+            Some(ScaleOutPhase::Ready { observe_util: p_observe_util, shard_num: p_shard_num }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Ready { observe_util: observe_util, shard_num: shard_num }) => {
+                        p_observe_util == observe_util
+                            && shard_num % digest_shard_count == digest_shard_num
+                            && number < observe_util
+                    }
+                    Some(ScaleOutPhase::Commiting { shard_count: shard_count }) => {
+                        p_observe_util == number
+                            && shard_count == digest_shard_count * 2
+                    }
+                    _ => false,
+                }
             }
-            Some(ScaleOutPhase::Commiting { shard_count: shard_count }) => {
-
+            Some(ScaleOutPhase::Commiting { shard_count: p_shard_count }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Committed { shard_num: shard_num, shard_count: shard_count }) => {
+                        shard_num % digest_shard_count == digest_shard_num
+                            && shard_count == p_shard_count * 2
+                            && digest_shard_count == shard_count
+                    }
+                    _ => false
+                }
             }
-            _ => true
-        };
-
-        match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-            Some(ScaleOutPhase::Started) => {
-
-                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started) | None => {},
-                    _ => return Err("check_shard_info failed.".to_string())
-                };
-            }
-            Some(ScaleOutPhase::NativeReady) => {
-                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
-                    .expect("parent header must exist.")
-                    .expect("parent header must exist.");
-                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started) | Some(ScaleOutPhase::NativeReady) | None => {},
-                    _ => return Err("check_shard_info failed.".to_string())
-                };
-            }
-            Some(ScaleOutPhase::Ready) => {
-                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
-                    .expect("parent header must exist.")
-                    .expect("parent header must exist.");
-                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Started) | Some(ScaleOutPhase::NativeReady) | Some(ScaleOutPhase::Ready) | None => {},
-                    _ => return Err("check_shard_info failed.".to_string())
-                };
-            }
-            Some(ScaleOutPhase::Commiting) => {
-                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
-                    .expect("parent header must exist.")
-                    .expect("parent header must exist.");
-                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Ready) => {},
-                    _ => return Err("check_shard_info failed.".to_string())
-                };
-            }
-            Some(ScaleOutPhase::Committed) => {
-                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
-                    .expect("parent header must exist.")
-                    .expect("parent header must exist.");
-                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Commiting) => {},
-                    _ => return Err("check_shard_info failed.".to_string())
-                };
+            Some(ScaleOutPhase::Committed { shard_num: p_shard_num, shard_count: p_shard_count }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started { observe_util: observe_util, shard_num: shard_num }) => {
+                        observe_util == number + scale_out
+                            && shard_num % digest_shard_count == digest_shard_num
+                    }
+                    None => true,
+                    _ => false
+                }
             }
             None => {
-                let parent = self.client.header(generic::BlockId::hash(header.parent_hash()))
-                    .expect("parent header must exist.")
-                    .expect("parent header must exist.");
-                match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
-                    Some(ScaleOutPhase::Commiting) => return Err("check_shard_info failed.".to_string()),
-                    _ => {}
-                };
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started { observe_util: observe_util, shard_num: shard_num }) => {
+                        number + scale_out == observe_util
+                            && shard_num % digest_shard_count == digest_shard_num
+                    }
+                    Some(_) => false,
+                    _ => true,
+                }
             }
-            _ => {}
+        };
+        if !ok {
+            return Err("ScaleOutPhase checked failed.".to_string());
         }
 
         // check scale

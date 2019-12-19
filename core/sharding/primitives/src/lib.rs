@@ -23,6 +23,7 @@ pub mod utils;
 
 use {
     substrate_client::decl_runtime_apis,
+    runtime_primitives::traits::{NumberFor, Block},
 };
 
 #[derive(Clone)]
@@ -47,5 +48,7 @@ decl_runtime_apis! {
         fn get_curr_shard() -> Option<u16>;
         /// get total shard number
         fn get_shard_count() -> u16;
+        /// get scale_out_observe_blocks
+        fn get_scale_out_observe_blocks() -> NumberFor<Block>;
     }
 }
