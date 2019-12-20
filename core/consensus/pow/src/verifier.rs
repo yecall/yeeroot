@@ -247,7 +247,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         // pow work proof MUST be last digest item
         let digest_item = match header.digest_mut().pop() {
             Some(x) => x,
-            None => return Err(format!("")),
+            None => return Err(" get digest item failed.".to_string()),
         };
         let seal = digest_item.as_pow_seal().ok_or_else(|| {
             format!("Header {:?} not sealed", hash)
