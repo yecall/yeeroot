@@ -62,7 +62,7 @@ use yee_sharding_primitives::utils::shard_num_for;
 use merkle_light::proof::Proof as MLProof;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
-use log::{debug, info, warn};
+use log::{debug, info, warn, error};
 use parking_lot::RwLock;
 use primitives::H256;
 
@@ -103,18 +103,29 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let hash = header.hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = self.check_header(header, hash.clone())?;
-        let proof_root = seal.as_pow_seal().ok_or_else(|| { format!("Header {:?} not sealed", hash) })?.relay_proof;
+        let (pre_header, seal) = self.check_header(header, hash.clone())
+            .map_err(|e| {
+                error!("check header failed: {}", e);
+                e
+            })?;
+        let proof_root = seal.as_pow_seal().ok_or_else(|| {
+            let e = format!("Header {:?} not sealed", hash);
+            error!("{}", e);
+            e
+        })?.relay_proof;
         // check proof.
         self.check_relay_merkle_proof(proof.clone(), proof_root)
             .map_err(|e| {
-                warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
+                error!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
                 e
             })?;
 
         let mut res_proof = proof;
         // check body if not none
-        match self.check_body(&body, &pre_header, proof_root)? {
+        match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
+            error!("check header failed{}", e);
+            e
+        })? {
             Some(p) => res_proof = Some(p),
             None => {}
         }
@@ -194,7 +205,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         Ok(())
     }
 
-    /// chekc relay transfer
+    /// check relay transfer
     fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: &[<F::Block as Block>::Extrinsic]) -> Result<(), String> {
         let err_str = "Block contains invalid extrinsic.";
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
@@ -242,13 +253,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             format!("Header {:?} not sealed", hash)
         })?;
 
-        match self.check_pow_target(&header, &seal) {
-            Err(err) => {
-                warn!("validate pow target failed. {}", err);
-                return Err(err);
-            }
-            _ => {}
-        }
+        self.check_pow_target(&header, &seal)?;
 
         self.check_shard_info(&header)?;
 
@@ -266,6 +271,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         Ok(())
     }
 
+    /// check shard info
     fn check_shard_info(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
         // actual shard num in this node util status to Committed
         let (digest_shard_num, digest_shard_count): (u16, u16) = header.digest().logs().iter().rev()
