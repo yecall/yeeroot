@@ -278,7 +278,7 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
         }
     };
 
-    let target_block_time = api.target_block_time(&curr_block_id);
+    let target_block_time = api.target_block_time(&zero_id);
     let target_block_time = target_block_time.map_err(to_common_error)?;
     let time_gap = timestamp - last_time;
     let expected_gap = target_block_time * 1000 * block_gap;

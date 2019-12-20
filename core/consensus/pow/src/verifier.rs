@@ -266,7 +266,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     fn check_pow_target(&self, header: &<F::Block as Block>::Header, seal: &PowSeal<F::Block, AuthorityId>) -> Result<(), String> {
         let pow_target = calc_pow_target(self.client.clone(), header, seal.timestamp).map_err(|e| format!("{:?}", e))?;
         if seal.pow_target != pow_target {
-            return Err("check pow target failed.".to_string());
+            return Err("check_pow_target failed, pow target not match.".to_string());
         }
         Ok(())
     }
@@ -433,9 +433,6 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         if header_shard_num != original_shard_num {
             return Err(format!("Invalid header shard info"));
         }
-
-        // TODO: check shard info other criteria
-
         Ok(())
     }
 }
