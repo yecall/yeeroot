@@ -105,12 +105,12 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         // check if header has a valid work proof
         let (pre_header, seal) = self.check_header(header, hash.clone())
             .map_err(|e| {
-                error!("check header failed: {}", e);
+                error!("{}: {}", Colour::Red.paint("check header failed"), e);
                 e
             })?;
         let proof_root = seal.as_pow_seal().ok_or_else(|| {
             let e = format!("Header {:?} not sealed", hash);
-            error!("{}", e);
+            error!("{}: {}", Colour::Red.paint("get proof root failed"), e);
             e
         })?.relay_proof;
         // check proof.
@@ -123,7 +123,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let mut res_proof = proof;
         // check body if not none
         match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
-            error!("check header failed{}", e);
+            error!("{}: {}", Colour::Red.paint("check header failed"), e);
             e
         })? {
             Some(p) => res_proof = Some(p),
@@ -305,13 +305,16 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                         ok
                     }
                     None => true,
-                    _ => { error!("parent status: {}", Colour::Red.paint("Started")); false}
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Started"));
+                        false
+                    }
                 }
             }
             Some(ScaleOutPhase::NativeReady { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
-                        let ok=p_observe_util == observe_util
+                        let ok = p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
                             && number < observe_util;
                         if !ok {
@@ -329,7 +332,10 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                         ok
                     }
                     None => true,
-                    _ => { error!("parent status: {}", Colour::Red.paint("NativeReady")); false}
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("NativeReady"));
+                        false
+                    }
                 }
             }
             Some(ScaleOutPhase::Ready { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
@@ -351,7 +357,10 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                         }
                         ok
                     }
-                    _ => { error!("parent status: {}", Colour::Red.paint("Ready")); false},
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Ready"));
+                        false
+                    }
                 }
             }
             Some(ScaleOutPhase::Commiting { shard_count: p_shard_count }) => {
@@ -367,7 +376,10 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                         }
                         ok
                     }
-                    _ => { error!("parent status: {}", Colour::Red.paint("Committing")); false}
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Committing"));
+                        false
+                    }
                 }
             }
             Some(ScaleOutPhase::Committed { shard_num: _p_shard_num, shard_count: _p_shard_count }) => {
@@ -381,7 +393,10 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                         ok
                     }
                     None => true,
-                    _ => { error!("parent status: {}", Colour::Red.paint("Committed")); false}
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Committed"));
+                        false
+                    }
                 }
             }
             None => {
@@ -394,7 +409,10 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                         }
                         ok
                     }
-                    Some(_) => { error!("parent status: {}", Colour::Red.paint("None")); false},
+                    Some(_) => {
+                        error!("parent status: {}", Colour::Red.paint("None"));
+                        false
+                    }
                     _ => true,
                 }
             }
