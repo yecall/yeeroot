@@ -287,76 +287,114 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
-                        p_observe_util == observe_util
+                        let ok = p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
-                            && number < observe_util
+                            && number < observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Started"), Colour::Red.paint("Started"));
+                        }
+                        ok
                     }
                     Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
-                        p_observe_util == number
+                        let ok = p_observe_util == number
                             && shard_num % digest_shard_count == digest_shard_num
-                            && number + scale_out == observe_util
+                            && number + scale_out == observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Started"), Colour::Red.paint("NativeReady"));
+                        }
+                        ok
                     }
                     None => true,
-                    _ => false
+                    _ => { error!("parent status: {}", Colour::Red.paint("Started")); false}
                 }
             }
             Some(ScaleOutPhase::NativeReady { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
-                        p_observe_util == observe_util
+                        let ok=p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
-                            && number < observe_util
+                            && number < observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("NativeReady"), Colour::Red.paint("NativeReady"));
+                        }
+                        ok
                     }
                     Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
-                        p_observe_util == number
+                        let ok = p_observe_util == number
                             && shard_num % digest_shard_count == digest_shard_num
-                            && number + scale_out == observe_util
+                            && number + scale_out == observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("NativeReady"), Colour::Red.paint("Ready"));
+                        }
+                        ok
                     }
                     None => true,
-                    _ => false
+                    _ => { error!("parent status: {}", Colour::Red.paint("NativeReady")); false}
                 }
             }
             Some(ScaleOutPhase::Ready { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
-                        p_observe_util == observe_util
+                        let ok = p_observe_util == observe_util
                             && shard_num % digest_shard_count == digest_shard_num
-                            && number < observe_util
+                            && number < observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Ready"), Colour::Red.paint("Ready"));
+                        }
+                        ok
                     }
                     Some(ScaleOutPhase::Commiting { shard_count }) => {
-                        p_observe_util == number
-                            && shard_count == digest_shard_count * 2
+                        let ok = p_observe_util == number
+                            && shard_count == digest_shard_count * 2;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Ready"), Colour::Red.paint("Committing"));
+                        }
+                        ok
                     }
-                    _ => false,
+                    _ => { error!("parent status: {}", Colour::Red.paint("Ready")); false},
                 }
             }
             Some(ScaleOutPhase::Commiting { shard_count: p_shard_count }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Committed { shard_num, shard_count }) => {
-                        shard_num % digest_shard_count == digest_shard_num
-                            && shard_count == p_shard_count * 2
-                            && digest_shard_count == shard_count
+                        let ok = shard_num == digest_shard_num
+                            && shard_count == p_shard_count
+                            && digest_shard_count == shard_count;
+                        if !ok {
+                            error!("parent status: {}, current status: {}, shard_num:{}, digest_shard_count:{}, digest_shard_num:{}, shard_count:{}, p_shard_count:{}"
+                                   , Colour::Red.paint("Committing"), Colour::Red.paint("Committed"), shard_num, digest_shard_count, digest_shard_num, shard_count, p_shard_count
+                            );
+                        }
+                        ok
                     }
-                    _ => false
+                    _ => { error!("parent status: {}", Colour::Red.paint("Committing")); false}
                 }
             }
             Some(ScaleOutPhase::Committed { shard_num: _p_shard_num, shard_count: _p_shard_count }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
-                        observe_util == number + scale_out
-                            && shard_num % digest_shard_count == digest_shard_num
+                        let ok = observe_util == number + scale_out
+                            && shard_num % digest_shard_count == digest_shard_num;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Committed"), Colour::Red.paint("Started"));
+                        }
+                        ok
                     }
                     None => true,
-                    _ => false
+                    _ => { error!("parent status: {}", Colour::Red.paint("Committed")); false}
                 }
             }
             None => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
-                        number + scale_out == observe_util
-                            && shard_num % digest_shard_count == digest_shard_num
+                        let ok = number + scale_out == observe_util
+                            && shard_num % digest_shard_count == digest_shard_num;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("None"), Colour::Red.paint("Started"));
+                        }
+                        ok
                     }
-                    Some(_) => false,
+                    Some(_) => { error!("parent status: {}", Colour::Red.paint("None")); false},
                     _ => true,
                 }
             }
