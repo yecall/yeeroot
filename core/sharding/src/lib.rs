@@ -99,7 +99,7 @@ pub enum ScaleOutPhase<BlockNumber, ShardNum>{
 		observe_util: BlockNumber,
 		shard_num: ShardNum,
 	},
-	Commiting {
+	Committing {
 		shard_count: ShardNum,
 	},
 	Committed {

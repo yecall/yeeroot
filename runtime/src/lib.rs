@@ -390,5 +390,9 @@ impl_runtime_apis! {
             Sharding::current_shard_info()
                 .map_or_else(|| Sharding::genesis_sharding_count(), |info| info.count.into())
         }
+
+		fn get_scale_out_observe_blocks() -> NumberFor<Block> {
+			Sharding::scale_out_observe_blocks()
+		}
 	}
 }

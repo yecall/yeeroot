@@ -38,12 +38,10 @@ use {
             NumberFor,
             BlakeTwo256,
             ProvideRuntimeApi,
+            Zero,
         },
     },
-    substrate_service::{
-        ServiceFactory,
-        FactoryBlock,
-    },
+    substrate_service::ServiceFactory,
     client::{
         self,
         BlockchainEvents,
@@ -54,23 +52,19 @@ use {
     yee_sharding_primitives::ShardingAPI,
     util::relay_decode::RelayTransfer,
     foreign_chain::{ForeignChain, ForeignChainConfig},
-    yee_runtime::{AccountId, BalancesCall},
+    pow_primitives::YeePOWApi,
 };
 use super::CompatibleDigestItem;
-use crate::pow::{check_proof, gen_extrinsic_proof};
+use crate::pow::{PowSeal, check_work_proof, gen_extrinsic_proof, calc_pow_target};
 use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
-use crate::{TriggerExit, ScaleOut, ShardExtra};
-use std::thread::sleep;
-use std::time::Duration;
+use crate::ShardExtra;
 use yee_sharding_primitives::utils::shard_num_for;
 use merkle_light::proof::Proof as MLProof;
-use merkle_light::merkle::MerkleTree;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
-use log::{debug, info, warn};
+use log::{debug, info, warn, error};
 use parking_lot::RwLock;
 use primitives::H256;
-use yee_runtime::BlockId;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -89,12 +83,11 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    C: ProvideRuntimeApi,
-    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: HeaderBackend<<F as ServiceFactory>::Block> + ProvideRuntimeApi,
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block> + YeePOWApi<<F as ServiceFactory>::Block>,
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
@@ -108,50 +101,33 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
     ) -> Result<(ImportBlock<F::Block>, Option<Vec<AuthorityIdFor<F::Block>>>), String> {
         let number = header.number().clone();
         let hash = header.hash();
-        let _parent_hash = *header.parent_hash();
 
         // check if header has a valid work proof
-        let (pre_header, seal) = check_header::<F::Block, AccountId, AuthorityId>(
-            header,
-            hash.clone(),
-            self.shard_extra.clone(),
-        )?;
-
-        let proof_seal = seal.as_pow_seal().ok_or_else(|| {
-            format!("Header {:?} not sealed", hash)
-        })?;
-        let p_h = proof_seal.relay_proof.clone();
-
+        let (pre_header, seal) = self.check_header(header, hash.clone())
+            .map_err(|e| {
+                error!("{}: {}", Colour::Red.paint("check header failed"), e);
+                e
+            })?;
+        let proof_root = seal.as_pow_seal().ok_or_else(|| {
+            let e = format!("Header {:?} not sealed", hash);
+            error!("{}: {}", Colour::Red.paint("get proof root failed"), e);
+            e
+        })?.relay_proof;
         // check proof.
-        match self.check_proof(proof.clone(), p_h) {
-            Err(e) => {
-                warn!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
-                return Err(e);
-            }
-            Ok(()) => { debug!("{}, number:{}, hash:{}", Colour::Green.paint("Proof validated"), number, hash.clone()); }
-        }
-        let mut res_proof = proof;
-        match body.as_ref() {
-            Some(exs) => {
-                /// TODO validate body
+        self.check_relay_merkle_proof(proof.clone(), proof_root)
+            .map_err(|e| {
+                error!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
+                e
+            })?;
 
-                // check proof root
-                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
-                if root != p_h {
-                    return Err("Proof is invalid.".to_string());
-                }
-                res_proof = Some(proof);
-                let logs = pre_header.digest().logs();
-                // check relay extrinsic.
-                let check_relay = self.check_relay_transfer(logs, exs);
-                if check_relay.is_err() {
-                    return Err(check_relay.err().unwrap());
-                }
-            }
+        let mut res_proof = proof;
+        // check body if not none
+        match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
+            error!("{}: {}", Colour::Red.paint("check header failed"), e);
+            e
+        })? {
+            Some(p) => res_proof = Some(p),
             None => {}
-        }
-        if justification.is_some() {
-            debug!("justification is some");
         }
         let import_block = ImportBlock {
             origin,
@@ -175,19 +151,37 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    C: ProvideRuntimeApi,
-    C: HeaderBackend<<F as ServiceFactory>::Block>,
+    C: ProvideRuntimeApi + HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block> + YeePOWApi<<F as ServiceFactory>::Block>,
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
-    fn check_proof(&self, proof: Option<Proof>, p_h: H256) -> Result<(), String> {
-        if let Some(proof) = proof.clone() {
+    /// check body
+    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<Option<Proof>, String> {
+        match body.as_ref() {
+            Some(exs) => {
+                // check proof root
+                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
+                if root != proof_root {
+                    return Err("Proof is invalid.".to_string());
+                }
+                // check relay extrinsic.
+                self.check_relay_transfer(pre_header.digest().logs(), exs)?;
+                return Ok(Some(proof));
+            }
+            None => {}
+        }
+        Ok(None)
+    }
+
+    /// check relay transfer merkle proof
+    fn check_relay_merkle_proof(&self, proof: Option<Proof>, p_h: H256) -> Result<(), String> {
+        if let Some(proof) = proof.as_ref() {
             let mut validate_proof = false;
-            if let Ok(mlp) = MultiLayerProof::from_bytes(proof.as_slice()) {
+            if let Ok(mlp) = MultiLayerProof::from_bytes(proof) {
                 // check proof root.
                 let checked = match mlp.layer2_root() {
                     Some(root) => root == p_h,
@@ -211,26 +205,26 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         Ok(())
     }
 
+    /// check relay transfer
     fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: &[<F::Block as Block>::Extrinsic]) -> Result<(), String> {
         let err_str = "Block contains invalid extrinsic.";
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info)
             .next();
-        let (tc, cs) = match shard_info {
+        let (tc, _cs) = match shard_info {
             Some(info) => info,
             None => { return Err("Can't get shard info in header".to_string()); }
         };
         for tx in exs {
-            let rt = RelayTransfer::decode(tx.encode().as_slice());
-            if rt.is_some() {
-                let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt.unwrap();
-                let h = rt.hash();
-                let id = generic::BlockId::hash(h);
-                let src = rt.transfer.sender();
-                if let Some(ds) = yee_sharding_primitives::utils::shard_num_for(&src, tc as u16) {
+            match RelayTransfer::decode(tx.encode().as_slice()) {
+                Some(rt) => {
+                    let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt;
+                    let h = rt.hash();
+                    let id = generic::BlockId::hash(h);
+                    let ds = yee_sharding_primitives::utils::shard_num_for(&rt.transfer.sender(), tc as u16)
+                        .expect("Internal error. Get shard num failed.");
                     if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
-                        let proof = lc.client().proof(&id).map_err(|_| err_str)?;
-                        match proof {
+                        match lc.client().proof(&id).map_err(|_| err_str)? {
                             Some(proof) => {
                                 let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
                                 if proof.contains(ds, h) {
@@ -240,44 +234,219 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                             None => { return Err(err_str.to_string()); }
                         }
                     }
+                    panic!("Internal error. Can't get shard component");
                 }
-                panic!("Internal error. Get shard num or component failed.");
+                None => continue,
             }
         }
         Ok(())
     }
+
+    /// Check if block header has a valid POW target
+    fn check_header(&self, mut header: <F::Block as Block>::Header, hash: <F::Block as Block>::Hash) -> Result<(<F::Block as Block>::Header, DigestItemFor<F::Block>), String> {
+        // pow work proof MUST be last digest item
+        let digest_item = match header.digest_mut().pop() {
+            Some(x) => x,
+            None => return Err(" get digest item failed.".to_string()),
+        };
+        let seal = digest_item.as_pow_seal().ok_or_else(|| {
+            format!("Header {:?} not sealed", hash)
+        })?;
+
+        self.check_pow_target(&header, &seal)?;
+
+        self.check_shard_info(&header)?;
+
+        self.check_other_logs(&header)?;
+
+        check_work_proof(&header, &seal)?;
+
+        Ok((header, digest_item))
+    }
+
+    /// check pow_target in seal
+    fn check_pow_target(&self, header: &<F::Block as Block>::Header, seal: &PowSeal<F::Block, AuthorityId>) -> Result<(), String> {
+        let pow_target = calc_pow_target(self.client.clone(), header, seal.timestamp).map_err(|e| format!("{:?}", e))?;
+        if seal.pow_target != pow_target {
+            return Err("check_pow_target failed, pow target not match.".to_string());
+        }
+        Ok(())
+    }
+
+    /// check shard info
+    fn check_shard_info(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
+        // actual shard num in this node util status to Committed
+        let (digest_shard_num, digest_shard_count): (u16, u16) = header.digest().logs().iter().rev()
+            .filter_map(ShardingDigestItem::as_sharding_info).next()
+            .expect("shard info must exist");
+        let parent = self.client.header(generic::BlockId::hash(*header.parent_hash()))
+            .expect("parent header must exist.")
+            .expect("parent header must exist.");
+        let number = *header.number();
+        let observe_blocks = self.client.runtime_api().get_scale_out_observe_blocks(&generic::BlockId::<F::Block>::number(Zero::zero()))
+            .expect("scale_out_observe_blocks must exist");
+        let ok = match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+            Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
+                        let ok = p_observe_util == observe_util
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number < observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Started"), Colour::Red.paint("Started"));
+                        }
+                        ok
+                    }
+                    Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
+                        let ok = p_observe_util == number
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number + observe_blocks == observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Started"), Colour::Red.paint("NativeReady"));
+                        }
+                        ok
+                    }
+                    None => true,
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Started"));
+                        false
+                    }
+                }
+            }
+            Some(ScaleOutPhase::NativeReady { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
+                        let ok = p_observe_util == observe_util
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number < observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("NativeReady"), Colour::Red.paint("NativeReady"));
+                        }
+                        ok
+                    }
+                    Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
+                        let ok = p_observe_util == number
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number + observe_blocks == observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("NativeReady"), Colour::Red.paint("Ready"));
+                        }
+                        ok
+                    }
+                    None => true,
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("NativeReady"));
+                        false
+                    }
+                }
+            }
+            Some(ScaleOutPhase::Ready { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
+                        let ok = p_observe_util == observe_util
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number < observe_util;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Ready"), Colour::Red.paint("Ready"));
+                        }
+                        ok
+                    }
+                    Some(ScaleOutPhase::Committing { shard_count }) => {
+                        let ok = p_observe_util == number
+                            && shard_count == digest_shard_count * 2;
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Ready"), Colour::Red.paint("Committing"));
+                        }
+                        ok
+                    }
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Ready"));
+                        false
+                    }
+                }
+            }
+            Some(ScaleOutPhase::Committing { shard_count: p_shard_count }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Committed { shard_num, shard_count }) => {
+                        let ok = shard_num == digest_shard_num
+                            && shard_count == p_shard_count
+                            && digest_shard_count == shard_count;
+                        if !ok {
+                            error!("parent status: {}, current status: {}, shard_num:{}, digest_shard_count:{}, digest_shard_num:{}, shard_count:{}, p_shard_count:{}"
+                                   , Colour::Red.paint("Committing"), Colour::Red.paint("Committed"), shard_num, digest_shard_count, digest_shard_num, shard_count, p_shard_count
+                            );
+                        }
+                        ok
+                    }
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Committing"));
+                        false
+                    }
+                }
+            }
+            Some(ScaleOutPhase::Committed { shard_num: _p_shard_num, shard_count: _p_shard_count }) => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
+                        let ok = observe_util == number + observe_blocks
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count);
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("Committed"), Colour::Red.paint("Started"));
+                        }
+                        ok
+                    }
+                    None => true,
+                    _ => {
+                        error!("parent status: {}", Colour::Red.paint("Committed"));
+                        false
+                    }
+                }
+            }
+            None => {
+                match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
+                    Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
+                        let ok = number + observe_blocks == observe_util
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count);
+                        if !ok {
+                            error!("parent status: {}, current status: {}", Colour::Red.paint("None"), Colour::Red.paint("Started"));
+                        }
+                        ok
+                    }
+                    Some(_) => {
+                        error!("parent status: {}", Colour::Red.paint("None"));
+                        false
+                    }
+                    _ => true,
+                }
+            }
+        };
+        if !ok {
+            return Err("ScaleOutPhase checked failed.".to_string());
+        }
+
+        // check scale
+        check_scale::<F::Block, AccountId>(header, self.shard_extra.clone())?;
+
+        //check header shard info (normal or scaling)
+        let (header_shard_num, header_shard_count): (u16, u16) = header.digest().logs().iter().rev()
+            .filter_map(ShardingDigestItem::as_sharding_info)
+            .next().expect("non-genesis block always has shard info");
+
+        let original_shard_num = get_original_shard_num(self.shard_extra.shard_num, self.shard_extra.shard_count, header_shard_count)?;
+        if header_shard_num != original_shard_num {
+            return Err(format!("Invalid header shard info"));
+        }
+        Ok(())
+    }
+
+    /// check other digest
+    fn check_other_logs(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
+
+        Ok(())
+    }
 }
 
-/// Check if block header has a valid POW target
-fn check_header<B, AccountId, AuthorityId>(
-    mut header: B::Header,
-    hash: B::Hash,
-    shard_extra: ShardExtra<AccountId>,
-) -> Result<(B::Header, DigestItemFor<B>), String> where
-    B: Block,
-    DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
-    AuthorityId: Decode + Encode + Clone,
-    AccountId: Encode + Decode + Clone,
-{
-    // pow work proof MUST be last digest item
-    let digest_item = match header.digest_mut().pop() {
-        Some(x) => x,
-        None => return Err(format!("")),
-    };
-    let seal = digest_item.as_pow_seal().ok_or_else(|| {
-        format!("Header {:?} not sealed", hash)
-    })?;
-
-    // TODO: check pow_target in seal
-
-    check_shard_info::<B, AccountId>(&header, shard_extra)?;
-
-    check_proof(&header, &seal)?;
-
-    Ok((header, digest_item))
-}
-
-pub fn check_shard_info<B, AccountId>(
+/// check scale
+pub fn check_scale<B, AccountId>(
     header: &B::Header,
     shard_extra: ShardExtra<AccountId>,
 ) -> Result<(), String> where
@@ -292,7 +461,7 @@ pub fn check_shard_info<B, AccountId>(
     let trigger_exit = shard_extra.trigger_exit;
 
     //check arg shard info and coinbase when scale out phase committed
-    if let Some(ScaleOutPhase::Committed { shard_num: scale_shard_num, shard_count: scale_shard_count }) = header.digest().logs().iter().rev()
+    if let Some(ScaleOutPhase::Committed { shard_num: _scale_shard_num, shard_count: scale_shard_count }) = header.digest().logs().iter().rev()
         .filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase)
         .next() {
         let target_shard_num = match scale_out {
@@ -314,18 +483,6 @@ pub fn check_shard_info<B, AccountId>(
             return Err(format!("Invalid arg shard info"));
         }
     }
-
-    //check header shard info (normal or scaling)
-    let (header_shard_num, header_shard_count): (u16, u16) = header.digest().logs().iter().rev()
-        .filter_map(ShardingDigestItem::as_sharding_info)
-        .next().expect("non-genesis block always has shard info");
-
-    let original_shard_num = get_original_shard_num(shard_num, shard_count, header_shard_count)?;
-    if header_shard_num != original_shard_num {
-        return Err(format!("Invalid header shard info"));
-    }
-
-    // TODO: check shard info other criteria
 
     Ok(())
 }

@@ -67,7 +67,7 @@ pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, execut
 			info!("Scale out phase: {:?}", scale_out_phase);
 		}
 
-		if let Some(ScaleOutPhase::Commiting{shard_count}) = scale_out_phase{
+		if let Some(ScaleOutPhase::Committing {shard_count}) = scale_out_phase{
 
 			let self_mined = match authority_id {
 				Some(ref authority_id) => {
