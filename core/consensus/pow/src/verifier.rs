@@ -257,6 +257,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
         self.check_shard_info(&header)?;
 
+        self.check_other_logs(&header)?;
+
         check_work_proof(&header, &seal)?;
 
         Ok((header, digest_item))
@@ -281,14 +283,14 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             .expect("parent header must exist.")
             .expect("parent header must exist.");
         let number = *header.number();
-        let scale_out = self.client.runtime_api().get_scale_out_observe_blocks(&generic::BlockId::<F::Block>::number(Zero::zero()))
+        let observe_blocks = self.client.runtime_api().get_scale_out_observe_blocks(&generic::BlockId::<F::Block>::number(Zero::zero()))
             .expect("scale_out_observe_blocks must exist");
         let ok = match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
             Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
                         let ok = p_observe_util == observe_util
-                            && shard_num % digest_shard_count == digest_shard_num
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
                             && number < observe_util;
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("Started"), Colour::Red.paint("Started"));
@@ -297,8 +299,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     }
                     Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
                         let ok = p_observe_util == number
-                            && shard_num % digest_shard_count == digest_shard_num
-                            && number + scale_out == observe_util;
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number + observe_blocks == observe_util;
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("Started"), Colour::Red.paint("NativeReady"));
                         }
@@ -315,7 +317,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::NativeReady { observe_util, shard_num }) => {
                         let ok = p_observe_util == observe_util
-                            && shard_num % digest_shard_count == digest_shard_num
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
                             && number < observe_util;
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("NativeReady"), Colour::Red.paint("NativeReady"));
@@ -324,8 +326,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     }
                     Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
                         let ok = p_observe_util == number
-                            && shard_num % digest_shard_count == digest_shard_num
-                            && number + scale_out == observe_util;
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
+                            && number + observe_blocks == observe_util;
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("NativeReady"), Colour::Red.paint("Ready"));
                         }
@@ -342,14 +344,14 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Ready { observe_util, shard_num }) => {
                         let ok = p_observe_util == observe_util
-                            && shard_num % digest_shard_count == digest_shard_num
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count)
                             && number < observe_util;
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("Ready"), Colour::Red.paint("Ready"));
                         }
                         ok
                     }
-                    Some(ScaleOutPhase::Commiting { shard_count }) => {
+                    Some(ScaleOutPhase::Committing { shard_count }) => {
                         let ok = p_observe_util == number
                             && shard_count == digest_shard_count * 2;
                         if !ok {
@@ -363,7 +365,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     }
                 }
             }
-            Some(ScaleOutPhase::Commiting { shard_count: p_shard_count }) => {
+            Some(ScaleOutPhase::Committing { shard_count: p_shard_count }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Committed { shard_num, shard_count }) => {
                         let ok = shard_num == digest_shard_num
@@ -385,8 +387,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             Some(ScaleOutPhase::Committed { shard_num: _p_shard_num, shard_count: _p_shard_count }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
-                        let ok = observe_util == number + scale_out
-                            && shard_num % digest_shard_count == digest_shard_num;
+                        let ok = observe_util == number + observe_blocks
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count);
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("Committed"), Colour::Red.paint("Started"));
                         }
@@ -402,8 +404,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             None => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
                     Some(ScaleOutPhase::Started { observe_util, shard_num }) => {
-                        let ok = number + scale_out == observe_util
-                            && shard_num % digest_shard_count == digest_shard_num;
+                        let ok = number + observe_blocks == observe_util
+                            && (shard_num == digest_shard_num || shard_num == digest_shard_num + digest_shard_count);
                         if !ok {
                             error!("parent status: {}, current status: {}", Colour::Red.paint("None"), Colour::Red.paint("Started"));
                         }
@@ -433,6 +435,12 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         if header_shard_num != original_shard_num {
             return Err(format!("Invalid header shard info"));
         }
+        Ok(())
+    }
+
+    /// check other digest
+    fn check_other_logs(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
+
         Ok(())
     }
 }

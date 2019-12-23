@@ -224,13 +224,13 @@ where
             let last_block_id = BlockId::hash(last_block_header.hash());
             let genesis_shard_cnt = api.get_genesis_shard_count(&last_block_id)?;
 
-            Some(ScaleOutPhase::<FactoryBlockNumber<F>, _>::Commiting {
+            Some(ScaleOutPhase::<FactoryBlockNumber<F>, _>::Committing {
                 shard_count: genesis_shard_cnt,
             })
         },
     };
 
-    let ret_shard_info =  if let Some(ScaleOutPhase::Commiting {shard_count}) = scale_out_phase {
+    let ret_shard_info =  if let Some(ScaleOutPhase::Committing {shard_count}) = scale_out_phase {
         // scale out phase commiting
         match shard_info{
             Some((ori_shard_num, ori_shard_count)) => {
