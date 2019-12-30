@@ -4,14 +4,13 @@
 #![warn(unused_extern_crates)]
 
 mod chain_spec;
-mod service;
+pub mod service;
 mod cli;
 mod custom_command;
 mod custom_param;
 mod dev_param;
 
 pub use substrate_cli::{VersionInfo, IntoExit, error};
-pub use service::Factory;
 
 fn run() -> cli::error::Result<()> {
 	let version = VersionInfo {
