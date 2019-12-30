@@ -1,18 +1,24 @@
-use crate::service;
+
+mod custom_command;
+mod custom_param;
+mod dev_param;
+mod service;
+mod chain_spec;
+
+pub use crate::service::Factory;
+pub use substrate_cli::{VersionInfo, IntoExit, error};
 use futures::{future, Future, sync::oneshot};
 use tokio::runtime::Runtime;
-pub use substrate_cli::{VersionInfo, IntoExit, error};
 use substrate_cli::{informant, parse_and_execute, TriggerExit};
 use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, FactoryFullConfiguration, FactoryBlock, FullClient};
-use crate::chain_spec;
 use std::ops::Deref;
 use log::info;
-use super::{
+use crate::{
     custom_command::{run_custom_command, CustomCommand},
     custom_param::{YeeCliConfig, process_custom_args},
 	dev_param::process_dev_param,
 };
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 use futures::sync::oneshot::Sender;
 use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
 use std::thread;

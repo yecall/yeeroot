@@ -24,11 +24,11 @@ use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles,
 use substrate_client::ChainHead;
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Block, Header, Digest as DigestT, DigestItemFor},
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor},
 };
 use crate::error;
 use crate::service::{NodeConfig};
-use crate::cli::FactoryBlockNumber;
+use crate::FactoryBlockNumber;
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
 use yee_runtime::AccountId;

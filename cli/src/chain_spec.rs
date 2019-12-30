@@ -16,7 +16,6 @@ use yee_runtime::{
     PowConfig, ShardingConfig,
 };
 use substrate_service;
-use log::debug;
 use yee_primitives::{Address, AddressCodec};
 use yee_dev;
 
@@ -124,7 +123,7 @@ impl Alternative {
 }
 
 fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-    let code = include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
+    let code = include_bytes!("../../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm").to_vec();
     testnet_template_genesis(
         endowed_accounts, code,
         primitives::U256::from(0x0000ffff) << 224,
@@ -133,7 +132,7 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
 }
 
 fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-    let code = include_bytes!("../prebuilt/yee_runtime/pocnet.wasm").to_vec();
+    let code = include_bytes!("../../prebuilt/yee_runtime/pocnet.wasm").to_vec();
     testnet_template_genesis(
         endowed_accounts, code,
         primitives::U256::from(0x00003fff) << 224,

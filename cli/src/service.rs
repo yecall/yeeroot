@@ -48,7 +48,7 @@ use yee_rpc::ProvideJobManager;
 
 use crfg;
 use yee_primitives::Hrp;
-use crate::cli::{CliTriggerExit, CliSignal};
+use crate::{CliTriggerExit, CliSignal};
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -59,7 +59,7 @@ native_executor_instance!(
     pub Executor,
     yee_runtime::api::dispatch,
     yee_runtime::native_version,
-    include_bytes!("../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
+    include_bytes!("../../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
 );
 
 /// Node specific configuration
