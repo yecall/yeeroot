@@ -98,7 +98,6 @@ impl MultiLayerProof {
         if self.layer1_merkles.len() != tree.leafs() || shard_num >= tree.leafs() {
             return None;
         }
-        let mut result: MultiLayerProof = Default::default();
         let layer1 = self.layer1_merkles.get(shard_num);
         let (num, data) = match layer1 {
             Some((num, data)) => (num, data),

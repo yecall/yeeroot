@@ -422,7 +422,7 @@ decl_module! {
 		///
 		///
 		fn relay_transfer(
-		    origin,
+		    _origin,
 		    transfer: Vec<u8>,
 		    height: Compact<u64>,
 		    hash: T::Hash,

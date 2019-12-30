@@ -211,7 +211,13 @@ impl<
             // increment nonce in storage
             <system::Module<System>>::inc_account_nonce(sender);
         } else {
-            if let Some(_rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
+            if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
+                // check duplicate relay extrinsic
+                let used = <system::Module<System>>::relay_extrinsic(rtx.hash());
+                if used == 1u16 {
+                    return Err(internal::ApplyError::Stale);
+                }
+                <system::Module<System>>::set_relay_extrinsic_exist(&rtx.hash());
                 // check origin signature and proof
                 // TODO
             }
