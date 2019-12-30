@@ -12,7 +12,7 @@ use substrate_primitives::H256;
 struct RelayData(Vec<u8>);
 
 #[rpc]
-pub trait OtherApi<Hash> where
+pub trait MiscApi<Hash> where
     Hash: Encode,
 {
     #[rpc(name = "other_get_relay_extrinsic_data")]
@@ -22,13 +22,13 @@ pub trait OtherApi<Hash> where
     fn recommit_relay_extrinsic(&self, data: Vec<u8>) -> errors::Result<()>;
 }
 
-pub struct Other<B> where
+pub struct Misc<B> where
     B: BlockT,
 {
     _b: PhantomData<B>
 }
 
-impl<B> Other<B> where
+impl<B> Misc<B> where
     B: BlockT,
 {
     pub fn new() -> Self {
@@ -38,7 +38,7 @@ impl<B> Other<B> where
     }
 }
 
-impl<B> OtherApi<B::Hash> for Other<B> where
+impl<B> MiscApi<B::Hash> for Misc<B> where
     B: BlockT,
 {
     fn get_relay_extrinsic_data(&self, hash: B::Hash) -> errors::Result<RelayData> {

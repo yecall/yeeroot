@@ -16,7 +16,7 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 #![allow(unused_imports)]
-pub mod other;
+pub mod misc;
 pub mod mining;
 mod errors;
 use substrate_service::{Components, ComponentClient, ComponentBlock, ComponentExHash, RpcHandlerConstructor, FactoryFullConfiguration,
@@ -32,7 +32,7 @@ use network::{self, OnDemand};
 use transaction_pool::txpool::{self, Options as TransactionPoolOptions, Pool as TransactionPool};
 use std::marker::PhantomData;
 use crate::mining::{Mining, MiningApi};
-use crate::other::{OtherApi, Other as OtherR};
+use crate::misc::{MiscApi, Misc};
 use parking_lot::RwLock;
 use yee_consensus_pow::{JobManager, DefaultJob};
 use yee_runtime::opaque::{Block};
@@ -97,8 +97,8 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
         let mining = Mining::new(extra.job_manager);
         io.extend_with(mining.to_delegate());
 
-        let other = OtherR::<<C::Factory as ServiceFactory>::Block>::new();
-        io.extend_with(other.to_delegate());
+        let misc = Misc::<<C::Factory as ServiceFactory>::Block>::new();
+        io.extend_with(misc.to_delegate());
 
         io
     }
