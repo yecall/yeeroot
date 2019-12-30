@@ -329,6 +329,11 @@ impl<
     }
 
     fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>, shard_count: u16) -> TransactionValidity {
+        // check duplicate relay extrinsic
+        let used = <system::Module<System>>::relay_extrinsic(rtx.hash());
+        if used == 1u16 {
+            return TransactionValidity::Invalid(ApplyError::Stale as i8);
+        }
         let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
         let requires = (Compact(shard_num), Compact(rtx.number()), rtx.block_hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
         TransactionValidity::Valid {
