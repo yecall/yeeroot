@@ -54,12 +54,18 @@ pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
 pub const FOREIGN_PROTOCOL_VERSION : &str = "/yee-foreign/1.0.0";
 
+#[cfg(feature = "custom-wasm-code")]
+pub const WASM_CODE: &'static [u8] = include_bytes!(env!("WASM_CODE_PATH"));
+
+#[cfg(not(feature = "custom-wasm-code"))]
+pub const WASM_CODE: &'static [u8] = include_bytes!("../../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm");
+
 // Our native executor instance.
 native_executor_instance!(
     pub Executor,
     yee_runtime::api::dispatch,
     yee_runtime::native_version,
-    include_bytes!("../../runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm")
+    WASM_CODE
 );
 
 /// Node specific configuration

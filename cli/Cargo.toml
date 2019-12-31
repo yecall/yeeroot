@@ -62,5 +62,8 @@ srml-crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg" }
 foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 
+[features]
+custom-wasm-code = []
+
 [build-dependencies]
 vergen = "3"
