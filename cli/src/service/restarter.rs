@@ -34,7 +34,7 @@ pub struct Params {
 	pub shard_num: u16,
 	pub shard_count: u16,
 	pub scale_out: Option<ScaleOut>,
-	pub trigger_exit: Option<Arc<CliTriggerExit<CliSignal>>>,
+	pub trigger_exit: Arc<dyn consensus::TriggerExit>,
 }
 
 pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor) where
@@ -50,7 +50,7 @@ pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, execut
 	let authority_id = param.authority_id.clone();
 
 	let coinbase = param.coinbase.clone();
-	let trigger_exit = param.trigger_exit.expect("qed");
+	let trigger_exit = param.trigger_exit;
 
 	let task = client.import_notification_stream().for_each(move |notification| {
 
@@ -87,12 +87,12 @@ pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, execut
 				let coinbase_shard_num = shard_num_for(&coinbase, shard_count).expect("qed");
 				if target_shard_num != coinbase_shard_num {
 					info!("Stop service for coinbase shard num is not accordant");
-					trigger_exit.trigger_exit(CliSignal::Stop);
+					trigger_exit.trigger_stop();
 					return Ok(());
 				}
 
 				info!("Restart service for commiting scale out phase");
-				trigger_exit.trigger_exit(CliSignal::Restart);
+				trigger_exit.trigger_restart();
 			}
 
 		}

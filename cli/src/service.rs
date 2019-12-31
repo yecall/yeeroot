@@ -84,7 +84,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub hrp: Hrp,
     pub scale_out: Option<ScaleOut>,
-    pub trigger_exit: Option<Arc<CliTriggerExit<CliSignal>>>,
+    pub trigger_exit: Option<Arc<dyn consensus::TriggerExit>>,
 }
 
 impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
@@ -250,7 +250,7 @@ construct_service_factory! {
                     shard_num: service.config.custom.shard_num,
                     shard_count: service.config.custom.shard_count,
                     scale_out: service.config.custom.scale_out.clone(),
-                    trigger_exit: service.config.custom.trigger_exit.clone(),
+                    trigger_exit: service.config.custom.trigger_exit.clone().expect("qed"),
                 };
                 start_restarter::<FullComponents<Self>>(restarter_param, service.client(), &executor);
 
