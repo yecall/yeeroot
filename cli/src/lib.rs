@@ -23,7 +23,7 @@ use futures::sync::oneshot::Sender;
 use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
 use std::thread;
 use serde::export::fmt::Debug;
-use crate::service::NodeConfig;
+pub use crate::service::NodeConfig;
 use runtime_primitives::{
 	traits::{ProvideRuntimeApi, DigestItemFor, Block, Header},
 };
