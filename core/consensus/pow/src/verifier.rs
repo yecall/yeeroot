@@ -123,7 +123,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let mut res_proof = proof;
         // check body if not none
         match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
-            error!("{}: {}", Colour::Red.paint("check header failed"), e);
+            error!("{}: {}", Colour::Red.paint("check body failed"), e);
             e
         })? {
             Some(p) => res_proof = Some(p),
