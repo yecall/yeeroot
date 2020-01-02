@@ -80,7 +80,7 @@ where
     <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
 
-    let (shard_num, shard_count, scale_out) = get_shard_info::<F>(&config, &custom_args)?;
+    let (shard_num, shard_count, scale_out) = (0u16, 4u16, None);//get_shard_info::<F>(&config, &custom_args)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 
