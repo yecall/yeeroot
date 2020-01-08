@@ -142,6 +142,12 @@ impl system::Trait for Runtime {
 	type Origin = Origin;
 }
 
+impl assets::Trait for Runtime {
+	type Event = Event;
+
+	type Balance = u128;
+}
+
 impl pow::Trait for Runtime {
     /// Type used for POW target
     type PowTarget = PowTarget;
@@ -230,6 +236,7 @@ construct_runtime!(
 		Pow: pow::{Module, Call, Storage, Config<T>, Inherent, Event<T>},
 		Indices: indices,
 		Balances: balances,
+		Assets: assets::{Module, Call, Storage, Event<T>},
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
 		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},
