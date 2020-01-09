@@ -337,7 +337,6 @@ construct_service_factory! {
                         client,
                         config.custom.inherent_data_providers.clone(),
                         config.custom.foreign_chains.clone(),
-                        config.custom.coinbase.clone(),
                         consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,
@@ -356,7 +355,6 @@ construct_service_factory! {
                         client,
                         config.custom.inherent_data_providers.clone(),
                         Arc::new(RwLock::new(None)),
-                        config.custom.coinbase.clone(),
                         consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,

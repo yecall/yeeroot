@@ -163,7 +163,6 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
-    _coinbase: AccountId,
     shard_extra: ShardExtra<AccountId>
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
     H256: From<<F::Block as Block>::Hash>,
