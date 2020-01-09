@@ -80,6 +80,14 @@ decl_module! {
 			// event
 			Self::deposit_event(RawEvent::Transferred(id, origin, target, amount));
 		}
+
+		fn cross_sharding_transfer(
+			#[compact] id: AssetId,
+			target: <T::Lookup as StaticLookup>::Source,
+			#[compact] amount: T::Balance
+		) {
+
+		}
 	}
 }
 
