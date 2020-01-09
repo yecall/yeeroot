@@ -10,7 +10,7 @@ pub use substrate_cli::{VersionInfo, IntoExit, error};
 use futures::{future, Future, sync::oneshot};
 use tokio::runtime::Runtime;
 use substrate_cli::{informant, parse_and_execute, TriggerExit};
-use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, FactoryFullConfiguration, FactoryBlock, FullClient};
+use substrate_service::{ServiceFactory, Roles as ServiceRoles, Arc, FactoryFullConfiguration, FactoryBlock, FullClient, LightClient};
 use std::ops::Deref;
 use log::info;
 use crate::{
@@ -68,6 +68,8 @@ where
 	DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
 	FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
 	<FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+	LightClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+	<LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
 	info!("{}", version.name);
 	info!("  version {}", config.full_version());

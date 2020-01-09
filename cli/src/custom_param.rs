@@ -20,14 +20,19 @@ use {
     substrate_cli::{impl_augment_clap},
 };
 use log::{info, warn};
-use substrate_service::{FactoryFullConfiguration, ServiceFactory, config::Roles, new_client, FactoryBlock, FullClient};
+use substrate_service::{
+    FactoryFullConfiguration, ServiceFactory, config::Roles, FactoryBlock,
+    FullClient, LightClient,
+    FullComponents,LightComponents,
+    Components
+};
 use substrate_client::ChainHead;
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor},
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero},
 };
 use crate::error;
-use crate::service::{NodeConfig};
+use crate::service::{NodeConfig, NativeExecutor};
 use crate::FactoryBlockNumber;
 use yee_bootnodes_router;
 use yee_bootnodes_router::BootnodesRouterConf;
@@ -38,6 +43,7 @@ use sharding_primitives::{ShardingAPI, ScaleOut, utils::shard_num_for};
 use inherents::{
     InherentDataProviders, RuntimeString,
 };
+use std::sync::Arc;
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -78,9 +84,11 @@ where
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
     FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    LightClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
 
-    let (shard_num, shard_count, scale_out) = (0u16, 4u16, None);//get_shard_info::<F>(&config, &custom_args)?;
+    let (shard_num, shard_count, scale_out) = get_shard_info::<F>(&config, &custom_args)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 
@@ -196,8 +204,30 @@ where
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
     FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
     <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    LightClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
 {
-    let client = new_client::<F>(&config)?;
+
+    let executor = NativeExecutor::new(config.default_heap_pages);
+    match config.roles {
+        Roles::LIGHT => {
+            let (client, _) = LightComponents::<F>::build_client(config, executor)?;
+            get_shard_info_from_client::<F, LightClient<F>>(config, custom_args, client)
+        },
+        _ => {
+            let (client, _) = FullComponents::<F>::build_client(config, executor)?;
+            get_shard_info_from_client::<F, FullClient<F>>(config, custom_args, client)
+        },
+    }
+}
+
+fn get_shard_info_from_client<F, C>(_config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig, client: Arc<C>) -> error::Result<(u16, u16, Option<ScaleOut>)>
+where
+    F: ServiceFactory<Configuration=NodeConfig<F>>,
+    DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
+    C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+{
     let last_block_header = client.best_block_header()?;
 
     let shard_info : Option<(u16, u16)> = last_block_header.digest().logs().iter().rev()
@@ -213,19 +243,17 @@ where
     // check if there is scale out phase log in header
     // we treat that there is commiting scale out phase in genesis block header
     let scale_out_phase = match shard_info {
-        Some(shard_info) => {
+        Some(_shard_info) => {
             last_block_header.digest().logs().iter().rev()
                 .filter_map(ScaleOutPhaseDigestItem::<FactoryBlockNumber<F>, u16>::as_scale_out_phase)
                 .next()
         },
         None => {
-            // genesis block
             let api = client.runtime_api();
-            let last_block_id = BlockId::hash(last_block_header.hash());
-            let genesis_shard_cnt = api.get_genesis_shard_count(&last_block_id)?;
-
+            let zero_block_id = BlockId::number(Zero::zero());
+            let genesis_shard_count = api.get_genesis_shard_count(&zero_block_id)?;
             Some(ScaleOutPhase::<FactoryBlockNumber<F>, _>::Committing {
-                shard_count: genesis_shard_cnt,
+                shard_count: genesis_shard_count,
             })
         },
     };
