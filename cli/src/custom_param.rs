@@ -90,7 +90,7 @@ where
     <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 {
 
-    let InitialInfo{context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, &custom_args)?;
+    let InitialInfo{context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, custom_args.shard_num)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 
@@ -202,7 +202,7 @@ fn get_hrp(chain_spec_id: &str) -> Hrp{
 }
 
 #[derive(Debug)]
-struct InitialInfo<Block> where
+pub struct InitialInfo<Block> where
     Block: BlockT,
 {
     context: Context<Block>,
@@ -211,7 +211,7 @@ struct InitialInfo<Block> where
     scale_out: Option<ScaleOut>,
 }
 
-fn get_initial_info<F>(config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<InitialInfo<FactoryBlock<F>>>
+pub fn get_initial_info<F>(config: &FactoryFullConfiguration<F>, arg_shard_num: u16) -> error::Result<InitialInfo<FactoryBlock<F>>>
 where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
@@ -226,7 +226,7 @@ where
         Roles::LIGHT => {
             let (client, _) = LightComponents::<F>::build_client(config, executor)?;
             let context = get_context_from_client::<F, _>(config, client.clone())?;
-            let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, custom_args, client, &context)?;
+            let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, arg_shard_num, client, &context)?;
             Ok(InitialInfo{
                 context,
                 shard_num,
@@ -237,7 +237,7 @@ where
         _ => {
             let (client, _) = FullComponents::<F>::build_client(config, executor)?;
             let context = get_context_from_client::<F, _>(config, client.clone())?;
-            let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, custom_args, client, &context)?;
+            let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, arg_shard_num, client, &context)?;
             Ok(InitialInfo{
                 context,
                 shard_num,
@@ -270,7 +270,7 @@ fn get_context_from_client<F, C>(config: &FactoryFullConfiguration<F>, client: A
     Ok(context)
 }
 
-fn get_shard_info_from_client<F, C>(_config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig, client: Arc<C>, context: &Context<FactoryBlock<F>>) -> error::Result<(u16, u16, Option<ScaleOut>)>
+fn get_shard_info_from_client<F, C>(_config: &FactoryFullConfiguration<F>, arg_shard_num: u16, client: Arc<C>, context: &Context<FactoryBlock<F>>) -> error::Result<(u16, u16, Option<ScaleOut>)>
 where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
@@ -285,8 +285,6 @@ where
     if let Some((num, cnt)) = shard_info {
         info!("Original shard info: shard num: {}, shard count: {}", num, cnt);
     }
-
-    let arg_shard_num = custom_args.shard_num;
 
     // check if there is scale out phase log in header
     // we treat that there is commiting scale out phase in genesis block header

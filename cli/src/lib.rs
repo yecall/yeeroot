@@ -6,6 +6,8 @@ mod service;
 mod chain_spec;
 
 pub use crate::service::Factory;
+pub use crate::service::NodeConfig;
+pub use crate::custom_param::{get_initial_info, InitialInfo};
 pub use substrate_cli::{VersionInfo, IntoExit, error};
 use futures::{future, Future, sync::oneshot};
 use tokio::runtime::Runtime;
@@ -23,7 +25,6 @@ use futures::sync::oneshot::Sender;
 use signal_hook::{iterator::Signals, SIGUSR1, SIGINT, SIGTERM};
 use std::thread;
 use serde::export::fmt::Debug;
-pub use crate::service::NodeConfig;
 use runtime_primitives::{
 	traits::{ProvideRuntimeApi, DigestItemFor, Block, Header},
 };
