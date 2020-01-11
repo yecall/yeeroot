@@ -29,7 +29,7 @@ use substrate_service::{
 use substrate_client::ChainHead;
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero},
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero, Block as BlockT},
 };
 use crate::error;
 use crate::service::{NodeConfig, NativeExecutor};
@@ -44,6 +44,8 @@ use inherents::{
     InherentDataProviders, RuntimeString,
 };
 use std::sync::Arc;
+use yee_context::Context;
+use yee_pow_primitives::YeePOWApi;
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -83,12 +85,12 @@ where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
     FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
     LightClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-    <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 {
 
-    let (shard_num, shard_count, scale_out) = get_shard_info::<F>(&config, &custom_args)?;
+    let InitialInfo{context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, &custom_args)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 
@@ -149,6 +151,7 @@ where
 
     config.custom.foreign_port = custom_args.foreign_port;
     config.custom.mine = custom_args.mine;
+    config.custom.context = Some(context);
 
     info!("Custom params: ");
     info!("  coinbase: {}", config.custom.coinbase.to_address(config.custom.hrp.clone()).expect("qed"));
@@ -198,35 +201,80 @@ fn get_hrp(chain_spec_id: &str) -> Hrp{
     }
 }
 
-fn get_shard_info<F>(config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<(u16, u16, Option<ScaleOut>)>
+#[derive(Debug)]
+struct InitialInfo<Block> where
+    Block: BlockT,
+{
+    context: Context<Block>,
+    shard_num: u16,
+    shard_count: u16,
+    scale_out: Option<ScaleOut>,
+}
+
+fn get_initial_info<F>(config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig) -> error::Result<InitialInfo<FactoryBlock<F>>>
 where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
     FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    <FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
     LightClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-    <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 {
 
     let executor = NativeExecutor::new(config.default_heap_pages);
-    match config.roles {
+    let initial_info = match config.roles {
         Roles::LIGHT => {
             let (client, _) = LightComponents::<F>::build_client(config, executor)?;
-            get_shard_info_from_client::<F, LightClient<F>>(config, custom_args, client)
+            let context = get_context_from_client::<F, _>(config, client.clone())?;
+            let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, custom_args, client, &context)?;
+            Ok(InitialInfo{
+                context,
+                shard_num,
+                shard_count,
+                scale_out,
+            })
         },
         _ => {
             let (client, _) = FullComponents::<F>::build_client(config, executor)?;
-            get_shard_info_from_client::<F, FullClient<F>>(config, custom_args, client)
+            let context = get_context_from_client::<F, _>(config, client.clone())?;
+            let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, custom_args, client, &context)?;
+            Ok(InitialInfo{
+                context,
+                shard_num,
+                shard_count,
+                scale_out,
+            })
         },
-    }
+    };
+    info!("Initial info: {:?}", initial_info);
+    initial_info
 }
 
-fn get_shard_info_from_client<F, C>(_config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig, client: Arc<C>) -> error::Result<(u16, u16, Option<ScaleOut>)>
+fn get_context_from_client<F, C>(config: &FactoryFullConfiguration<F>, client: Arc<C>) -> error::Result<Context<FactoryBlock<F>>> where
+    F: ServiceFactory<Configuration=NodeConfig<F>>,
+    C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
+    <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
+{
+    let block_id = match config.roles {
+        Roles::LIGHT => BlockId::Number(Zero::zero()),
+        _ => BlockId::Number(client.best_block_header()?.number().clone()),
+    };
+    let api = client.runtime_api();
+    let context = Context{
+        genesis_pow_target: api.genesis_pow_target(&block_id)?,
+        genesis_pow_target_adj: api.pow_target_adj(&block_id)?,
+        genesis_target_block_time: api.target_block_time(&block_id)?,
+        genesis_shard_count: api.get_genesis_shard_count(&block_id)?,
+        genesis_scale_out_observe_blocks: api.get_scale_out_observe_blocks(&block_id)?,
+    };
+    Ok(context)
+}
+
+fn get_shard_info_from_client<F, C>(_config: &FactoryFullConfiguration<F>, custom_args: &YeeCliConfig, client: Arc<C>, context: &Context<FactoryBlock<F>>) -> error::Result<(u16, u16, Option<ScaleOut>)>
 where
     F: ServiceFactory<Configuration=NodeConfig<F>>,
     DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
-    C: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+    C: ChainHead<FactoryBlock<F>>,
 {
     let last_block_header = client.best_block_header()?;
 
@@ -249,11 +297,8 @@ where
                 .next()
         },
         None => {
-            let api = client.runtime_api();
-            let zero_block_id = BlockId::number(Zero::zero());
-            let genesis_shard_count = api.get_genesis_shard_count(&zero_block_id)?;
             Some(ScaleOutPhase::<FactoryBlockNumber<F>, _>::Committing {
-                shard_count: genesis_shard_count,
+                shard_count: context.genesis_shard_count,
             })
         },
     };

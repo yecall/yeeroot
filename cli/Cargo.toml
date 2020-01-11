@@ -56,11 +56,13 @@ yee-foreign-network = { package = "yee-foreign-network", path = "../foreign/netw
 yee-relay = { package = "yee-foreign-relay", path = "../foreign/relay" }
 yee-dev = { package = "yee-dev", path = "../dev" }
 yee-primitives = { package = "yee-primitives", path = "../core/primitives" }
+yee-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives" }
 srml-sharding = { package = "yee-srml-sharding", path = "../srml/yee-sharding" }
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 srml-crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg" }
 foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
+yee-context = { package = "yee-context", path = "../core/context" }
 
 [features]
 custom-wasm-code = []

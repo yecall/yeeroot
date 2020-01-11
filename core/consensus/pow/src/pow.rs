@@ -24,7 +24,7 @@ use runtime_primitives::{
         Decode, Encode,
     },
     traits::{Block, DigestItemFor, DigestFor, Digest, Header, Hash as HashT, BlakeTwo256,
-             Zero, As, SimpleArithmetic, ProvideRuntimeApi, NumberFor},
+             Zero, As, SimpleArithmetic, NumberFor},
     generic::BlockId,
     Proof as ExtrinsicProof,
 };
@@ -45,6 +45,7 @@ use hash_db::Hasher as BlakeHasher;
 use std::iter::FromIterator;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
+use yee_context::Context;
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
@@ -223,24 +224,19 @@ fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
 }
 
 /// calculate pow target
-pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>::Header, timestamp: u64)
+pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>::Header, timestamp: u64, context: &Context<B>)
     -> Result<PowTarget, consensus_common::Error> where
     B: Block,
     NumberFor<B>: SimpleArithmetic,
     DigestFor<B>: Digest,
     DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId>,
-    C: HeaderBackend<B> + ProvideRuntimeApi,
-    <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
+    C: HeaderBackend<B>,
     AuthorityId: Encode + Decode + Clone,
 {
     let next_num = *header.number();
     let curr_block_id = BlockId::hash(*header.parent_hash());
-    let api = client.runtime_api();
-    let zero_id = BlockId::number(<NumberFor<B> as As<u64>>::sa(0u64));
-    let genesis_pow_target = api.genesis_pow_target(&zero_id);
-    let genesis_pow_target = genesis_pow_target.map_err(to_common_error)?;
-    let adj = api.pow_target_adj(&zero_id);
-    let adj = adj.map_err(to_common_error)?;
+    let genesis_pow_target = context.genesis_pow_target;
+    let adj = context.genesis_pow_target_adj;
     let curr_header = client.header(curr_block_id)
         .expect("parent block must exist for sealer; qed")
         .expect("parent block must exist for sealer; qed");
@@ -278,8 +274,7 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
         }
     };
 
-    let target_block_time = api.target_block_time(&zero_id);
-    let target_block_time = target_block_time.map_err(to_common_error)?;
+    let target_block_time = context.genesis_target_block_time;
     let time_gap = timestamp - last_time;
     let expected_gap = target_block_time * 1000 * block_gap;
     let new_pow_target = (curr_pow_target / expected_gap) * time_gap;

@@ -49,6 +49,7 @@ use yee_rpc::ProvideJobManager;
 use crfg;
 use yee_primitives::Hrp;
 use crate::{CliTriggerExit, CliSignal};
+use yee_context::{Context};
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -85,6 +86,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub hrp: Hrp,
     pub scale_out: Option<ScaleOut>,
     pub trigger_exit: Option<Arc<dyn consensus::TriggerExit>>,
+    pub context: Option<Context<F::Block>>,
 }
 
 impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
@@ -102,7 +104,8 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             foreign_chains: Arc::new(RwLock::new(None)),
             hrp: Default::default(),
             scale_out: Default::default(),
-            trigger_exit: None,
+            trigger_exit: Default::default(),
+            context: Default::default(),
         }
     }
 }
@@ -119,6 +122,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             hrp: self.hrp.clone(),
             scale_out: self.scale_out.clone(),
             trigger_exit: self.trigger_exit.clone(),
+            context: self.context.clone(),
 
             // cloned config SHALL NOT SHARE some items with original config
             inherent_data_providers: Default::default(),
@@ -300,7 +304,8 @@ construct_service_factory! {
                             shard_count: service.config.custom.shard_count,
                             scale_out: service.config.custom.scale_out.clone(),
                             trigger_exit: service.config.custom.trigger_exit.clone().expect("qed"),
-                        }
+                        },
+                        context: service.config.custom.context.clone().expect("qed"),
                     };
 
                     executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
@@ -343,7 +348,8 @@ construct_service_factory! {
                             shard_count: config.custom.shard_count,
                             scale_out: config.custom.scale_out.clone(),
                             trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
-                        }
+                        },
+                        config.custom.context.clone().expect("qed"),
                     ).map_err(Into::into)
                 }
             },
@@ -361,7 +367,8 @@ construct_service_factory! {
                             shard_count: config.custom.shard_count,
                             scale_out: config.custom.scale_out.clone(),
                             trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
-                        }
+                        },
+                        config.custom.context.clone().expect("qed"),
                     ).map_err(Into::into)
                 }
             },

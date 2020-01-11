@@ -32,6 +32,7 @@ use substrate_client::ChainHead;
 use sharding_primitives::ShardingAPI;
 use std::thread::sleep;
 use std::time::Duration;
+use yee_pow_primitives::YeePOWApi;
 
 pub type FactoryBlockNumber<F> = <<FactoryBlock<F> as Block>::Header as Header>::Number;
 
@@ -67,9 +68,9 @@ where
 	F: ServiceFactory<Configuration=NodeConfig<F>>,
 	DigestItemFor<FactoryBlock<F>>: ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<FactoryBlockNumber<F>, u16>,
 	FullClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-	<FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+	<FullClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 	LightClient<F>: ProvideRuntimeApi + ChainHead<FactoryBlock<F>>,
-	<LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>>,
+	<LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 {
 	info!("{}", version.name);
 	info!("  version {}", config.full_version());

@@ -66,6 +66,7 @@ use yee_srml_pow::RewardCondition;
 use yee_sharding_primitives::ScaleOut;
 use primitives::H256;
 use substrate_service::ServiceFactory;
+use yee_context::Context;
 
 mod job;
 mod digest;
@@ -73,10 +74,13 @@ mod pow;
 mod verifier;
 mod worker;
 
-pub struct Params<AccountId> {
+pub struct Params<AccountId, B> where
+    B: Block,
+{
     pub force_authoring: bool,
     pub mine: bool,
     pub shard_extra: ShardExtra<AccountId>,
+    pub context: Context<B>
 }
 
 pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
@@ -88,7 +92,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     on_exit: OnExit,
     inherent_data_providers: InherentDataProviders,
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, P::Public>>>>>>,
-    params: Params<AccountId>,
+    params: Params<AccountId, B>,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     P: Pair + 'static,
@@ -112,6 +116,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         local_key.public(),
         block_import.clone(),
         params.shard_extra.clone(),
+        params.context.clone(),
     ));
 
     let mut reg_lock = job_manager.write();
@@ -163,7 +168,8 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     client: Arc<C>,
     inherent_data_providers: InherentDataProviders,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
-    shard_extra: ShardExtra<AccountId>
+    shard_extra: ShardExtra<AccountId>,
+    context: Context<F::Block>,
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
     H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
@@ -188,6 +194,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
             foreign_chains,
             phantom: PhantomData,
             shard_extra,
+            context,
         }
     );
     Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import))

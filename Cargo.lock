@@ -5332,6 +5332,8 @@ dependencies = [
  "vergen 3.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-bootnodes-router 0.1.0",
  "yee-consensus-pow 0.1.0",
+ "yee-consensus-pow-primitives 0.1.0",
+ "yee-context 0.6.0",
  "yee-crfg 0.4.0",
  "yee-dev 0.4.0",
  "yee-foreign-chain 0.4.0",
@@ -5371,6 +5373,7 @@ dependencies = [
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "util 0.4.0",
  "yee-consensus-pow-primitives 0.1.0",
+ "yee-context 0.6.0",
  "yee-foreign-chain 0.4.0",
  "yee-merkle 0.4.0",
  "yee-runtime 1.0.0",
@@ -5387,6 +5390,14 @@ dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+]
+
+[[package]]
+name = "yee-context"
+version = "0.6.0"
+dependencies = [
+ "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-consensus-pow-primitives 0.1.0",
 ]
 
 [[package]]
