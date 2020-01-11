@@ -20,17 +20,21 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use srml_support::{StorageValue, StorageMap, Parameter, decl_module, decl_event, decl_storage, ensure};
-use primitives::traits::{Member, SimpleArithmetic, Zero, StaticLookup};
+use srml_support::{StorageValue, StorageMap, Parameter, decl_module, decl_event, decl_storage, ensure, dispatch::Result};
+use primitives::traits::{Member, SimpleArithmetic, Zero, generic::Era, StaticLookup};
+use sharding_primitives::ShardingInfo;
+use parity_codec::Compact;
 use system::ensure_signed;
 use rstd::prelude::Vec;
 
-pub trait Trait: system::Trait {
+pub trait Trait: sharding::Trait {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
 	/// The units in which we record balances.
 	type Balance: Member + Parameter + SimpleArithmetic + Default + Copy;
+
+	type Sharding: ShardingInfo<Self::ShardNum>;
 }
 
 type AssetId = u32;
@@ -71,22 +75,22 @@ decl_module! {
 			let origin = ensure_signed(origin)?;
 			let origin_account = (id, origin.clone());
 			let origin_balance = <Balances<T>>::get(&origin_account);
-			let target = T::Lookup::lookup(target)?;
+
 			ensure!(!amount.is_zero(), "transfer amount should be non-zero");
 			ensure!(origin_balance >= amount, "origin account balance must be greater than or equal to the transfer amount");
 
+			// change amount about origin account
 			<Balances<T>>::insert(origin_account, origin_balance - amount);
-			<Balances<T>>::mutate((id, target.clone()), |balance| *balance += amount);
+
+			let (cn, c) = (T::Sharding::get_curr_shard().expect("can't get current shard num").as_() as u16, T::Sharding::get_shard_count().as_() as u16);
+			let dn = sharding_primitives::utils::shard_num_for(dest, c).expect("can't get target shard num");
+			// in same sharding
+			if cn == dn {
+				let target = T::Lookup::lookup(target)?;
+				<Balances<T>>::mutate((id, target.clone()), |balance| *balance += amount);
+			}
 			// event
 			Self::deposit_event(RawEvent::Transferred(id, origin, target, amount));
-		}
-
-		fn cross_sharding_transfer(
-			#[compact] id: AssetId,
-			target: <T::Lookup as StaticLookup>::Source,
-			#[compact] amount: T::Balance
-		) {
-
 		}
 	}
 }
@@ -137,6 +141,63 @@ impl<T: Trait> Module<T> {
 
 	// Get the issuer of an asset `id`
 	pub fn issuer(id: AssetId) -> T::AccountId { <AssetsIssuer<T>>::get(id) }
+
+	pub fn relay_transfer(input: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash) -> Result {
+		if Some(tx) = Self::decode(input) {
+			let target = T::Lookup::lookup(tx.to())?;
+			<Balances<T>>::mutate((tx.id(), tx.to()), |balance| *balance += tx.amount());
+			Self::deposit_event(RawEvent::Transferred(tx.id(), tx.from(), tx.to(), tx.amount()));
+			Ok(())
+		} else{
+			Err("transfer is invalid.")
+		}
+	}
+
+	fn decode(input: Vec<u8>) -> Option<OriginAsset<T::AccountId, T::Balance>> {
+		// todo
+		None
+	}
+}
+
+/// OriginAsset for asset transfer
+struct OriginAsset<Address, Balance> {
+	id: u32,
+	sender: Address,
+	signature: Vec<u8>,
+	index: Compact<u64>,
+	era: Era,
+	dest: Address,
+	amount: Balance,
+}
+
+impl<Address, Balance> OriginAsset<Address, Balance> {
+	pub fn id(&self) -> u32{
+		self.id
+	}
+
+	pub fn from(&self) -> Addess {
+		self.sender.clone()
+	}
+
+	pub fn to(&self) -> Address {
+		self.dest.clone()
+	}
+
+	pub fn signature(&self) -> Vec<u8> {
+		self.signature.clone()
+	}
+
+	pub fn index(&self) -> Compact<u64> {
+		self.index.clone()
+	}
+
+	pub fn era(&self) -> Era{
+		self.era.clone()
+	}
+
+	pub fn amount(&self) -> Balance {
+		self.amount.clone()
+	}
 }
 
 #[cfg(test)]

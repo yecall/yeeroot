@@ -237,6 +237,7 @@ construct_runtime!(
 		Indices: indices,
 		Balances: balances,
 		Assets: assets::{Module, Call, Storage, Event<T>},
+		Relay: relay::{Module, Call},
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
 		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},

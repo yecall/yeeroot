@@ -3419,6 +3419,13 @@ dependencies = [
 
 [[package]]
 name = "sr-primitives"
+version = "0.1.0"
+dependencies = [
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sr-primitives"
 version = "1.0.0"
 source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#bffeae663be5d0b87bd079573a270e29c4e44c2f"
 dependencies = [
@@ -5711,6 +5718,7 @@ dependencies = [
  "yee-srml-crfg 1.0.0",
  "yee-srml-executive 0.4.0",
  "yee-srml-pow 0.1.0",
+ "yee-srml-relay 0.4.0",
  "yee-srml-sharding 0.1.0",
 ]
 
@@ -5764,6 +5772,8 @@ dependencies = [
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-sharding-primitives 0.1.0",
+ "yee-srml-sharding 0.1.0",
 ]
 
 [[package]]
@@ -5823,6 +5833,7 @@ dependencies = [
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-sharding-primitives 0.1.0",
  "yee-srml-balances 0.4.0",
+ "yee-srml-relay 0.4.0",
  "yee-srml-sharding 0.1.0",
 ]
 
@@ -5840,6 +5851,21 @@ dependencies = [
  "substrate-inherents 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-sharding-primitives 0.1.0",
  "yee-srml-sharding 0.1.0",
+]
+
+[[package]]
+name = "yee-srml-relay"
+version = "0.4.0"
+dependencies = [
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-primitives 0.1.0",
+ "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-srml-assets 0.4.0",
+ "yee-srml-balances 0.4.0",
 ]
 
 [[package]]

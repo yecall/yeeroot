@@ -418,18 +418,18 @@ decl_module! {
 			Self::set_reserved_balance(&who, reserved);
 		}
 
-		/// execute relay transfer part
-		///
-		///
-		fn relay_transfer(
-		    _origin,
-		    transfer: Vec<u8>,
-		    height: Compact<u64>,
-		    hash: T::Hash,
-		    parent: T::Hash
-		){
-		    Self::execute_relay_transfer(transfer, height, hash, parent)?;
-		}
+//		/// execute relay transfer part
+//		///
+//		///
+//		fn relay_transfer(
+//		    _origin,
+//		    transfer: Vec<u8>,
+//		    height: Compact<u64>,
+//		    hash: T::Hash,
+//		    parent: T::Hash
+//		){
+//		    Self::execute_relay_transfer(transfer, height, hash, parent)?;
+//		}
 	}
 }
 
@@ -543,7 +543,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     /// execute relay transfer
-    fn execute_relay_transfer(transfer: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash) -> Result {
+    pub fn relay_transfer(transfer: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash) -> Result {
         let tx: OriginTransfer<T::AccountId, T::Balance> = OriginTransfer::decode(transfer).unwrap();
         if !<FreeBalance<T, I>>::exists(tx.dest()) {
             Self::new_account(&tx.dest(), tx.amount());

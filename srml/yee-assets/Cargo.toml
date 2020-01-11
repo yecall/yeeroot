@@ -15,6 +15,8 @@ srml-support = { package = "srml-support",  git = "https://github.com/yeeco/subs
 # `system` module provides us with all sorts of useful stuff and macros depend on it being around.
 system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
+sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
 
 [dev-dependencies]
 substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
