@@ -205,10 +205,10 @@ fn get_hrp(chain_spec_id: &str) -> Hrp{
 pub struct InitialInfo<Block> where
     Block: BlockT,
 {
-    context: Context<Block>,
-    shard_num: u16,
-    shard_count: u16,
-    scale_out: Option<ScaleOut>,
+    pub context: Context<Block>,
+    pub shard_num: u16,
+    pub shard_count: u16,
+    pub scale_out: Option<ScaleOut>,
 }
 
 pub fn get_initial_info<F>(config: &FactoryFullConfiguration<F>, arg_shard_num: u16) -> error::Result<InitialInfo<FactoryBlock<F>>>
