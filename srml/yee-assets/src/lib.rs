@@ -21,7 +21,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use srml_support::{StorageValue, StorageMap, Parameter, decl_module, decl_event, decl_storage, ensure, dispatch::Result};
-use primitives::traits::{Member, SimpleArithmetic, Zero, generic::Era, StaticLookup};
+use primitives::{traits::{Member, SimpleArithmetic, As, Zero, StaticLookup}, generic::Era};
 use sharding_primitives::ShardingInfo;
 use parity_codec::Compact;
 use system::ensure_signed;
@@ -81,12 +81,12 @@ decl_module! {
 
 			// change amount about origin account
 			<Balances<T>>::insert(origin_account, origin_balance - amount);
+			let target = T::Lookup::lookup(target)?;
 
 			let (cn, c) = (T::Sharding::get_curr_shard().expect("can't get current shard num").as_() as u16, T::Sharding::get_shard_count().as_() as u16);
-			let dn = sharding_primitives::utils::shard_num_for(dest, c).expect("can't get target shard num");
+			let dn = sharding_primitives::utils::shard_num_for(&target, c).expect("can't get target shard num");
 			// in same sharding
 			if cn == dn {
-				let target = T::Lookup::lookup(target)?;
 				<Balances<T>>::mutate((id, target.clone()), |balance| *balance += amount);
 			}
 			// event
@@ -142,9 +142,8 @@ impl<T: Trait> Module<T> {
 	// Get the issuer of an asset `id`
 	pub fn issuer(id: AssetId) -> T::AccountId { <AssetsIssuer<T>>::get(id) }
 
-	pub fn relay_transfer(input: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash) -> Result {
-		if Some(tx) = Self::decode(input) {
-			let target = T::Lookup::lookup(tx.to())?;
+	pub fn relay_transfer(input: Vec<u8>) -> Result {
+		if let Some(tx) = Self::decode(input) {
 			<Balances<T>>::mutate((tx.id(), tx.to()), |balance| *balance += tx.amount());
 			Self::deposit_event(RawEvent::Transferred(tx.id(), tx.from(), tx.to(), tx.amount()));
 			Ok(())
@@ -160,7 +159,7 @@ impl<T: Trait> Module<T> {
 }
 
 /// OriginAsset for asset transfer
-struct OriginAsset<Address, Balance> {
+struct OriginAsset<Address, Balance> where Address: Clone, Balance: Clone {
 	id: u32,
 	sender: Address,
 	signature: Vec<u8>,
@@ -170,12 +169,12 @@ struct OriginAsset<Address, Balance> {
 	amount: Balance,
 }
 
-impl<Address, Balance> OriginAsset<Address, Balance> {
+impl<Address, Balance> OriginAsset<Address, Balance>  where Address: Clone, Balance: Clone {
 	pub fn id(&self) -> u32{
 		self.id
 	}
 
-	pub fn from(&self) -> Addess {
+	pub fn from(&self) -> Address {
 		self.sender.clone()
 	}
 

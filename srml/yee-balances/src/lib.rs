@@ -543,7 +543,7 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     /// execute relay transfer
-    pub fn relay_transfer(transfer: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash) -> Result {
+    pub fn relay_transfer(transfer: Vec<u8>) -> Result {
         let tx: OriginTransfer<T::AccountId, T::Balance> = OriginTransfer::decode(transfer).unwrap();
         if !<FreeBalance<T, I>>::exists(tx.dest()) {
             Self::new_account(&tx.dest(), tx.amount());

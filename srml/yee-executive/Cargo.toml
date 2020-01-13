@@ -17,6 +17,7 @@ sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-fe
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
 substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 relay = { package = "yee-srml-relay", path = "../yee-relay", default-features = false }
+yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
 
 [dev-dependencies]
 hex-literal = "0.1.0"
@@ -35,5 +36,6 @@ std = [
 	"primitives/std",
 	"runtime_io/std",
 	"system/std",
-	"relay/std"
+	"relay/std",
+	"yee-sr-primitives/std"
 ]

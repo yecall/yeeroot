@@ -31,6 +31,7 @@ use parity_codec::{Codec, Encode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
+use yee_sr_primitives::RelayParams;
 
 pub mod decode;
 
@@ -211,12 +212,13 @@ impl<
             // increment nonce in storage
             <system::Module<System>>::inc_account_nonce(sender);
         } else {
-            if let Some(rtx) = relay::decode(origin_data) {
-                let used = <system::Module<System>>::relay_extrinsic(rtx.hash());
+            if let Some(rtx) = RelayParams::<System::Hash>::decode(origin_data) {
+                let hash = rtx.hash();
+                let used = <system::Module<System>>::relay_extrinsic(hash);
                 if used == 1u16 {
                     return Err(internal::ApplyError::Stale);
                 }
-                <system::Module<System>>::set_relay_extrinsic_exist(&rtx.hash());
+                <system::Module<System>>::set_relay_extrinsic_exist(&hash);
             }
 
 //            if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
