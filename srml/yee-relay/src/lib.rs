@@ -7,10 +7,7 @@ use srml_support::{decl_module, dispatch::Result};
  use yee_sr_primitives::{RelayTypes, RelayParams};
 
 pub trait Trait: system::Trait {
-    // type Number: Default + Clone;
-    type Balances: balances::Trait;
-
-    type Assets: assets::Trait;
+    type Runtime: balances::Trait + assets::Trait;
 }
 
 decl_module!{
@@ -18,10 +15,10 @@ decl_module!{
         pub fn transfer(relay_type: RelayTypes, tx: Vec<u8>, number: Compact<u64>, hash: T::Hash, parent: T::Hash) -> Result{
             match relay_type {
                 RelayTypes::Balance => {
-                    <balances::Module<T::Balances>>::relay_transfer(tx)
+                    <balances::Module<T::Runtime>>::relay_transfer(tx)
                 },
                 RelayTypes::Assets => {
-                    <assets::Module<T::Assets>>::relay_transfer(tx)
+                    <assets::Module<T::Runtime>>::relay_transfer(tx)
                 }
             }
         }

@@ -220,17 +220,6 @@ impl<
                 }
                 <system::Module<System>>::set_relay_extrinsic_exist(&hash);
             }
-
-//            if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
-//                // check duplicate relay extrinsic
-//                let used = <system::Module<System>>::relay_extrinsic(rtx.hash());
-//                if used == 1u16 {
-//                    return Err(internal::ApplyError::Stale);
-//                }
-//                <system::Module<System>>::set_relay_extrinsic_exist(&rtx.hash());
-//                // check origin signature and proof
-//                // TODO
-//            }
         }
 
         // make sure to `note_extrinsic` only after we know it's going to be executed
