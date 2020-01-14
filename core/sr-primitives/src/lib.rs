@@ -99,7 +99,6 @@ impl<Hash> RelayParams<Hash>  where
             None => return None
         };
         let hash = Decode::decode(&mut Blake2Hasher::hash(origin.as_slice()).encode().as_slice()).unwrap();
-        //Blake2Hasher::hash(origin.as_slice()).into();
         Some(Self{origin, number, hash, block_hash, parent_hash})
     }
 
