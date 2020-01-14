@@ -207,6 +207,9 @@ impl<
             // pay any fees.
             Payment::make_payment(sender, encoded_len).map_err(|_| internal::ApplyError::CantPay)?;
 
+            // check sender's sharding
+            // todo
+
             // AUDIT: Under no circumstances may this function panic from here onwards.
 
             // increment nonce in storage

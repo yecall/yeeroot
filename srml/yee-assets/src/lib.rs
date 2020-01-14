@@ -43,6 +43,8 @@ type AssetName = Vec<u8>;
 
 type Decimals = u16;
 
+const MAX_NAME_SIZE: usize = 16;
+
 decl_module! {
 	// Simple declaration of the `Module` type. Lets the macro know what its working on.
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -50,8 +52,12 @@ decl_module! {
 		/// Issue a new class of fungible assets. There are, and will only ever be, `total`
 		/// such assets and they'll all belong to the `origin` initially. It will have an
 		/// identifier `AssetId` instance: this will be specified in the `Issued` event.
-		fn issue(origin, name: AssetName, #[compact] total: T::Balance, decimals: Decimals) {
+		fn issue(origin, name: AssetName, #[compact] total: T::Balance, decimals: Decimals) -> Result {
 			let origin = ensure_signed(origin)?;
+
+			if name.len() > MAX_NAME_SIZE {
+				return Err("Asset's name's length overflow.")
+			}
 
 			let id = Self::next_asset_id();
 			<NextAssetId<T>>::mutate(|id| *id += 1);
@@ -64,6 +70,7 @@ decl_module! {
 
 			// event
 			Self::deposit_event(RawEvent::Issued(id, name, origin, total));
+			Ok(())
 		}
 
 		/// Move some assets from one holder to another.
