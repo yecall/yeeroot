@@ -52,12 +52,15 @@ use transaction_pool::txpool::{self, Pool as TransactionPool};
 use log::{debug, info, error};
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
+use yee_assets::Call as AssetsCall;
+use yee_relay::Call as RelayCall;
 use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
 use util::relay_decode::RelayTransfer;
 use finality_tracker::FinalityTrackerDigestItem;
+use yee_sr_primitives::{RelayTypes};
 use ansi_term::Colour;
 
 pub fn start_relay_transfer<F, C, A>(
@@ -113,7 +116,7 @@ pub fn start_relay_transfer<F, C, A>(
 
                     // create relay transfer
                     let h: Compact<u64> = Compact((*header.number()).into());
-                    let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash()));
+                    let function = Call::Relay(RelayCall::transfer(RelayTypes::Balance, ec, h, hash, *header.parent_hash()));
                     let relay = UncheckedExtrinsic::new_unsigned(function);
                     let buf = relay.encode();
                     let relay = Decode::decode(&mut buf.as_slice()).unwrap();

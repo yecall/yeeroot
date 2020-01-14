@@ -5517,7 +5517,10 @@ dependencies = [
  "yee-foreign-network 0.4.0",
  "yee-runtime 1.0.0",
  "yee-sharding-primitives 0.1.0",
+ "yee-sr-primitives 0.4.0",
+ "yee-srml-assets 0.4.0",
  "yee-srml-balances 0.4.0",
+ "yee-srml-relay 0.4.0",
 ]
 
 [[package]]
