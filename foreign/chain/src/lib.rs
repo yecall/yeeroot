@@ -18,28 +18,16 @@
 use {
     std::{
         collections::HashMap,
-        marker::PhantomData,
-        sync::Arc,
     },
     log::info,
     tokio::runtime::TaskExecutor,
 };
 use {
-    runtime_primitives::{
-        traits::{
-            Block, Header,
-            ProvideRuntimeApi,
-        },
-    },
-    substrate_client::ChainHead,
     substrate_service::{
         ComponentExHash,
         FactoryFullConfiguration, NetworkProvider,
-        FactoryBlock, LightComponents, ServiceFactory,
+        LightComponents, ServiceFactory,
     },
-};
-use {
-    sharding_primitives::ShardingAPI,
 };
 
 pub trait ForeignChainConfig {

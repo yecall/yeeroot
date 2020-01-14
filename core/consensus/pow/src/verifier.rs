@@ -38,7 +38,6 @@ use {
             NumberFor,
             BlakeTwo256,
             ProvideRuntimeApi,
-            Zero,
         },
     },
     substrate_service::ServiceFactory,
@@ -65,6 +64,7 @@ use ansi_term::Colour;
 use log::{debug, info, warn, error};
 use parking_lot::RwLock;
 use primitives::H256;
+use yee_context::Context;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -73,6 +73,7 @@ pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub phantom: PhantomData<AuthorityId>,
     pub shard_extra: ShardExtra<AccountId>,
+    pub context: Context<F::Block>,
 }
 
 #[forbid(deprecated)]
@@ -123,7 +124,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
         let mut res_proof = proof;
         // check body if not none
         match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
-            error!("{}: {}", Colour::Red.paint("check header failed"), e);
+            error!("{}: {}", Colour::Red.paint("check body failed"), e);
             e
         })? {
             Some(p) => res_proof = Some(p),
@@ -151,11 +152,10 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     AuthorityId: Decode + Encode + Clone + Send + Sync,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Clone + Send + Sync,
-    C: ProvideRuntimeApi + HeaderBackend<<F as ServiceFactory>::Block>,
+    C: HeaderBackend<<F as ServiceFactory>::Block>,
     C: BlockBody<<F as ServiceFactory>::Block>,
     C: BlockchainEvents<<F as ServiceFactory>::Block>,
     C: ChainHead<<F as ServiceFactory>::Block>,
-    <C as ProvideRuntimeApi>::Api: ShardingAPI<<F as ServiceFactory>::Block> + YeePOWApi<<F as ServiceFactory>::Block>,
     H256: From<<F::Block as Block>::Hash>,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
@@ -266,7 +266,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
     /// check pow_target in seal
     fn check_pow_target(&self, header: &<F::Block as Block>::Header, seal: &PowSeal<F::Block, AuthorityId>) -> Result<(), String> {
-        let pow_target = calc_pow_target(self.client.clone(), header, seal.timestamp).map_err(|e| format!("{:?}", e))?;
+        let pow_target = calc_pow_target(self.client.clone(), header, seal.timestamp, &self.context).map_err(|e| format!("{:?}", e))?;
         if seal.pow_target != pow_target {
             return Err("check_pow_target failed, pow target not match.".to_string());
         }
@@ -283,8 +283,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             .expect("parent header must exist.")
             .expect("parent header must exist.");
         let number = *header.number();
-        let observe_blocks = self.client.runtime_api().get_scale_out_observe_blocks(&generic::BlockId::<F::Block>::number(Zero::zero()))
-            .expect("scale_out_observe_blocks must exist");
+        let observe_blocks = self.context.genesis_scale_out_observe_blocks;
         let ok = match parent.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {
             Some(ScaleOutPhase::Started { observe_util: p_observe_util, shard_num: _p_shard_num }) => {
                 match header.digest().logs().iter().rev().filter_map(ScaleOutPhaseDigestItem::as_scale_out_phase).next() {

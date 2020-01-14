@@ -15,20 +15,16 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_service::{ServiceFactory, TaskExecutor, Arc, FactoryBlock, ComponentClient, Components};
+use substrate_service::{ServiceFactory, TaskExecutor, Arc, ComponentClient, Components};
 use futures::Stream;
 use substrate_client::{BlockchainEvents};
-use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem, ScaleOutPhase};
+use yee_sharding::{ScaleOutPhaseDigestItem, ScaleOutPhase};
 use runtime_primitives::traits::{Block as BlockT, Header as HeaderT, Digest as DigestT, DigestItemFor};
-use parking_lot::RwLock;
-use crate::cli::{CliTriggerExit, CliSignal, FactoryBlockNumber};
+use crate::FactoryBlockNumber;
 use log::info;
-use substrate_cli::{TriggerExit};
 use yee_runtime::{AccountId, AuthorityId};
 use sharding_primitives::utils::shard_num_for;
 use crate::service::ScaleOut;
-use std::thread::sleep;
-use std::time::Duration;
 use consensus::{CompatibleDigestItem, PowSeal};
 
 pub struct Params {
@@ -37,7 +33,7 @@ pub struct Params {
 	pub shard_num: u16,
 	pub shard_count: u16,
 	pub scale_out: Option<ScaleOut>,
-	pub trigger_exit: Option<Arc<CliTriggerExit<CliSignal>>>,
+	pub trigger_exit: Arc<dyn consensus::TriggerExit>,
 }
 
 pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor) where
@@ -53,7 +49,7 @@ pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, execut
 	let authority_id = param.authority_id.clone();
 
 	let coinbase = param.coinbase.clone();
-	let trigger_exit = param.trigger_exit.expect("qed");
+	let trigger_exit = param.trigger_exit;
 
 	let task = client.import_notification_stream().for_each(move |notification| {
 
@@ -90,12 +86,12 @@ pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, execut
 				let coinbase_shard_num = shard_num_for(&coinbase, shard_count).expect("qed");
 				if target_shard_num != coinbase_shard_num {
 					info!("Stop service for coinbase shard num is not accordant");
-					trigger_exit.trigger_exit(CliSignal::Stop);
+					trigger_exit.trigger_stop();
 					return Ok(());
 				}
 
 				info!("Restart service for commiting scale out phase");
-				trigger_exit.trigger_exit(CliSignal::Restart);
+				trigger_exit.trigger_restart();
 			}
 
 		}

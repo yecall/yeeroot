@@ -60,6 +60,7 @@ use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use crate::verifier::check_scale;
 use primitives::H256;
 use ansi_term::Colour;
+use yee_context::Context;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -99,13 +100,16 @@ pub trait JobManager: Send + Sync
 
 }
 
-pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I> {
+pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I> where
+	B: Block,
+{
 	client: Arc<C>,
 	env: Arc<E>,
 	inherent_data_providers: InherentDataProviders,
 	authority_id: AuthorityId,
 	block_import: Arc<I>,
 	shard_extra: ShardExtra<AccountId>,
+	context: Context<B>,
 	phantom: PhantomData<B>,
 }
 
@@ -126,7 +130,8 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 		inherent_data_providers: InherentDataProviders,
 		authority_id: AuthorityId,
 		block_import: Arc<I>,
-		shard_extra: ShardExtra<AccountId>
+		shard_extra: ShardExtra<AccountId>,
+		context: Context<B>,
 	) -> Self {
 		Self {
 			client,
@@ -135,6 +140,7 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 			authority_id,
 			block_import,
 			shard_extra,
+			context,
 			phantom: PhantomData,
 		}
 	}
@@ -178,13 +184,14 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 
 		let client = self.client.clone();
 		let authority_id = self.authority_id.clone();
+		let context = self.context.clone();
 
 		let build_job = move |block: B| {
 			let (header, body) = block.deconstruct();
 			let header_num = header.number().clone();
 			let header_pre_hash = header.hash();
 			let timestamp = timestamp_now()?;
-			let pow_target = calc_pow_target(client, &header, timestamp)?;
+			let pow_target = calc_pow_target(client, &header, timestamp, &context)?;
 			let authority_id = authority_id;
 			let work_proof = WorkProof::Unknown;
 			// generate proof

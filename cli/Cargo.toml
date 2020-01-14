@@ -1,0 +1,71 @@
+[package]
+name = "yee-cli"
+version = "0.4.0"
+authors = ["YeeCo <contact@yeefoundation.com>"]
+edition = "2018"
+license = "GPL-3.0"
+
+[dependencies]
+hyper = "0.11"
+tokio-proto = "0.1"
+serde = "1.0"
+serde_json = "1.0"
+http = { package = "jsonrpc-http-server", version = "12.1.0" }
+pubsub = { package = "jsonrpc-pubsub", version = "12.1.0" }
+ws = { package = "jsonrpc-ws-server", version = "12.1.0" }
+jsonrpc-core  = { package = "jsonrpc-core", version = "12.1.0" }
+jsonrpc-core-client  = { package = "jsonrpc-core-client", version = "12.1.0" }
+jsonrpc-derive  = { package = "jsonrpc-derive", version = "12.1.0" }
+jsonrpc-ipc-server = { package = "jsonrpc-ipc-server", version = "12.1.0" }
+jsonrpc-tcp-server  = { package = "jsonrpc-tcp-server", version = "12.1.0" }
+jsonrpc-server-utils = { package = "jsonrpc-server-utils", version = "12.1.0" }
+error-chain = "0.12"
+futures = "0.1"
+ctrlc = { version = "3.0", features = ["termination"] }
+log = "0.4"
+tokio = "0.1"
+exit-future = "0.1"
+parking_lot = "0.7.1"
+hex-literal = "0.1"
+parity-codec = "3.2"
+trie-root = "0.12.0"
+yee-runtime = { path = "../runtime" }
+consensus = { package = "yee-consensus-pow", path = "../core/consensus/pow" }
+sharding_primitives = { package = "yee-sharding-primitives", path = "../core/sharding/primitives" }
+sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-executor = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+fg_primitives = { package = "crfg-primitives", path = "../core/crfg/primitives" }
+crfg = { package = "yee-crfg", path = "../core/crfg" }
+structopt = "0.2"
+ansi_term = "0.11"
+yee-switch = { package = "yee-switch", path = "../switch" }
+yee-rpc = { package = "yee-rpc", path = "../rpc" }
+yee-bootnodes-router = { package = "yee-bootnodes-router", path = "../bootnodes-router" }
+yee-sharding = { package = "yee-sharding", path = "../core/sharding" }
+yee-foreign-network = { package = "yee-foreign-network", path = "../foreign/network" }
+yee-relay = { package = "yee-foreign-relay", path = "../foreign/relay" }
+yee-dev = { package = "yee-dev", path = "../dev" }
+yee-primitives = { package = "yee-primitives", path = "../core/primitives" }
+yee-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives" }
+srml-sharding = { package = "yee-srml-sharding", path = "../srml/yee-sharding" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+srml-crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg" }
+foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
+signal-hook = { version = "0.1.11", features = ["tokio-support"] }
+yee-context = { package = "yee-context", path = "../core/context" }
+
+[features]
+custom-wasm-code = []
+
+[build-dependencies]
+vergen = "3"
