@@ -21,10 +21,6 @@ const MIN_RELAY_SIZE: usize = 2 + 32 + 32 + 64;
 impl<Hash> RelayParams<Hash>  where
     Hash: Decode + Clone + Default
 {
-//    pub fn new(origin: Vec<u8>, number: Compact<u64>, hash: Hash, block_hash: Hash, parent_hash: Hash) -> Self {
-//        RelayParams{origin, number, hash, block_hash, parent_hash}
-//    }
-
     pub fn origin(self) -> Vec<u8> {
         self.origin
     }

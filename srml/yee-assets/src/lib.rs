@@ -23,7 +23,7 @@
 use srml_support::{StorageValue, StorageMap, Parameter, decl_module, decl_event, decl_storage, ensure, dispatch::Result};
 use primitives::{traits::{Member, SimpleArithmetic, As, Zero, StaticLookup}, generic::Era};
 use sharding_primitives::ShardingInfo;
-use parity_codec::Compact;
+use parity_codec::{Decode, Encode, Compact, Input};
 use system::ensure_signed;
 use rstd::prelude::Vec;
 
@@ -128,20 +128,21 @@ impl<T: Trait> Module<T> {
 		<Balances<T>>::get((id, who))
 	}
 
-	// Get the total supply of an asset `id`
+	/// Get the total supply of an asset `id`
 	pub fn total_supply(id: AssetId) -> T::Balance {
 		<TotalSupply<T>>::get(id)
 	}
 
-	// Get the name of an asset `id`
+	/// Get the name of an asset `id`
 	pub fn name(id: AssetId) -> AssetName { <AssetsName<T>>::get(id) }
 
-	// Get the decimals of an asset `id`
+	/// Get the decimals of an asset `id`
 	pub fn decimals(id: AssetId) -> Decimals { <AssetsDecimals<T>>::get(id) }
 
-	// Get the issuer of an asset `id`
+	/// Get the issuer of an asset `id`
 	pub fn issuer(id: AssetId) -> T::AccountId { <AssetsIssuer<T>>::get(id) }
 
+	/// relay transfer
 	pub fn relay_transfer(input: Vec<u8>) -> Result {
 		if let Some(tx) = Self::decode(input) {
 			<Balances<T>>::mutate((tx.id(), tx.to()), |balance| *balance += tx.amount());
@@ -152,8 +153,111 @@ impl<T: Trait> Module<T> {
 		}
 	}
 
+	/// decode from input
 	fn decode(input: Vec<u8>) -> Option<OriginAsset<T::AccountId, T::Balance>> {
 		// todo
+
+		let mut input = input.as_slice();
+		if input.len() < 64 + 1 + 1 {
+			return None;
+		}
+		// length
+		let _len: Vec<()> = match Decode::decode(&mut input) {
+			Some(len) => len,
+			None => return None
+		};
+		// version
+		let version = match input.read_byte() {
+			Some(v) => v,
+			None => return None
+		};
+		// is signed
+		let is_signed = version & 0b1000_0000 != 0;
+		let version = version & 0b0111_1111;
+		if version != 1u8 {
+			return None;
+		}
+
+		let (sender, signature, index, era) = if is_signed {
+			// sender type
+			let _type = match input.read_byte() {
+				Some(a_t) => a_t,
+				None => return None
+			};
+			// sender
+			let sender = match Decode::decode(&mut input) {
+				Some(s) => s,
+				None => return None
+			};
+			if input.len() < 64 {
+				return None;
+			}
+			// signature
+			let signature = input[..64].to_vec();
+			input = &input[64..];
+			// index
+			let index = match Decode::decode(&mut input) {
+				Some(i) => i,
+				None => return None
+			};
+			if input.len() < 1 {
+				return None;
+			}
+			// era
+			let era = if input[0] != 0u8 {
+				match Decode::decode(&mut input) {
+					Some(e) => e,
+					None => return None
+				}
+			} else {
+				input = &input[1..];
+				Era::Immortal
+			};
+			(sender, signature, index, era)
+		} else {
+			(T::AccountId::default(), Vec::new(), Compact(0u64), Era::Immortal)
+		};
+
+		if input.len() < 2 + 32 + 1 {
+			return None;
+		}
+		// module
+		let _module: u8 = match input.read_byte() {
+			Some(m) => m,
+			None => return None
+		};
+		// function
+		let _func: u8 = match input.read_byte() {
+			Some(f) => f,
+			None => return None
+		};
+		// AssetId
+		let id: Compact<u32> = match Decode::decode(&mut input) {
+			Some(id) => id,
+			None => return None
+		};
+		// dest address type
+		let _type: u8 = match input.read_byte() {
+			Some(t) => t,
+			None => return None
+		};
+		// dest address
+		let dest: T::AccountId = match Decode::decode(&mut input) {
+			Some(addr) => addr,
+			None => return None
+		};
+		// amount
+		let amount: T::Balance = match Decode::decode(&mut input) {
+			Some(a) => {
+				let a_c: Compact<u128> = a;
+				let buf = a_c.0.encode();
+				match Decode::decode(&mut buf.as_slice()) {
+					Some(am) => am,
+					None => return None
+				}
+			}
+			None => return None
+		};
 		None
 	}
 }
@@ -239,6 +343,7 @@ mod tests {
 	impl Trait for Test {
 		type Event = ();
 		type Balance = u64;
+		type Sharding = ();
 	}
 	type Assets = Module<Test>;
 
