@@ -52,7 +52,7 @@ decl_module! {
 		/// Issue a new class of fungible assets. There are, and will only ever be, `total`
 		/// such assets and they'll all belong to the `origin` initially. It will have an
 		/// identifier `AssetId` instance: this will be specified in the `Issued` event.
-		fn issue(origin, name: AssetName, #[compact] total: T::Balance, decimals: Decimals) -> Result {
+		fn issue(origin, name: AssetName, #[compact] total: T::Balance, #[compact] decimals: Decimals) -> Result {
 			let origin = ensure_signed(origin)?;
 
 			if name.len() > MAX_NAME_SIZE {
@@ -150,7 +150,7 @@ impl<T: Trait> Module<T> {
 	pub fn issuer(id: AssetId) -> T::AccountId { <AssetsIssuer<T>>::get(id) }
 
 	/// relay transfer
-	pub fn relay_transfer(input: Vec<u8>) -> Result {
+	pub fn relay_transfer(input: Vec<u8>) -> srml_support::dispatch::Result {
 		if let Some(tx) = Self::decode(input) {
 			<Balances<T>>::mutate((tx.id(), tx.to()), |balance| *balance += tx.amount());
 			Self::deposit_event(RawEvent::Transferred(tx.id(), tx.from(), tx.to(), tx.amount()));
