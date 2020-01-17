@@ -56,18 +56,8 @@ decl_module! {
 			if name.len() > MAX_NAME_SIZE {
 				return Err("Asset's name's length overflow.")
 			}
+			Self::issue_asset(origin, name, total, decimals);
 
-			let id = Self::next_asset_id();
-			<NextAssetId<T>>::mutate(|id| *id += 1);
-
-			<Balances<T>>::insert((id, origin.clone()), total);
-			<TotalSupply<T>>::insert(id, total);
-			<AssetsName<T>>::insert(id, name.clone());
-			<AssetsDecimals<T>>::insert(id, decimals);
-			<AssetsIssuer<T>>::insert(id, origin.clone());
-
-			// event
-			Self::deposit_event(RawEvent::Issued(id, name, origin, total));
 			Ok(())
 		}
 
@@ -114,7 +104,7 @@ decl_storage! {
 		/// The number of units of assets held by any given account.
 		Balances: map (AssetId, T::AccountId) => T::Balance;
 		/// The next asset identifier up for grabs.
-		NextAssetId get(next_asset_id): AssetId;
+		NextAssetId get(next_asset_id) config(): AssetId;
 		/// The name of an asset.
 		AssetsName: map AssetId => Vec<u8>;
 		/// The total unit supply of an asset
@@ -128,6 +118,20 @@ decl_storage! {
 
 // The main implementation block for the module.
 impl<T: Trait> Module<T> {
+	fn issue_asset(origin: T::AccountId, name: Vec<u8>, total: T::Balance, decimals: Decimals) {
+		let id = Self::next_asset_id();
+		<NextAssetId<T>>::mutate(|id| *id += 1);
+
+		<Balances<T>>::insert((id, origin.clone()), total);
+		<TotalSupply<T>>::insert(id, total);
+		<AssetsName<T>>::insert(id, name.clone());
+		<AssetsDecimals<T>>::insert(id, decimals);
+		<AssetsIssuer<T>>::insert(id, origin.clone());
+
+		// event
+		Self::deposit_event(RawEvent::Issued(id, name, origin, total));
+	}
+
 	/// Get the asset `id` balance of `who`.
 	pub fn balance(id: AssetId, who: T::AccountId) -> T::Balance {
 		<Balances<T>>::get((id, who))

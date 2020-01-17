@@ -230,6 +230,7 @@ impl sharding::Trait for Runtime {
     type Log = Log;
 }
 
+/// DON'T CHANGE THE SORT
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
 		Block = Block,
@@ -242,11 +243,11 @@ construct_runtime!(
 		Pow: pow::{Module, Call, Storage, Config<T>, Inherent, Event<T>},
 		Indices: indices,
 		Balances: balances,
-		Assets: assets::{Module, Call, Storage, Event<T>},
-		Relay: relay::{Module, Call},
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
 		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},
+		Assets: assets::{Module, Call, Storage, Config<T>, Event<T>},
+		Relay: relay::{Module, Call},
 	}
 );
 
