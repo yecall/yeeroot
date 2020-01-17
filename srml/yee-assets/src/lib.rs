@@ -39,8 +39,6 @@ pub trait Trait: sharding::Trait {
 
 type AssetId = u32;
 
-type AssetName = Vec<u8>;
-
 type Decimals = u16;
 
 const MAX_NAME_SIZE: usize = 16;
@@ -52,7 +50,7 @@ decl_module! {
 		/// Issue a new class of fungible assets. There are, and will only ever be, `total`
 		/// such assets and they'll all belong to the `origin` initially. It will have an
 		/// identifier `AssetId` instance: this will be specified in the `Issued` event.
-		fn issue(origin, name: AssetName, #[compact] total: T::Balance, #[compact] decimals: Decimals) -> Result {
+		fn issue(origin, name: Vec<u8>, #[compact] total: T::Balance, #[compact] decimals: Decimals) -> Result {
 			let origin = ensure_signed(origin)?;
 
 			if name.len() > MAX_NAME_SIZE {
@@ -105,7 +103,7 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		/// Some assets were issued.
-		Issued(AssetId, AssetName, AccountId, Balance),
+		Issued(AssetId, Vec<u8>, AccountId, Balance),
 		/// Some assets were transferred.
 		Transferred(AssetId, AccountId, AccountId, Balance),
 	}
@@ -118,7 +116,7 @@ decl_storage! {
 		/// The next asset identifier up for grabs.
 		NextAssetId get(next_asset_id): AssetId;
 		/// The name of an asset.
-		AssetsName: map AssetId => AssetName;
+		AssetsName: map AssetId => Vec<u8>;
 		/// The total unit supply of an asset
 		TotalSupply: map AssetId => T::Balance;
 		/// The Asset's decimals.
@@ -141,7 +139,7 @@ impl<T: Trait> Module<T> {
 	}
 
 	/// Get the name of an asset `id`
-	pub fn name(id: AssetId) -> AssetName { <AssetsName<T>>::get(id) }
+	pub fn name(id: AssetId) -> Vec<u8> { <AssetsName<T>>::get(id) }
 
 	/// Get the decimals of an asset `id`
 	pub fn decimals(id: AssetId) -> Decimals { <AssetsDecimals<T>>::get(id) }
