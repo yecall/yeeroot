@@ -22,7 +22,7 @@ use crate::Config;
 use crate::client::RpcClient;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use parity_codec::{KeyedVec, Encode};
+use parity_codec::{KeyedVec, Codec, Decode, Encode, Input};
 use sr_io::blake2_256;
 use num_bigint::BigUint;
 use yee_runtime::AccountId;
@@ -153,7 +153,7 @@ impl<Hash> StateApi<Hash> for State
 			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
 		};
 		// key
-		let key = get_asset_storage_key(&account_id, asset_id);
+		let key = get_asset_storage_key(asset_id, account_id);
 		let balance_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key, hash.clone()), shard_num) {
 			Ok(future) => future.map(|b| {
 				Hex(get_big_uint(b))
@@ -185,12 +185,10 @@ fn get_storage_key(account_id: &AccountId, storage_key_id: StorageKeyId) -> Stor
 	StorageKey(a)
 }
 
-fn get_asset_storage_key(account_id: &AccountId, asset_id: u32) -> StorageKey {
-	let mut key = get_prefix(StorageKeyId::AssetBalance).to_vec();
-	let x = (account_id, asset_id);
-	Encode::encode_to(&x, &mut key);
-	StorageKey(blake2_256(key.as_slice()).to_vec())
-	//StorageKey(key)
+fn get_asset_storage_key(asset_id: u32, account_id: AccountId) -> StorageKey {
+	let x = (asset_id, account_id);
+	let a = blake2_256(&x.to_keyed_vec(get_prefix(StorageKeyId::AssetBalance))).to_vec();
+	StorageKey(a)
 }
 
 fn get_big_uint(result: Option<StorageData>) -> BigUint {

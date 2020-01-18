@@ -16,7 +16,7 @@ sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-fe
 
 [dev-dependencies]
 substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-sr-std = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+# sr-std = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 runtime_io = { package = "sr-io",  git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 
 [features]
