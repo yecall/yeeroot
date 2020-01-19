@@ -153,7 +153,8 @@ impl<Hash> StateApi<Hash> for State
 			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
 		};
 		// key
-		let key = get_asset_storage_key(asset_id, account_id);
+		let k = (asset_id, account_id);
+		let key = get_storage_key(&k, StorageKeyId::AssetBalance);
 		let balance_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key, hash.clone()), shard_num) {
 			Ok(future) => future.map(|b| {
 				Hex(get_big_uint(b))
@@ -180,14 +181,8 @@ fn get_prefix(storage_key_id: StorageKeyId) -> &'static [u8] {
 	}
 }
 
-fn get_storage_key(account_id: &AccountId, storage_key_id: StorageKeyId) -> StorageKey {
-	let a = blake2_256(&account_id.to_keyed_vec(get_prefix(storage_key_id))).to_vec();
-	StorageKey(a)
-}
-
-fn get_asset_storage_key(asset_id: u32, account_id: AccountId) -> StorageKey {
-	let x =  (asset_id, account_id);
-	let a = blake2_256(&x.to_keyed_vec(get_prefix(StorageKeyId::AssetBalance))).to_vec();
+fn get_storage_key<T>(key: &T, storage_key_id: StorageKeyId) -> StorageKey where T: Codec {
+	let a = blake2_256(&key.to_keyed_vec(get_prefix(storage_key_id))).to_vec();
 	StorageKey(a)
 }
 
