@@ -122,8 +122,8 @@ impl<T: Trait> Module<T> {
 		let id = Self::next_asset_id();
 		<NextAssetId<T>>::mutate(|id| *id += 1);
 
-		<Balances<T>>::insert((id, origin.clone()), total);
-		<TotalSupply<T>>::insert(id, total);
+		<Balances<T>>::insert((id, origin.clone()), total.clone());
+		<TotalSupply<T>>::insert(id, total.clone());
 		<AssetsName<T>>::insert(id, name.clone());
 		<AssetsDecimals<T>>::insert(id, decimals);
 		<AssetsIssuer<T>>::insert(id, origin.clone());

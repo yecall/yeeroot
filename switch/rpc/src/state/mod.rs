@@ -22,7 +22,7 @@ use crate::Config;
 use crate::client::RpcClient;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
-use parity_codec::{KeyedVec, Codec, Decode, Encode, Input};
+use parity_codec::{KeyedVec, Codec, Decode, Encode, Input, Compact};
 use sr_io::blake2_256;
 use num_bigint::BigUint;
 use yee_runtime::AccountId;
@@ -186,7 +186,7 @@ fn get_storage_key(account_id: &AccountId, storage_key_id: StorageKeyId) -> Stor
 }
 
 fn get_asset_storage_key(asset_id: u32, account_id: AccountId) -> StorageKey {
-	let x = (asset_id, account_id);
+	let x =  (asset_id, account_id);
 	let a = blake2_256(&x.to_keyed_vec(get_prefix(StorageKeyId::AssetBalance))).to_vec();
 	StorageKey(a)
 }
