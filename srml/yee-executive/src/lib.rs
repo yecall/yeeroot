@@ -31,7 +31,7 @@ use parity_codec::{Codec, Encode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
-use yee_sr_primitives::RelayParams;
+use yee_sr_primitives::{RelayParams, OriginExtrinsic};
 
 pub mod decode;
 
@@ -317,7 +317,7 @@ impl<
             }
         } else {
             if xt.sender().is_none() {
-                if let Some(rtx) = RelayTransfer::<System::AccountId, u128, System::Hash>::decode(origin_data) {
+                if let Some(rtx) = RelayParams::<System::Hash>::decode(origin_data) {
                     return Self::relay_check(&rtx, shard_count);
                 }
             }
@@ -330,21 +330,25 @@ impl<
         }
     }
 
-    fn relay_check(rtx: &RelayTransfer<System::AccountId, u128, System::Hash>, shard_count: u16) -> TransactionValidity {
+    fn relay_check(rtx: &RelayParams<System::Hash>, shard_count: u16) -> TransactionValidity {
         // check duplicate relay extrinsic
         let used = <system::Module<System>>::relay_extrinsic(rtx.hash());
         if used == 1u16 {
             return TransactionValidity::Invalid(ApplyError::Stale as i8);
         }
-        let shard_num = yee_sharding_primitives::utils::shard_num_for(&rtx.sender(), shard_count).unwrap();
-        let requires = (Compact(shard_num), Compact(rtx.number()), rtx.block_hash().as_ref().to_vec(), rtx.parent().as_ref().to_vec()).encode();
+        let origin = match OriginExtrinsic::<System::AccountId, u128>::decode(rtx.relay_type(), rtx.origin()) {
+            Some(tx) => tx,
+            None => return TransactionValidity::Invalid(127i8)
+        };
+        let shard_num = yee_sharding_primitives::utils::shard_num_for(&origin.to(), shard_count).unwrap();
+        let requires = (Compact(shard_num), rtx.number(), rtx.block_hash().as_ref().to_vec(), rtx.parent_hash().as_ref().to_vec()).encode();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
             requires: vec![requires],
             provides: vec![],
             longevity: TransactionLongevity::max_value(),
         }
-}
+    }
 
     /// Start an offchain worker and generate extrinsics.
     pub fn offchain_worker(n: System::BlockNumber) {

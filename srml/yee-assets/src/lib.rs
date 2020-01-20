@@ -21,11 +21,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use srml_support::{StorageValue, StorageMap, Parameter, decl_module, decl_event, decl_storage, ensure, dispatch::Result};
-use primitives::{traits::{Member, SimpleArithmetic, As, Zero, StaticLookup}, generic::Era};
+use primitives::{traits::{Member, SimpleArithmetic, As, Zero, StaticLookup}};
 use sharding_primitives::ShardingInfo;
 use parity_codec::{Decode, Encode, Compact, Input};
 use system::ensure_signed;
 use rstd::prelude::Vec;
+use yee_sr_primitives::{RelayTypes, RelayParams, OriginExtrinsic};
 
 pub trait Trait: sharding::Trait {
 	/// The overarching event type.
@@ -153,162 +154,14 @@ impl<T: Trait> Module<T> {
 
 	/// relay transfer
 	pub fn relay_transfer(input: Vec<u8>) -> srml_support::dispatch::Result {
-		if let Some(tx) = Self::decode(input) {
-			<Balances<T>>::mutate((tx.id(), tx.to()), |balance| *balance += tx.amount());
-			Self::deposit_event(RawEvent::Transferred(tx.id(), tx.from(), tx.to(), tx.amount()));
+		if let Some(tx) = OriginExtrinsic::<T::AccountId, T::Balance>::decode(RelayTypes::Assets, input) {
+			let asset_id = tx.asset_id().unwrap();
+			<Balances<T>>::mutate((asset_id, tx.to()), |balance| *balance += tx.amount());
+			Self::deposit_event(RawEvent::Transferred(asset_id, tx.from(), tx.to(), tx.amount()));
 			Ok(())
 		} else{
 			Err("transfer is invalid.")
 		}
-	}
-
-	/// decode from input
-	fn decode(input: Vec<u8>) -> Option<OriginAsset<T::AccountId, T::Balance>> {
-		// todo
-
-		let mut input = input.as_slice();
-		if input.len() < 64 + 1 + 1 {
-			return None;
-		}
-		// length
-		let _len: Vec<()> = match Decode::decode(&mut input) {
-			Some(len) => len,
-			None => return None
-		};
-		// version
-		let version = match input.read_byte() {
-			Some(v) => v,
-			None => return None
-		};
-		// is signed
-		let is_signed = version & 0b1000_0000 != 0;
-		let version = version & 0b0111_1111;
-		if version != 1u8 {
-			return None;
-		}
-
-		let (sender, signature, index, era) = if is_signed {
-			// sender type
-			let _type = match input.read_byte() {
-				Some(a_t) => a_t,
-				None => return None
-			};
-			// sender
-			let sender = match Decode::decode(&mut input) {
-				Some(s) => s,
-				None => return None
-			};
-			if input.len() < 64 {
-				return None;
-			}
-			// signature
-			let signature = input[..64].to_vec();
-			input = &input[64..];
-			// index
-			let index = match Decode::decode(&mut input) {
-				Some(i) => i,
-				None => return None
-			};
-			if input.len() < 1 {
-				return None;
-			}
-			// era
-			let era = if input[0] != 0u8 {
-				match Decode::decode(&mut input) {
-					Some(e) => e,
-					None => return None
-				}
-			} else {
-				input = &input[1..];
-				Era::Immortal
-			};
-			(sender, signature, index, era)
-		} else {
-			(T::AccountId::default(), Vec::new(), Compact(0u64), Era::Immortal)
-		};
-
-		if input.len() < 2 + 32 + 1 {
-			return None;
-		}
-		// module
-		let _module: u8 = match input.read_byte() {
-			Some(m) => m,
-			None => return None
-		};
-		// function
-		let _func: u8 = match input.read_byte() {
-			Some(f) => f,
-			None => return None
-		};
-		// AssetId
-		let id: Compact<u32> = match Decode::decode(&mut input) {
-			Some(id) => id,
-			None => return None
-		};
-		// dest address type
-		let _type: u8 = match input.read_byte() {
-			Some(t) => t,
-			None => return None
-		};
-		// dest address
-		let dest: T::AccountId = match Decode::decode(&mut input) {
-			Some(addr) => addr,
-			None => return None
-		};
-		// amount
-		let amount: T::Balance = match Decode::decode(&mut input) {
-			Some(a) => {
-				let a_c: Compact<u128> = a;
-				let buf = a_c.0.encode();
-				match Decode::decode(&mut buf.as_slice()) {
-					Some(am) => am,
-					None => return None
-				}
-			}
-			None => return None
-		};
-		None
-	}
-}
-
-/// OriginAsset for asset transfer
-struct OriginAsset<Address, Balance> where Address: Clone, Balance: Clone {
-	id: u32,
-	sender: Address,
-	signature: Vec<u8>,
-	index: Compact<u64>,
-	era: Era,
-	dest: Address,
-	amount: Balance,
-}
-
-impl<Address, Balance> OriginAsset<Address, Balance>  where Address: Clone, Balance: Clone {
-	pub fn id(&self) -> u32{
-		self.id
-	}
-
-	pub fn from(&self) -> Address {
-		self.sender.clone()
-	}
-
-	pub fn to(&self) -> Address {
-		self.dest.clone()
-	}
-
-	pub fn signature(&self) -> Vec<u8> {
-		self.signature.clone()
-	}
-
-	pub fn index(&self) -> Compact<u64> {
-		self.index.clone()
-	}
-
-	pub fn era(&self) -> Era{
-		self.era.clone()
-	}
-
-	pub fn amount(&self) -> Balance {
-		self.amount.clone()
 	}
 }
 

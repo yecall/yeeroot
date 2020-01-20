@@ -8,6 +8,7 @@ edition = "2018"
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
 substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+substrate-sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 
 
 [features]

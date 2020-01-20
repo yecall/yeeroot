@@ -13,6 +13,7 @@ system = { package = "srml-system", git = "https://github.com/yeeco/substrate.gi
 rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
+yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
 
 [dev-dependencies]
 substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
@@ -29,5 +30,6 @@ std = [
 	"system/std",
 	"rstd/std",
 	"sharding-primitives/std",
-	"sharding/std"
+	"sharding/std",
+	"yee-sr-primitives/std",
 ]
