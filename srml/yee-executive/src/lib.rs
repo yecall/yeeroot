@@ -33,10 +33,6 @@ use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 use yee_sr_primitives::{RelayParams, OriginExtrinsic};
 
-pub mod decode;
-
-use decode::RelayTransfer;
-
 mod internal {
     pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
 
@@ -340,8 +336,8 @@ impl<
             Some(tx) => tx,
             None => return TransactionValidity::Invalid(127i8)
         };
-        let shard_num = yee_sharding_primitives::utils::shard_num_for(&origin.to(), shard_count).unwrap();
-        let requires = (Compact(shard_num), rtx.number(), rtx.block_hash().as_ref().to_vec(), rtx.parent_hash().as_ref().to_vec()).encode();
+        let shard_num = yee_sharding_primitives::utils::shard_num_for(&origin.from(), shard_count).unwrap();
+        let requires = (Compact(shard_num), Compact(rtx.number()), rtx.block_hash().as_ref().to_vec(), rtx.parent_hash().as_ref().to_vec()).encode();
         TransactionValidity::Valid {
             priority: 0u64 as TransactionPriority,
             requires: vec![requires],
