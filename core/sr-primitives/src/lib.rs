@@ -10,7 +10,7 @@ use substrate_sr_primitives::generic::Era;
 pub struct RelayParams<Hash> where
     Hash: Codec + Clone,
 {
-    number: Compact<u64>,
+    number: u64,
     hash: Hash,
     block_hash: Hash,
     parent_hash: Hash,
@@ -34,8 +34,8 @@ impl<Hash> RelayParams<Hash> where
         self.origin.clone()
     }
 
-    pub fn number(&self) -> Compact<u64> {
-        self.number.clone()
+    pub fn number(&self) -> u64 {
+        self.number
     }
 
     pub fn hash(&self) -> Hash {
@@ -109,12 +109,12 @@ impl<Hash> RelayParams<Hash> where
             None => return None
         };
         let hash = Decode::decode(&mut Blake2Hasher::hash(origin.as_slice()).encode().as_slice()).unwrap();
-        Some(Self { number, hash, block_hash, parent_hash, relay_type, origin })
+        Some(Self { number: number.0, hash, block_hash, parent_hash, relay_type, origin })
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Encode, Decode)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(PartialEq, Eq, Clone, Encode, Decode, Debug)]
+// #[cfg_attr(feature = "std", derive(Debug))]
 pub enum RelayTypes {
     Balance,
     Assets,
@@ -237,7 +237,7 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
             return None;
         }
 
-        let (sender, signature, index, era): (AccountId, Vec<u8>, Compact<u64>, Era) = if is_signed {
+        let (sender, signature, index, era) = if is_signed {
             // sender type
             let _type = match input.read_byte() {
                 Some(a_t) => a_t,
@@ -304,12 +304,12 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
             None => return None
         };
         // dest AccountId
-        let dest: AccountId = match Decode::decode(&mut input) {
+        let dest = match Decode::decode(&mut input) {
             Some(addr) => addr,
             None => return None
         };
         // amount
-        let amount: Balance = match Decode::decode(&mut input) {
+        let amount = match Decode::decode(&mut input) {
             Some(a) => {
                 let a_c: Compact<u128> = a;
                 let buf = a_c.0.encode();
