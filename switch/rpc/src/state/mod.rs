@@ -226,12 +226,15 @@ impl<Hash> StateApi<Hash> for State
 		};
 
 		Box::new(name_future.join4(supply_future, decimals_future, issuer_future).map(move |(name, supply, decimals, issuer)| {
-			Some(AssetDetail{
+			Some(AssetDetail {
 				ID: asset_id,
-				Name: name,
+				Name: match Decode::decode(&mut name.as_slice()) {
+					Some(name) => name,
+					None => vec![]
+				},
 				TotalSupply: supply,
 				Decimals: decimals,
-				Issuer: issuer
+				Issuer: issuer,
 			})
 		}))
 	}
