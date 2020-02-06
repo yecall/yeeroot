@@ -20,7 +20,7 @@ use primitives::{sr25519, storage::{StorageKey, StorageData}};
 use crate::rpc::futures::{Future, Stream};
 use crate::Config;
 use crate::client::RpcClient;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use parity_codec::{KeyedVec, Codec, Decode, Encode, Input, Compact};
 use sr_io::blake2_256;
@@ -31,7 +31,8 @@ use crate::errors;
 use jsonrpc_core::BoxFuture;
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 use yee_serde_hex::Hex;
-use yee_primitives::{Address, AddressCodec};
+use yee_primitives::{Address, AddressCodec, Hrp};
+// use serde_derive::{Deserialize, Serialize};
 
 /// Substrate state API
 #[rpc]
@@ -44,6 +45,19 @@ pub trait StateApi<Hash> {
 
 	#[rpc(name = "state_getAssetBalance")]
 	fn asset_balance(&self, address: Address, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>>;
+
+	#[rpc(name = "state_getAssetDetail")]
+	fn asset_detail(&self, shard_num: u16, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Option<AssetDetail>>;
+}
+
+#[derive(Serialize, Deserialize)]
+#[derive(Debug, Clone)]
+pub struct AssetDetail {
+	pub ID: u32,
+	pub Name: Vec<u8>,
+	pub Decimals: u16,
+	pub TotalSupply: Hex<BigUint>,
+	pub Issuer: Vec<u8>
 }
 
 /// State API with subscriptions support.
@@ -163,6 +177,64 @@ impl<Hash> StateApi<Hash> for State
 		};
 		Box::new(balance_future)
 	}
+
+	fn asset_detail(&self, shard_num: u16, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Option<AssetDetail>> {
+		let key = get_storage_key(&asset_id, StorageKeyId::AssetName);
+		let name_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+			Ok(future) => future.map(|b: Option<StorageData>| {
+				 match b {
+					Some(d) => d.0,
+					None => vec![]
+				}
+			}),
+			Err(e) => return  Box::new(future::err(e.into())),
+		};
+
+		let key = get_storage_key(&asset_id, StorageKeyId::AssetTotalSupply);
+		let supply_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+			Ok(future) => future.map(|b: Option<StorageData>| {
+				Hex(get_big_uint(b))
+			}),
+			Err(e) => return  Box::new(future::err(e.into())),
+		};
+
+		let key = get_storage_key(&asset_id, StorageKeyId::AssetDecimals);
+		let decimals_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+			Ok(future) => future.map(|b: Option<StorageData>| {
+				match b {
+					Some(d) => {
+						let d = d.0.as_slice();
+						let mut arr = [0u8; 2];
+						arr.copy_from_slice(d);
+						u16::from_le_bytes(arr)
+					},
+					None => 0
+				}
+			}),
+			Err(e) => return  Box::new(future::err(e.into())),
+		};
+
+		let key = get_storage_key(&asset_id, StorageKeyId::AssetIssuer);
+		let issuer_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+			Ok(future) => future.map(|b: Option<StorageData>| {
+				match b {
+					Some(d) => d.0,
+					None => vec![]
+				}
+			}),
+			Err(e) => return  Box::new(future::err(e.into())),
+		};
+
+		Box::new(name_future.join4(supply_future, decimals_future, issuer_future).map(move |(name, supply, decimals, issuer)| {
+			Some(AssetDetail{
+				ID: asset_id,
+				Name: name,
+				TotalSupply: supply,
+				Decimals: decimals,
+				Issuer: issuer
+			})
+		}))
+	}
 }
 
 enum StorageKeyId {
@@ -170,6 +242,11 @@ enum StorageKeyId {
 	ReservedBalance,
 	AccountNonce,
 	AssetBalance,
+	AssetName,
+	AssetIssuer,
+	AssetDecimals,
+	AssetTotalSupply,
+	AssetNextId,
 }
 
 fn get_prefix(storage_key_id: StorageKeyId) -> &'static [u8] {
@@ -178,6 +255,11 @@ fn get_prefix(storage_key_id: StorageKeyId) -> &'static [u8] {
 		StorageKeyId::ReservedBalance => b"Balances ReservedBalance",
 		StorageKeyId::AccountNonce => b"System AccountNonce",
 		StorageKeyId::AssetBalance => b"Assets Balances",
+		StorageKeyId::AssetName => b"Assets AssetsName",
+		StorageKeyId::AssetIssuer => b"Assets AssetsIssuer",
+		StorageKeyId::AssetDecimals => b"Assets AssetsDecimals",
+		StorageKeyId::AssetTotalSupply => b"Assets TotalSupply",
+		StorageKeyId::AssetNextId => b"Assets NextAssetId",
 	}
 }
 
