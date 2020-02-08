@@ -3711,6 +3711,7 @@ dependencies = [
  "srml-system",
  "substrate-keyring",
  "yee-sharding-primitives",
+ "yee-sr-primitives",
  "yee-srml-pow",
  "yee-srml-sharding",
 ]

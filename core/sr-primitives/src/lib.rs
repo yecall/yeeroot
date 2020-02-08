@@ -186,22 +186,24 @@ pub enum RelayTypes {
 //    }
 //}
 
-pub trait OriginTrait<AccountId, Balance> where
-    AccountId: Codec + Clone,
-    Balance: Codec + Clone,
-{
-    fn from(&self) -> AccountId;
-    fn to(&self) -> AccountId;
-    fn amount(&self) -> Balance;
-
-    fn asset_id(&self) -> Option<u32>;
-}
+//pub trait OriginTrait<AccountId, Balance> where
+//    AccountId: Codec + Clone,
+//    Balance: Codec + Clone,
+//{
+//    fn from(&self) -> AccountId;
+//    fn to(&self) -> AccountId;
+//    fn amount(&self) -> Balance;
+//
+//    fn shard_code(&self) -> Vec<u8>;
+//    fn asset_id(&self) -> Option<u32>;
+//}
 
 /// OriginAsset for asset transfer
 pub struct OriginExtrinsic<AccountId, Balance> where
     AccountId: Codec + Clone + Default,
     Balance: Codec + Clone,
 {
+    shard: Vec<u8>,
     id: Option<u32>,
     sender: AccountId,
     signature: Vec<u8>,
@@ -290,9 +292,15 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
             Some(f) => f,
             None => return None
         };
+        // shard code
+        let mut shard_code = vec![];
         // AssetId
         let mut id: Compact<u32> = Compact(0u32);
         if relay_type == RelayTypes::Assets {
+            shard_code = match Decode::decode(&mut input) {
+                Some(shard) => shard,
+                None => return None
+            };
             id = match Decode::decode(&mut input) {
                 Some(id) => id,
                 None => return None
@@ -321,9 +329,9 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
             None => return None
         };
         if relay_type == RelayTypes::Assets {
-            Some(Self { id: Some(id.0), sender, signature, index, era, dest, amount })
+            Some(Self { shard: shard_code, id: Some(id.0), sender, signature, index, era, dest, amount })
         } else if relay_type == RelayTypes::Balance {
-            Some(Self { id: None, sender, signature, index, era, dest, amount })
+            Some(Self { shard: shard_code, id: None, sender, signature, index, era, dest, amount })
         } else {
             None
         }
@@ -340,6 +348,8 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
     pub fn amount(&self) -> Balance {
         self.amount.clone()
     }
+
+    pub fn shard_code(&self) -> Vec<u8> { self.shard.clone() }
 
     pub fn asset_id(&self) -> Option<u32> {
         self.id.clone()

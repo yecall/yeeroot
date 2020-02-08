@@ -181,7 +181,7 @@ fn testnet_template_genesis(
 		}),
 		assets: Some(AssetsConfig {
 			_genesis_phantom_data: PhantomData,
-			next_asset_id: 10001,
+			next_asset_id: 100,
 		}),
         sharding: Some(ShardingConfig {
             genesis_sharding_count: 4,

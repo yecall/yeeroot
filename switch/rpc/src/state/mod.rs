@@ -28,7 +28,7 @@ use num_bigint::BigUint;
 use yee_runtime::AccountId;
 use yee_sharding_primitives::utils::shard_num_for_bytes;
 use crate::errors;
-use jsonrpc_core::BoxFuture;
+use jsonrpc_core::{BoxFuture, Error, ErrorCode};
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 use yee_serde_hex::Hex;
 use yee_primitives::{Address, AddressCodec, Hrp};
@@ -44,7 +44,7 @@ pub trait StateApi<Hash> {
 	fn nonce(&self, account: Address, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>>;
 
 	#[rpc(name = "state_getAssetBalance")]
-	fn asset_balance(&self, address: Address, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>>;
+	fn asset_balance(&self, address: Address, shard_code: String, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>>;
 
 	#[rpc(name = "state_getAssetDetail")]
 	fn asset_detail(&self, shard_num: u16, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Option<AssetDetail>>;
@@ -53,6 +53,7 @@ pub trait StateApi<Hash> {
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct AssetDetail {
+	pub ShardCode: Vec<u8>,
 	pub ID: u32,
 	pub Name: Vec<u8>,
 	pub Decimals: u16,
@@ -156,7 +157,7 @@ impl<Hash> StateApi<Hash> for State
 		}
 	}
 
-	fn asset_balance(&self, address: Address, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>> {
+	fn asset_balance(&self, address: Address, shard_code: String, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Hex<BigUint>> {
 		let account_id = match AccountId::from_address(&address) {
 			Ok((id, _)) => id,
 			Err(_e) => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidAddress).into()))
@@ -166,8 +167,12 @@ impl<Hash> StateApi<Hash> for State
 			Some(num) => num,
 			None => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into())),
 		};
+		let shard_code = match hex::decode(shard_code){
+			Ok(code) => code,
+			Err(e) => return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShardCode).into()))
+		};
 		// key
-		let k = (asset_id, account_id);
+		let k = (shard_code, asset_id, account_id);
 		let key = get_storage_key(&k, StorageKeyId::AssetBalance);
 		let balance_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key, hash.clone()), shard_num) {
 			Ok(future) => future.map(|b| {
@@ -226,7 +231,13 @@ impl<Hash> StateApi<Hash> for State
 		};
 
 		Box::new(name_future.join4(supply_future, decimals_future, issuer_future).map(move |(name, supply, decimals, issuer)| {
+			let shard_code = if issuer.len() > 2 {
+				issuer[issuer.len() - 2..].to_vec()
+			} else {
+				vec![]
+			};
 			Some(AssetDetail {
+				ShardCode: shard_code,
 				ID: asset_id,
 				Name: match Decode::decode(&mut name.as_slice()) {
 					Some(name) => name,

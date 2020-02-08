@@ -64,12 +64,13 @@ decl_module! {
 
 		/// Move some assets from one holder to another.
 		fn transfer(origin,
+			shard_code: Vec<u8>,
 			#[compact] id: AssetId,
 			target: <T::Lookup as StaticLookup>::Source,
 			#[compact] amount: T::Balance
 		) {
 			let origin = ensure_signed(origin)?;
-			let origin_account = (id, origin.clone());
+			let origin_account = (shard_code.clone(), id, origin.clone());
 			let origin_balance = <Balances<T>>::get(&origin_account);
 
 			ensure!(!amount.is_zero(), "transfer amount should be non-zero");
@@ -83,10 +84,10 @@ decl_module! {
 			let dn = sharding_primitives::utils::shard_num_for(&target, c).expect("can't get target shard num");
 			// in same sharding
 			if cn == dn {
-				<Balances<T>>::mutate((id, target.clone()), |balance| *balance += amount);
+				<Balances<T>>::mutate((shard_code.clone(), id, target.clone()), |balance| *balance += amount);
 			}
 			// event
-			Self::deposit_event(RawEvent::Transferred(id, origin, target, amount));
+			Self::deposit_event(RawEvent::Transferred(shard_code, id, origin, target, amount));
 		}
 	}
 }
@@ -94,16 +95,16 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		/// Some assets were issued.
-		Issued(AssetId, Vec<u8>, AccountId, Balance),
+		Issued(Vec<u8>, AssetId, Vec<u8>, AccountId, Balance),
 		/// Some assets were transferred.
-		Transferred(AssetId, AccountId, AccountId, Balance),
+		Transferred(Vec<u8>, AssetId, AccountId, AccountId, Balance),
 	}
 );
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Assets {
 		/// The number of units of assets held by any given account.
-		Balances: map (AssetId, T::AccountId) => T::Balance;
+		Balances: map (Vec<u8>, AssetId, T::AccountId) => T::Balance;
 		/// The next asset identifier up for grabs.
 		NextAssetId get(next_asset_id) config(): AssetId;
 		/// The name of an asset.
@@ -123,19 +124,22 @@ impl<T: Trait> Module<T> {
 		let id = Self::next_asset_id();
 		<NextAssetId<T>>::mutate(|id| *id += 1);
 
-		<Balances<T>>::insert((id, origin.clone()), total.clone());
+		let issuer = origin.encode();
+		let shard_code = issuer[issuer.len()-2..].to_vec();
+
+		<Balances<T>>::insert((shard_code.clone(), id, origin.clone()), total.clone());
 		<TotalSupply<T>>::insert(id, total.clone());
 		<AssetsName<T>>::insert(id, name.clone());
 		<AssetsDecimals<T>>::insert(id, decimals);
 		<AssetsIssuer<T>>::insert(id, origin.clone());
 
 		// event
-		Self::deposit_event(RawEvent::Issued(id, name, origin, total));
+		Self::deposit_event(RawEvent::Issued(shard_code, id, name, origin, total));
 	}
 
 	/// Get the asset `id` balance of `who`.
-	pub fn balance(id: AssetId, who: T::AccountId) -> T::Balance {
-		<Balances<T>>::get((id, who))
+	pub fn balance(shard_code: Vec<u8>, id: AssetId, who: T::AccountId) -> T::Balance {
+		<Balances<T>>::get((shard_code, id, who))
 	}
 
 	/// Get the total supply of an asset `id`
@@ -156,8 +160,8 @@ impl<T: Trait> Module<T> {
 	pub fn relay_transfer(input: Vec<u8>) -> srml_support::dispatch::Result {
 		if let Some(tx) = OriginExtrinsic::<T::AccountId, T::Balance>::decode(RelayTypes::Assets, input) {
 			let asset_id = tx.asset_id().unwrap();
-			<Balances<T>>::mutate((asset_id, tx.to()), |balance| *balance += tx.amount());
-			Self::deposit_event(RawEvent::Transferred(asset_id, tx.from(), tx.to(), tx.amount()));
+			<Balances<T>>::mutate((tx.shard_code(), asset_id, tx.to()), |balance| *balance += tx.amount());
+			Self::deposit_event(RawEvent::Transferred(tx.shard_code(), asset_id, tx.from(), tx.to(), tx.amount()));
 			Ok(())
 		} else{
 			Err("transfer is invalid.")

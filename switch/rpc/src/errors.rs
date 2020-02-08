@@ -43,6 +43,10 @@ error_chain! {
 			description("invalid address"),
 			display("Invalid address"),
 		}
+		InvalidShardCode {
+			description("invalid shard code"),
+			display("Invalid shard code"),
+		}
 		RpcError(e: jsonrpc_client_transports::RpcError) {
 			description("rpc error"),
 			display("Rpc error"),

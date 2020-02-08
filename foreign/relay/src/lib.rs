@@ -128,7 +128,7 @@ pub fn start_relay_transfer<F, C, A>(
                         // broadcast relay transfer
                         network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
                     },
-                    Call::Assets(AssetsCall::transfer(id, dest, value)) => {
+                    Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
                         let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
                         if ds.is_none() {
                             continue;
