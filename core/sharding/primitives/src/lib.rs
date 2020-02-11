@@ -26,7 +26,7 @@ use {
     runtime_primitives::traits::{NumberFor, Block},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ScaleOut {
     pub shard_num: u16,
 }

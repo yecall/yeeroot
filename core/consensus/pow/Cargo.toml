@@ -27,6 +27,7 @@ foreign_chain = { package = "yee-foreign-chain", path = "../../../foreign/chain"
 yee-merkle = { path = "../../util/merkle" }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
+yee-context = { package = "yee-context", path = "../../context" }
 util = { package = "util", path = "../../util" }
 hash-db = "0.12"
 ansi_term = "0.11"

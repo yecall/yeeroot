@@ -182,6 +182,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
 
         Box::new(
             job
+                .map_err(|e|{warn!("job error: {:?}", e); e})
                 .map_err(to_common_error)
                 .map(move |job| {
                     if let Err(e) = on_proposal_block(job) {
