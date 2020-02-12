@@ -14,10 +14,12 @@ use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
+	AssetsConfig,
 };
 use substrate_service;
 use yee_primitives::{Address, AddressCodec};
 use yee_dev;
+use serde::export::PhantomData;
 use crate::service::WASM_CODE;
 
 // Note this is the URL for the telemetry server
@@ -176,6 +178,10 @@ fn testnet_template_genesis(
 			creation_fee: 0,
 			balances: endowed_accounts.iter().cloned().map(|k|(k, 0)).collect(),
 			vesting: vec![],
+		}),
+		assets: Some(AssetsConfig {
+			_genesis_phantom_data: PhantomData,
+			next_asset_id: 100,
 		}),
         sharding: Some(ShardingConfig {
             genesis_sharding_count: 4,

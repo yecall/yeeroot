@@ -142,6 +142,18 @@ impl system::Trait for Runtime {
 	type Origin = Origin;
 }
 
+impl assets::Trait for Runtime {
+	type Event = Event;
+
+	type Balance = u128;
+
+	type Sharding = sharding::Module<Runtime>;
+}
+
+impl relay::Trait for Runtime {
+	type Runtime = Runtime;
+}
+
 impl pow::Trait for Runtime {
     /// Type used for POW target
     type PowTarget = PowTarget;
@@ -218,6 +230,7 @@ impl sharding::Trait for Runtime {
     type Log = Log;
 }
 
+/// DON'T CHANGE THE SORT
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
 		Block = Block,
@@ -233,6 +246,8 @@ construct_runtime!(
 		Sharding: sharding::{Module, Call, Storage, Config<T>, Log(), Inherent},
 		Crfg: crfg::{Module, Call, Storage, Config<T>, Log(), Event<T>, Inherent},
 		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},
+		Assets: assets::{Module, Call, Storage, Config<T>, Event<T>},
+		Relay: relay::{Module, Call},
 	}
 );
 

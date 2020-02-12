@@ -49,15 +49,18 @@ use substrate_primitives::{
     hexdisplay::HexDisplay,
 };
 use transaction_pool::txpool::{self, Pool as TransactionPool};
-use log::{debug, info, error};
+use log::{debug, info, warn, error};
 use substrate_cli::error;
 use yee_balances::Call as BalancesCall;
+use yee_assets::Call as AssetsCall;
+use yee_relay::Call as RelayCall;
 use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
 use util::relay_decode::RelayTransfer;
 use finality_tracker::FinalityTrackerDigestItem;
+use yee_sr_primitives::{RelayTypes, RelayParams};
 use ansi_term::Colour;
 
 pub fn start_relay_transfer<F, C, A>(
@@ -101,27 +104,54 @@ pub fn start_relay_transfer<F, C, A>(
                 if let None = sig {
                     continue;
                 }
-                if let Call::Balances(BalancesCall::transfer(dest, value)) = &ex.function {
-                    let ds = yee_sharding_primitives::utils::shard_num_for(dest, tc as u16);    // dest shard
-                    if ds.is_none() {
-                        continue;
-                    }
-                    let ds = ds.unwrap();
-                    if cs as u16 == ds {
-                        continue;
-                    }
+                match ex.function {
+                    Call::Balances(BalancesCall::transfer(dest, value)) => {
+                        let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
+                        if ds.is_none() {
+                            continue;
+                        }
+                        let ds = ds.unwrap();
+                        if cs as u16 == ds {
+                            continue;
+                        }
 
-                    // create relay transfer
-                    let h: Compact<u64> = Compact((*header.number()).into());
-                    let function = Call::Balances(BalancesCall::relay_transfer(ec, h, hash, *header.parent_hash()));
-                    let relay = UncheckedExtrinsic::new_unsigned(function);
-                    let buf = relay.encode();
-                    let relay = Decode::decode(&mut buf.as_slice()).unwrap();
-                    let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
-                    info!(target: "foreign-relay", "{}: shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}", Colour::Green.paint("Send relay-transaction"), ds, h.0, value, relay_hash, HexDisplay::from(&buf));
+                        // create relay transfer
+                        let h: Compact<u64> = Compact((*header.number()).into());
+                        let function = Call::Relay(RelayCall::transfer(RelayTypes::Balance, ec, h, hash, *header.parent_hash()));
+                        let relay = UncheckedExtrinsic::new_unsigned(function);
+                        let buf = relay.encode();
+                        let relay = Decode::decode(&mut buf.as_slice()).unwrap();
+                        let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
+                        info!(target: "foreign-relay", "{}: shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}",
+                              Colour::Green.paint("Send Balance-relay-transaction"), ds, h.0, value, relay_hash, HexDisplay::from(&buf));
 
-                    // broadcast relay transfer
-                    network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
+                        // broadcast relay transfer
+                        network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
+                    },
+                    Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
+                        let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
+                        if ds.is_none() {
+                            continue;
+                        }
+                        let ds = ds.unwrap();
+                        if cs as u16 == ds {
+                            continue;
+                        }
+
+                        // create relay transfer
+                        let h: Compact<u64> = Compact((*header.number()).into());
+                        let function = Call::Relay(RelayCall::transfer(RelayTypes::Assets, ec, h, hash, *header.parent_hash()));
+                        let relay = UncheckedExtrinsic::new_unsigned(function);
+                        let buf = relay.encode();
+                        let relay = Decode::decode(&mut buf.as_slice()).unwrap();
+                        let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
+                        info!(target: "foreign-relay", "{}: shard: {}, height: {}, AssetID: {}, amount: {}, hash:{:?}, encode: {}",
+                              Colour::Green.paint("Send Asset-relay-transaction"), ds, h.0, id, value, relay_hash, HexDisplay::from(&buf));
+
+                        // broadcast relay transfer
+                        network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
+                    },
+                    _ => {}
                 }
             }
 
@@ -133,14 +163,13 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::RelayExtrinsics(txs) => {
                 for tx in &txs {
                     let tx = tx.encode();
-                    if let Some(r_t) = RelayTransfer::<AccountId, u128, RuntimeHash>::decode(tx.clone().as_slice()) {
+                    if let Some(_r_t) = RelayParams::<RuntimeHash>::decode(tx.clone()) {
+                        let block_id = BlockId::number(Zero::zero());
+                        let tx = Decode::decode(&mut tx.as_slice()).unwrap();
+                        pool.submit_relay_extrinsic(&block_id, tx, true).expect("Submit relay transfer into pool failed!");
                     } else {
-                        continue;
+                        warn!(target:"foreign-relay", "receive bad relay extrinsic: {:?}", tx);
                     }
-
-                    let block_id = BlockId::number(Zero::zero());
-                    let tx = Decode::decode(&mut tx.as_slice()).unwrap();
-                    pool.submit_relay_extrinsic(&block_id, tx, true).expect("Submit relay transfer into pool failed!");
                 }
                 info!(target: "foreign-relay", "{}: {:?}", Colour::Green.paint("Receive relay-transaction"), txs);
             }

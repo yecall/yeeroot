@@ -194,10 +194,11 @@ use {
 use pow::OnFeeWithdrawn;
 
 mod mock;
-mod decode;
+//mod decode;
 mod tests;
 
-use decode::OriginTransfer;
+//use decode::OriginTransfer;
+use yee_sr_primitives::{OriginExtrinsic, RelayTypes};
 
 pub use self::imbalances::{PositiveImbalance, NegativeImbalance};
 
@@ -418,18 +419,18 @@ decl_module! {
 			Self::set_reserved_balance(&who, reserved);
 		}
 
-		/// execute relay transfer part
-		///
-		///
-		fn relay_transfer(
-		    _origin,
-		    transfer: Vec<u8>,
-		    height: Compact<u64>,
-		    hash: T::Hash,
-		    parent: T::Hash
-		){
-		    Self::execute_relay_transfer(transfer, height, hash, parent)?;
-		}
+//		/// execute relay transfer part
+//		///
+//		///
+//		fn relay_transfer(
+//		    _origin,
+//		    transfer: Vec<u8>,
+//		    height: Compact<u64>,
+//		    hash: T::Hash,
+//		    parent: T::Hash
+//		){
+//		    Self::execute_relay_transfer(transfer, height, hash, parent)?;
+//		}
 	}
 }
 
@@ -543,20 +544,20 @@ impl<T: Trait<I>, I: Instance> Module<T, I> {
     }
 
     /// execute relay transfer
-    fn execute_relay_transfer(transfer: Vec<u8>, _height: Compact<u64>, _hash: T::Hash, _parent: T::Hash) -> Result {
-        let tx: OriginTransfer<T::AccountId, T::Balance> = OriginTransfer::decode(transfer).unwrap();
-        if !<FreeBalance<T, I>>::exists(tx.dest()) {
-            Self::new_account(&tx.dest(), tx.amount());
+    pub fn relay_transfer(transfer: Vec<u8>) -> Result {
+        let tx: OriginExtrinsic<T::AccountId, T::Balance> = OriginExtrinsic::decode(RelayTypes::Balance, transfer).unwrap();
+        if !<FreeBalance<T, I>>::exists(tx.to()) {
+            Self::new_account(&tx.to(), tx.amount());
         }
-        let to_balance = Self::free_balance(&tx.dest());
+        let to_balance = Self::free_balance(&tx.to());
         let to_balance = match to_balance.checked_add(&tx.amount()) {
             Some(b) => b,
             None => return Err("destination balance too high to receive value"),
         };
-        Self::set_free_balance(&tx.dest(), to_balance);
+        Self::set_free_balance(&tx.to(), to_balance);
         Self::deposit_event(RawEvent::Transfer(
-            tx.sender(),
-            tx.dest(),
+            tx.from(),
+            tx.to(),
             to_balance,
             Zero::zero(),
         ));
