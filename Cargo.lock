@@ -5986,6 +5986,7 @@ dependencies = [
  "yee-runtime 1.0.0",
  "yee-serde-hex 0.4.0",
  "yee-sharding-primitives 0.1.0",
+ "yee-sr-primitives 0.4.0",
 ]
 
 [[package]]

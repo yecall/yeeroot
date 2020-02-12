@@ -5,6 +5,8 @@ use rstd::prelude::*;
 use substrate_primitives::{Blake2Hasher, Hasher, H256};
 use substrate_sr_primitives::generic::Era;
 
+pub const SHARD_CODE_SIZE: usize = 2;
+
 #[derive(PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RelayParams<Hash> where

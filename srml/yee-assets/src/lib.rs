@@ -26,7 +26,7 @@ use sharding_primitives::ShardingInfo;
 use parity_codec::{Decode, Encode, Compact, Input};
 use system::ensure_signed;
 use rstd::prelude::Vec;
-use yee_sr_primitives::{RelayTypes, RelayParams, OriginExtrinsic};
+use yee_sr_primitives::{RelayTypes, RelayParams, OriginExtrinsic, SHARD_CODE_SIZE};
 
 pub trait Trait: sharding::Trait {
 	/// The overarching event type.
@@ -125,7 +125,7 @@ impl<T: Trait> Module<T> {
 		<NextAssetId<T>>::mutate(|id| *id += 1);
 
 		let issuer = origin.encode();
-		let shard_code = issuer[issuer.len()-2..].to_vec();
+		let shard_code = issuer[issuer.len() - SHARD_CODE_SIZE..].to_vec();
 
 		<Balances<T>>::insert((shard_code.clone(), id, origin.clone()), total.clone());
 		<TotalSupply<T>>::insert(id, total.clone());

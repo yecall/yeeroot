@@ -32,7 +32,7 @@ use jsonrpc_core::{BoxFuture, Error, ErrorCode};
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 use yee_serde_hex::Hex;
 use yee_primitives::{Address, AddressCodec, Hrp};
-// use serde_derive::{Deserialize, Serialize};
+use yee_sr_primitives::SHARD_CODE_SIZE;
 
 /// Substrate state API
 #[rpc]
@@ -232,7 +232,7 @@ impl<Hash> StateApi<Hash> for State
 
 		Box::new(name_future.join4(supply_future, decimals_future, issuer_future).map(move |(name, supply, decimals, issuer)| {
 			let shard_code = if issuer.len() > 2 {
-				issuer[issuer.len() - 2..].to_vec()
+				issuer[issuer.len() - SHARD_CODE_SIZE..].to_vec()
 			} else {
 				vec![]
 			};
