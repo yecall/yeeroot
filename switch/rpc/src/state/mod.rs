@@ -53,12 +53,12 @@ pub trait StateApi<Hash> {
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct AssetDetail {
-	pub ShardCode: Vec<u8>,
-	pub ID: u32,
-	pub Name: Vec<u8>,
-	pub Decimals: u16,
-	pub TotalSupply: Hex<BigUint>,
-	pub Issuer: Vec<u8>
+	pub shard_code: Vec<u8>,
+	pub id: u32,
+	pub name: Vec<u8>,
+	pub decimals: u16,
+	pub total_supply: Hex<BigUint>,
+	pub issuer: Vec<u8>
 }
 
 /// State API with subscriptions support.
@@ -237,15 +237,15 @@ impl<Hash> StateApi<Hash> for State
 				vec![]
 			};
 			Some(AssetDetail {
-				ShardCode: shard_code,
-				ID: asset_id,
-				Name: match Decode::decode(&mut name.as_slice()) {
+				shard_code: shard_code,
+				id: asset_id,
+				name: match Decode::decode(&mut name.as_slice()) {
 					Some(name) => name,
 					None => vec![]
 				},
-				TotalSupply: supply,
-				Decimals: decimals,
-				Issuer: issuer,
+				total_supply: supply,
+				decimals: decimals,
+				issuer: issuer,
 			})
 		}))
 	}
