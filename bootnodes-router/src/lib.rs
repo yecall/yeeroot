@@ -64,7 +64,7 @@ pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> error::Resul
     let port = cmd.port.unwrap_or(params::DEFAULT_BOOTNODES_ROUTER_PORT);
 
     let io = rpc_handler(conf);
-    let addr = format!("http://0.0.0.0:{}", port);
+    let addr = format!("0.0.0.0:{}", port);
 
     let (signal, exit) = exit_future::signal();
 
@@ -73,7 +73,7 @@ pub fn run(cmd: BootnodesRouterCommandCmd, version: VersionInfo) -> error::Resul
         let server = ServerBuilder::new(io).
             threads(4).start_http(&addr.parse().unwrap()).unwrap();
 
-        info!(target: TARGET, "Bootnodes router listen on: {}", addr);
+        info!(target: TARGET, "Bootnodes router listen on: http://{}", addr);
 
         server.wait();
 
