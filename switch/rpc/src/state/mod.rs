@@ -32,7 +32,10 @@ use jsonrpc_core::{BoxFuture, Error, ErrorCode};
 use crate::rpc::{self, futures::future::{self, FutureResult}};
 use yee_serde_hex::Hex;
 use yee_primitives::{Address, AddressCodec, Hrp};
+use serde_json::Value;
+use hex;
 use yee_sr_primitives::SHARD_CODE_SIZE;
+use serde_json::map::Entry::Vacant;
 
 /// Substrate state API
 #[rpc]
@@ -48,6 +51,10 @@ pub trait StateApi<Hash> {
 
 	#[rpc(name = "state_getAssetDetail")]
 	fn asset_detail(&self, shard_num: u16, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Option<AssetDetail>>;
+
+	/// Get block events.
+	#[rpc(name = "state_getBlockEvents")]
+	fn block_events(&self, shard_num: u16, hash: Option<Hash>) -> BoxFuture<Vec<u8>>;
 }
 
 #[derive(Serialize, Deserialize)]
@@ -66,6 +73,8 @@ pub struct State {
 	config: Config,
 	rpc_client: RpcClient,
 }
+
+const BLOCK_EVENTS_PREFIX: &'static str = "0xcc956bdb7605e3547539f321ac2bc95c";
 
 impl State {
 	/// Create new State API RPC handler.
@@ -185,7 +194,7 @@ impl<Hash> StateApi<Hash> for State
 
 	fn asset_detail(&self, shard_num: u16, asset_id: u32, hash: Option<Hash>) -> BoxFuture<Option<AssetDetail>> {
 		let key = get_storage_key(&asset_id, StorageKeyId::AssetName);
-		let name_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+		let name_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key,hash.clone()), shard_num) {
 			Ok(future) => future.map(|b: Option<StorageData>| {
 				 match b {
 					Some(d) => d.0,
@@ -196,7 +205,7 @@ impl<Hash> StateApi<Hash> for State
 		};
 
 		let key = get_storage_key(&asset_id, StorageKeyId::AssetTotalSupply);
-		let supply_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+		let supply_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key,hash.clone()), shard_num) {
 			Ok(future) => future.map(|b: Option<StorageData>| {
 				Hex(get_big_uint(b))
 			}),
@@ -204,7 +213,7 @@ impl<Hash> StateApi<Hash> for State
 		};
 
 		let key = get_storage_key(&asset_id, StorageKeyId::AssetDecimals);
-		let decimals_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+		let decimals_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key,hash.clone()), shard_num) {
 			Ok(future) => future.map(|b: Option<StorageData>| {
 				match b {
 					Some(d) => {
@@ -220,7 +229,7 @@ impl<Hash> StateApi<Hash> for State
 		};
 
 		let key = get_storage_key(&asset_id, StorageKeyId::AssetIssuer);
-		let issuer_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData", (key,hash.clone()), shard_num) {
+		let issuer_future = match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (key,hash.clone()), shard_num) {
 			Ok(future) => future.map(|b: Option<StorageData>| {
 				match b {
 					Some(d) => d.0,
@@ -237,17 +246,39 @@ impl<Hash> StateApi<Hash> for State
 				vec![]
 			};
 			Some(AssetDetail {
-				shard_code: shard_code,
+				shard_code,
 				id: asset_id,
 				name: match Decode::decode(&mut name.as_slice()) {
 					Some(name) => name,
 					None => vec![]
 				},
 				total_supply: supply,
-				decimals: decimals,
-				issuer: issuer,
+				decimals,
+				issuer,
 			})
 		}))
+	}
+
+	fn block_events(&self, shard_num: u16, hash: Option<Hash>) -> BoxFuture<Vec<u8>> {
+		let shard_count = self.config.get_shard_count();
+		if shard_num >= shard_count {
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into()));
+		}
+
+		match self.rpc_client.call_method_async("state_getStorage", "Option<StorageData>", (BLOCK_EVENTS_PREFIX, hash), shard_num) {
+			Ok(future) => {
+				Box::new(future.map(|result: Option<StorageData>| {
+					log::debug!("block_events storage: {}", result.clone().map(|x: StorageData|hex::encode(x.0)).unwrap_or("".to_string()));
+					match result {
+						Some(d) => d.0,
+						None => vec![]
+					}
+				}))
+			},
+			Err(e) => {
+				Box::new(future::err(e.into()))
+			}
+		}
 	}
 }
 
