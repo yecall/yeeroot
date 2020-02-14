@@ -130,7 +130,10 @@ tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd    3            
 1. **[Done]** PoC-6: Cross chain (interoperate with branch chain) (2019-12)
 
     [Release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/poc6-release-notes.md)
-1. **[In progress]** PoC-7: Smart contract (on branch chain) (2020-01)
+1. **[Done]** PoC-7: Smart contract (on branch chain) (2020-02-14)
+
+    [Release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/poc7-release-notes.md)
+
 1. Testnet (2020-03)
 1. Mainnet (2020-06)
 
