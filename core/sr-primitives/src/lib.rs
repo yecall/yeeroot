@@ -7,6 +7,8 @@ use substrate_sr_primitives::generic::Era;
 
 pub const SHARD_CODE_SIZE: usize = 2;
 
+pub const MAX_STORAGE_SIZE: usize = 1 * 1024 * 1024;    // 1 Mb
+
 #[derive(PartialEq, Eq, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RelayParams<Hash> where
@@ -217,7 +219,7 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
             None => return None
         };
         // shard code
-        let mut shard_code = vec![];
+        let mut shard_code: Vec<u8> = Vec::new();
         // AssetId
         let mut id: Compact<u32> = Compact(0u32);
         if relay_type == RelayTypes::Assets {

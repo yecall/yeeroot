@@ -154,6 +154,10 @@ impl relay::Trait for Runtime {
 	type Runtime = Runtime;
 }
 
+impl storage::Trait for Runtime {
+	type Event = Event;
+}
+
 impl pow::Trait for Runtime {
     /// Type used for POW target
     type PowTarget = PowTarget;
@@ -248,6 +252,7 @@ construct_runtime!(
 		FinalityTracker: finality_tracker::{Module, Call, Log(), Inherent},
 		Assets: assets::{Module, Call, Storage, Config<T>, Event<T>},
 		Relay: relay::{Module, Call},
+		Storage: storage::{Module, Call, Event<T>},
 	}
 );
 
