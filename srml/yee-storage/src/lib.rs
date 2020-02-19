@@ -18,7 +18,7 @@ decl_module! {
     pub struct Module<T: Trait<I>, I: Instance = DefaultInstance> for enum Call where origin: T::Origin {
         fn deposit_event<T, I>() = default;
 
-        pub fn storage(origin, data: Vec<u8>) -> Result {
+        pub fn store(origin, data: Vec<u8>) -> Result {
             let origin = ensure_signed(origin)?;
             let size = data.len();
             if size > MAX_STORAGE_SIZE {
