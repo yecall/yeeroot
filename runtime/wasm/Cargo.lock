@@ -3652,6 +3652,7 @@ dependencies = [
  "yee-srml-pow",
  "yee-srml-relay",
  "yee-srml-sharding",
+ "yee-srml-storage",
 ]
 
 [[package]]
@@ -3794,6 +3795,20 @@ dependencies = [
  "srml-system",
  "substrate-inherents",
  "yee-sharding-primitives",
+]
+
+[[package]]
+name = "yee-srml-storage"
+version = "0.4.0"
+dependencies = [
+ "parity-codec",
+ "sr-primitives",
+ "sr-std",
+ "srml-support",
+ "srml-system",
+ "yee-sr-primitives",
+ "yee-srml-balances",
+ "yee-srml-pow",
 ]
 
 [[package]]

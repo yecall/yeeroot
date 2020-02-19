@@ -5914,13 +5914,10 @@ name = "yee-srml-storage"
 version = "0.4.0"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "sr-std 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-sr-primitives 0.4.0",
- "yee-srml-balances 0.4.0",
- "yee-srml-pow 0.1.0",
 ]
 
 [[package]]
