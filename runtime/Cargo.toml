@@ -31,6 +31,7 @@ offchain-primitives = { package = "substrate-offchain-primitives", git = "https:
 consensus_authorities = { package = "substrate-consensus-authorities", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg", default-features = false }
 finality-tracker = { package = "srml-finality-tracker", path = "../srml/yee-tracker", default_features = false }
+storage = { package = "yee-srml-storage", path = "../srml/yee-storage", default-features = false }
 
 [features]
 default = ["std"]
@@ -61,4 +62,5 @@ std = [
 	"offchain-primitives/std",
 	"consensus_authorities/std",
 	"sharding_primitives/std",
+	"storage/std",
 ]
