@@ -27,6 +27,7 @@ use yee_switch_rpc::author::Author;
 use yee_switch_rpc::state::State;
 use yee_switch_rpc::system::System;
 use yee_switch_rpc::chain::Chain;
+use yee_switch_rpc::pow::PowWork;
 use crate::config::get_config;
 use crate::params::DEFAULT_RPC_PORT;
 use crate::params::DEFAULT_WS_PORT;
@@ -60,11 +61,13 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
         let state = State::new(rpc_config.clone());
         let system = System::new(rpc_config.clone());
         let chain = Chain::new(rpc_config.clone());
-        yee_switch_rpc_servers::rpc_handler::<_, _, _, _, yee_runtime::Hash, yee_runtime::BlockNumber>(
+        let pow = PowWork::new();
+        yee_switch_rpc_servers::rpc_handler::<_, _, _, _, _, yee_runtime::Hash, yee_runtime::BlockNumber>(
             author,
             state,
             system,
             chain,
+            pow,
         )
     };
 
