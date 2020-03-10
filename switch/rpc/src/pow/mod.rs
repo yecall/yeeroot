@@ -21,7 +21,7 @@ use hex;
 use yee_sr_primitives::SHARD_CODE_SIZE;
 use serde_json::map::Entry::Vacant;
 use serde::export::PhantomData;
-use crate::work_manager::{DefaultWorkManager, Work};
+use crate::work_manager::{WorkManager, Work};
 use runtime_primitives::traits::{BlakeTwo256, Hash as HashT};
 use std::sync::Arc;
 use yee_serde_hex::SerdeHex;
@@ -40,11 +40,14 @@ pub struct SubmitResponse {
 
 }
 
-pub struct PowWork<Number: SerdeHex, AuthorityId, Hashing> {
-    work_manager: DefaultWorkManager<Number, AuthorityId, Hashing>
+pub struct PowWork<Hashing> where
+    Hashing: HashT + Send + Sync + 'static,
+    Hashing::Output: Ord + Encode + Decode + Send + Sync + 'static,
+{
+    work_manager: Arc<dyn WorkManager<Hashing=Hashing>>
 }
 
-pub fn create_worker_manager<Number: SerdeHex, AuthorityId, Hashing>(config: Config) -> PowWork<Number, AuthorityId, Hashing>
+pub fn create_worker_manager(config: Config) -> PowWork<BlakeTwo256>
 {
     let mut work_manager = crate::work_manager::DefaultWorkManager::<
         yee_runtime::BlockNumber,
@@ -53,28 +56,31 @@ pub fn create_worker_manager<Number: SerdeHex, AuthorityId, Hashing>(config: Con
     if let Err(e) = work_manager.start() {
         // todo
     }
-    //let wm = Arc::new(work_manager);
-    PowWork::new(work_manager)
+    let wm = Arc::new(work_manager);
+    PowWork::new(wm)
 }
 
-impl<Number: SerdeHex, AuthorityId, Hashing> PowWork<Number, AuthorityId, Hashing> where
-    <Hashing as HashT>::Output: Decode + Encode,
+impl<Hashing> PowWork<Hashing> where
+    Hashing: HashT + Send + Sync + 'static,
+    Hashing::Output: Ord + Encode + Decode + Send + Sync + 'static,
 {
-    pub fn new(work_manager: DefaultWorkManager<Number, AuthorityId, Hashing>) -> Self {
+    pub fn new(wm: Arc<dyn WorkManager<Hashing=Hashing>>) -> Self {
         Self {
-            work_manager
+            work_manager: wm,
         }
     }
 }
 
-impl<Number: SerdeHex, AuthorityId, Hashing> PowApi<<Hashing as HashT>::Output> for PowWork<Number, AuthorityId, Hashing> where
-    <Hashing as HashT>::Output: Decode + Encode,
+impl<Hashing, Hash> PowApi<Hash> for PowWork<Hashing> where
+    Hashing: HashT + Send + Sync + 'static,
+    Hashing::Output: Ord + Encode + Decode + Send + Sync + 'static,
+    Hashing::Output: Hash
 {
-    fn get_job(&self) -> errors::Result<mining::work_manager::Work<<Hashing as HashT>::Output>> {
+    fn get_job(&self) -> errors::Result<mining::work_manager::Work<Hash>> {
         self.work_manager.get_work()
     }
 
-    fn submit_job(&self, work: Work<Hash>) -> errors::Result<SubmitResponse> {
+    fn submit_job(&self, work: Work<Hashing::Output>) -> errors::Result<SubmitResponse> {
 
         Ok(SubmitResponse{})
     }
