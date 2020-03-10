@@ -16,9 +16,9 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 mod error;
-mod work_manager;
+pub mod work_manager;
 mod worker;
-use yee_switch_rpc::{Config};
+use yee_primitives::{Config, Shard};
 use runtime_primitives::traits::{BlakeTwo256};
 use std::sync::Arc;
 

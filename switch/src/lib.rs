@@ -27,7 +27,7 @@ use yee_switch_rpc::author::Author;
 use yee_switch_rpc::state::State;
 use yee_switch_rpc::system::System;
 use yee_switch_rpc::chain::Chain;
-use yee_switch_rpc::pow::PowWork;
+use yee_switch_rpc::pow::{PowWork, create_worker_manager};
 use crate::config::get_config;
 use crate::params::DEFAULT_RPC_PORT;
 use crate::params::DEFAULT_WS_PORT;
@@ -38,7 +38,7 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     let config = get_config(&cmd, &version)?;
 
-    let rpc_config : yee_switch_rpc::Config = config.into();
+    let rpc_config : yee_primitives::Config = config.into();
 
 
     let rpc_interface: &str = if cmd.rpc_external { "0.0.0.0" } else { "127.0.0.1" };
@@ -61,7 +61,7 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
         let state = State::new(rpc_config.clone());
         let system = System::new(rpc_config.clone());
         let chain = Chain::new(rpc_config.clone());
-        let pow = PowWork::new();
+        let pow = create_worker_manager(rpc_config.clone());
         yee_switch_rpc_servers::rpc_handler::<_, _, _, _, _, yee_runtime::Hash, yee_runtime::BlockNumber>(
             author,
             state,

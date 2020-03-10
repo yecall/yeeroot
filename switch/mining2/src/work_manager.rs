@@ -18,13 +18,14 @@
 //! Work manager
 //! fetch job from rpc of all the shards, maintain the jobs and provide get_work
 
-use yee_switch_rpc::{Config, Shard};
+use yee_primitives::{Config, Shard};
 use jsonrpc_core_client::TypedClient;
 use rand::Rng;
 use futures::Future;
 use futures::Stream;
 use yee_rpc::mining::primitives::{Job, JobResult, ResultDigestItem, WorkProof, ProofMulti};
 use serde::de::DeserializeOwned;
+use serde::{Serialize, Deserialize};
 use tokio::timer::Interval;
 use tokio::timer::Delay;
 use std::time::{Instant, Duration};
@@ -149,6 +150,7 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 	}
 }
 
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
 pub struct Work<Hash> {
 	pub merkle_root: Hash,

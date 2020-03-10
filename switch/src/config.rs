@@ -52,18 +52,18 @@ pub struct SwitchConf {
     pub shards: HashMap<String, Shard>,
 }
 
-impl From<SwitchConf> for yee_switch_rpc::Config {
+impl From<SwitchConf> for yee_primitives::Config {
     fn from(conf: SwitchConf) -> Self {
-        let mut shards: HashMap<String, yee_switch_rpc::Shard> = HashMap::new();
+        let mut shards: HashMap<String, yee_primitives::Shard> = HashMap::new();
 
         for (k, v) in conf.shards {
-            let shard = yee_switch_rpc::Shard {
+            let shard = yee_primitives::Shard {
                 rpc: v.rpc,
             };
             shards.insert(k, shard);
         }
 
-        yee_switch_rpc::Config {
+        yee_primitives::Config {
             shards
         }
     }

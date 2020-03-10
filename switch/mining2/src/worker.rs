@@ -20,7 +20,7 @@
 
 use crate::error;
 use crate::work_manager::{WorkManager, Work};
-use yee_switch_rpc::Config;
+use yee_primitives::{Config, Shard};
 use std::sync::Arc;
 use std::thread;
 use std::thread::sleep;

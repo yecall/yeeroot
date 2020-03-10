@@ -18,6 +18,7 @@
 use bech32::{ToBase32, Error, FromBase32};
 use std::fmt;
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use parity_codec::alloc::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
 pub enum Hrp {
@@ -97,6 +98,22 @@ impl From<String> for Hrp{
 			TYEE => Hrp::TESTNET,
 			_ => unreachable!(),
 		}
+	}
+}
+
+#[derive(Clone, Debug)]
+pub struct Config{
+	pub shards: HashMap<String, Shard>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Shard {
+	pub rpc: Vec<String>,
+}
+
+impl Config{
+	pub fn get_shard_count(&self)->u16{
+		self.shards.len() as u16
 	}
 }
 
