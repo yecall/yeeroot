@@ -34,6 +34,5 @@ yee-switch-rpc-servers = { package = "yee-switch-rpc-servers", path = "rpc-serve
 yee-switch-rpc = { package = "yee-switch-rpc", path = "rpc" }
 yee-runtime = { package = "yee-runtime", path = "../runtime" }
 yee-dev = { package = "yee-dev", path = "../dev" }
-yee-mining = { package = "yee-mining", path = "mining" }
 yee-mining2 = { package = "yee-mining2", path = "mining2" }
 yee-primitives = { package = "yee-primitives", path = "../core/primitives" }

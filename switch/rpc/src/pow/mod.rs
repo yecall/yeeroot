@@ -25,14 +25,15 @@ use crate::work_manager::{WorkManager, Work};
 use runtime_primitives::traits::{BlakeTwo256, Hash as HashT};
 use std::sync::Arc;
 use yee_serde_hex::SerdeHex;
+use parking_lot::RwLock;
 
 #[rpc]
 pub trait PowApi<Hash> {
-    #[rpc(name = "getwork")]
-    fn get_job(&self) -> errors::Result<Work<Hash>>;
+    #[rpc(name = "get_work")]
+    fn get_work(&self) -> errors::Result<Work<Hash>>;
 
-    #[rpc(name = "submit_job")]
-    fn submit_job(&self, work: Work<Hash>) -> errors::Result<SubmitResponse>;
+    #[rpc(name = "submit_work")]
+    fn submit_work(&self, work: Work<Hash>) -> errors::Result<SubmitResponse>;
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
@@ -40,47 +41,29 @@ pub struct SubmitResponse {
 
 }
 
-pub struct PowWork<Hashing> where
-    Hashing: HashT + Send + Sync + 'static,
-    Hashing::Output: Ord + Encode + Decode + Send + Sync + 'static,
-{
-    work_manager: Arc<dyn WorkManager<Hashing=Hashing>>
+pub struct Pow<WM: WorkManager> where {
+    work_manager: Arc<RwLock<WM>>
 }
 
-pub fn create_worker_manager(config: Config) -> PowWork<BlakeTwo256>
+impl<WM: WorkManager> Pow<WM> where
 {
-    let mut work_manager = crate::work_manager::DefaultWorkManager::<
-        yee_runtime::BlockNumber,
-        yee_runtime::AuthorityId,
-        BlakeTwo256>::new(config);
-    if let Err(e) = work_manager.start() {
-        // todo
-    }
-    let wm = Arc::new(work_manager);
-    PowWork::new(wm)
-}
-
-impl<Hashing> PowWork<Hashing> where
-    Hashing: HashT + Send + Sync + 'static,
-    Hashing::Output: Ord + Encode + Decode + Send + Sync + 'static,
-{
-    pub fn new(wm: Arc<dyn WorkManager<Hashing=Hashing>>) -> Self {
+    pub fn new(wm: Arc<RwLock<WM>>) -> Self {
         Self {
             work_manager: wm,
         }
     }
 }
 
-impl<Hashing, Hash> PowApi<Hash> for PowWork<Hashing> where
-    Hashing: HashT + Send + Sync + 'static,
-    Hashing::Output: Ord + Encode + Decode + Send + Sync + 'static,
-    Hashing::Output: Hash
+impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
+    WM: WorkManager + Send + Sync + 'static,
+    <WM::Hashing as HashT>::Output: Decode + Encode,
 {
-    fn get_job(&self) -> errors::Result<mining::work_manager::Work<Hash>> {
-        self.work_manager.get_work()
+    fn get_work(&self) -> errors::Result<mining::work_manager::Work<<WM::Hashing as HashT>::Output>> {
+        let work = self.work_manager.read().get_work()?;
+        Ok(work)
     }
 
-    fn submit_job(&self, work: Work<Hashing::Output>) -> errors::Result<SubmitResponse> {
+    fn submit_work(&self, work: Work<<WM::Hashing as HashT>::Output>) -> errors::Result<SubmitResponse> {
 
         Ok(SubmitResponse{})
     }

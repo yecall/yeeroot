@@ -30,19 +30,20 @@ use runtime_primitives::traits::{Hash as HashT};
 use parity_codec::{Decode, Encode};
 use yee_consensus_pow_primitives::PowTarget;
 use log::debug;
+use parking_lot::RwLock;
 
 const NONCE_STEPS : u64 = 100000;
 
 pub struct Worker<WM: WorkManager> {
 	config: Config,
-	work_manager: Arc<WM>,
+	work_manager: Arc<RwLock<WM>>,
 }
 
 impl<WM> Worker<WM> where
 	WM: WorkManager + Send + Sync + 'static,
 	<WM::Hashing as HashT>::Output: Decode + Encode,
 {
-	pub fn new(config: Config, work_manager: Arc<WM>) -> Self{
+	pub fn new(config: Config, work_manager: Arc<RwLock<WM>>) -> Self{
 		Self{
 			config,
 			work_manager,
@@ -59,7 +60,7 @@ impl<WM> Worker<WM> where
 			let mut old_nonce_start = 0u64;
 
 			loop {
-				let work = work_manager.get_work();
+				let work = work_manager.read().get_work();
 				match work {
 					Err(e) => {
 						warn!("miner error: {:?}", e);
@@ -91,7 +92,7 @@ impl<WM> Worker<WM> where
 								let mut work_result = work.clone();
 								work_result.nonce = Some(nonce);
 								work_result.nonce_target = Some(source_pow_target);
-								work_manager.submit_work(work_result);
+								work_manager.write().submit_work(work_result);
 								break;
 							}
 						}

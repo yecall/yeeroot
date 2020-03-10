@@ -53,12 +53,16 @@ pub struct SwitchCommandCmd {
     pub log: Option<String>,
 
     ///Specify miner poll interval
-    #[structopt(long = "job_refresh_interval ", value_name = "INTERVAL" ,default_value = "6000")]
+    #[structopt(long = "job-refresh-interval ", value_name = "INTERVAL" ,default_value = "6000")]
     pub job_refresh_interval: u64,
 
     /// start miner
     #[structopt( long = "mine")]
     pub mine: bool,
+
+    /// enable work manager
+    #[structopt( long = "enable-work-manager")]
+    pub enable_work_manager: bool,
 
     /// Shard count on dev mode
     #[structopt(long = "dev-shard-count")]

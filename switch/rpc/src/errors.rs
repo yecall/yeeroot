@@ -21,6 +21,11 @@ use log::warn;
 use jsonrpc_client_transports::RpcError;
 
 error_chain! {
+
+	links {
+		Mining(mining::error::Error, mining::error::ErrorKind) #[doc="Mining error"];
+	}
+
 	errors {
 		/// Not implemented yet
 		Unimplemented {

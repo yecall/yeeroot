@@ -37,7 +37,7 @@ pub fn rpc_handler<A, S, Y, C, P, Hash, Number>(
 	state: S,
 	system: Y,
 	chain: C,
-	pow: P,
+	pow: Option<P>,
 ) -> RpcHandler where
 	A: AuthorApi<Hash>,
 	S: StateApi<Hash>,
@@ -51,7 +51,9 @@ pub fn rpc_handler<A, S, Y, C, P, Hash, Number>(
 	io.extend_with(state.to_delegate());
 	io.extend_with(system.to_delegate());
 	io.extend_with(chain.to_delegate());
-	io.extend_with(pow.to_delegate());
+	pow.map(|pow|{
+		io.extend_with(pow.to_delegate());
+	});
 	io
 }
 
