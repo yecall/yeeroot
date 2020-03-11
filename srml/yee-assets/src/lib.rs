@@ -95,7 +95,7 @@ decl_module! {
 decl_event!(
 	pub enum Event<T> where <T as system::Trait>::AccountId, <T as Trait>::Balance {
 		/// Some assets were issued.
-		Issued(Vec<u8>, u32, Vec<u8>, AccountId, Balance),
+		Issued(Vec<u8>, u32, Vec<u8>, AccountId, Balance, u16),
 		/// Some assets were transferred.
 		Transferred(Vec<u8>, u32, AccountId, AccountId, Balance),
 	}
@@ -130,11 +130,11 @@ impl<T: Trait> Module<T> {
 		<Balances<T>>::insert((shard_code.clone(), id, origin.clone()), total.clone());
 		<TotalSupply<T>>::insert(id, total.clone());
 		<AssetsName<T>>::insert(id, name.clone());
-		<AssetsDecimals<T>>::insert(id, decimals);
+		<AssetsDecimals<T>>::insert(id, decimals.clone());
 		<AssetsIssuer<T>>::insert(id, origin.clone());
 
 		// event
-		Self::deposit_event(RawEvent::Issued(shard_code, id, name, origin, total));
+		Self::deposit_event(RawEvent::Issued(shard_code, id, name, origin, total, decimals));
 	}
 
 	/// Get the asset `id` balance of `who`.
