@@ -64,7 +64,10 @@ impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
     }
 
     fn submit_work(&self, work: Work<<WM::Hashing as HashT>::Output>) -> errors::Result<SubmitResponse> {
-
+         if self.work_manager.write().submit_work(work).is_err(){
+            // todo
+         }
+        // todo
         Ok(SubmitResponse{})
     }
 }
