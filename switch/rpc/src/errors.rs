@@ -56,6 +56,14 @@ error_chain! {
 			description("rpc error"),
 			display("Rpc error"),
 		}
+		GetJobError {
+			description("get job work failed"),
+			display("Get job work failed"),
+		}
+		SumbitJobError {
+			description("submit job failed"),
+			display("Submit job failed"),
+		}
 	}
 }
 

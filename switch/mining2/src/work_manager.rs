@@ -59,6 +59,8 @@ pub trait WorkManager {
 	// notice that work may not refresh
 	fn get_work(&self) -> error::Result<Work<<Self::Hashing as HashT>::Output>>;
 
+	fn get_work_by_merkle(&self, root: <Self::Hashing as HashT>::Output) -> error::Result<Work<<Self::Hashing as HashT>::Output>>;
+
 	// submit to a channel so as not to block mining
 	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output>) -> error::Result<()>;
 }
@@ -142,6 +144,14 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 		);
 
 		Ok(raw_work.work.expect("qed"))
+	}
+
+	fn get_work_by_merkle(&self, root: <Self::Hashing as HashT>::Output) -> error::Result<Work<<Self::Hashing as HashT>::Output>> {
+		let raw_work = Self::get_cache(self.work_cache.clone(), &root).ok_or(error::Error::from(error::ErrorKind::WorkExpired))?;
+		match raw_work.work {
+			Some(work) => Ok(work),
+			None => Err(error::ErrorKind::WorkExpired.into())
+		}
 	}
 
 	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output>) -> error::Result<()>{

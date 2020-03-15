@@ -35,6 +35,7 @@ yee-serde-hex = { package = "yee-serde-hex", path = "../../rpc/serde-hex" }
 yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }
 yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives" }
 mining = { package = "yee-mining2", path = "../mining2" }
+yee-consensus-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../../core/consensus/pow/primitives" }
 
 [features]
 http = []

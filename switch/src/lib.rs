@@ -32,6 +32,7 @@ use yee_switch_rpc::pow::Pow;
 use crate::config::get_config;
 use crate::params::DEFAULT_RPC_PORT;
 use crate::params::DEFAULT_WS_PORT;
+use tokio::runtime::Runtime;
 
 pub const TARGET: &str = "switch";
 
