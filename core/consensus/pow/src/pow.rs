@@ -569,6 +569,16 @@ mod tests {
     }
 
     #[test]
+    fn test_blake2b() {
+        let str = "00000000000000000000000000000000000000000000000000000000000000003d533f000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+        let input = hex::decode(str.to_string()).unwrap();
+        let input = input.as_slice();
+        let input = &input[..80];
+        let out = BlakeTwo256::hash(input);
+        assert_eq!(out, Default::default());
+    }
+
+    #[test]
     fn test_merkle_proof_to_compact() {
         let shard0_header_hash: H256 = [1u8; 32].into();
         let shard1_header_hash: H256 = [2u8; 32].into();

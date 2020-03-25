@@ -101,6 +101,37 @@ impl SerdeHex for u64 {
     }
 }
 
+impl SerdeHex for u32 {
+    const DEFAULT_UINT_SIZE: usize = 4;
+
+    type Error = io::Error;
+
+    fn uint_size() -> Option<usize> {
+        Some(Self::DEFAULT_UINT_SIZE)
+    }
+
+    fn into_bytes(&self) -> Result<Vec<u8>, Self::Error> {
+        Ok(self.to_be_bytes().to_vec())
+    }
+
+    fn from_bytes(src: &[u8]) -> Result<Self, Self::Error> {
+        let mut bytes = [0u8; Self::DEFAULT_UINT_SIZE];
+
+        let len = src.len();
+        if len > Self::DEFAULT_UINT_SIZE {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        for i in 0..len {
+            let j = Self::DEFAULT_UINT_SIZE - i - 1;
+            bytes[j] = src[len - i - 1];
+        }
+
+        let u = u32::from_be_bytes(bytes);
+
+        Ok(u)
+    }
+}
+
 impl SerdeHex for u16 {
     const DEFAULT_UINT_SIZE: usize = 2;
 
