@@ -102,7 +102,7 @@ impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
     //     Ok(SubmitResponse { received: 1u8 })
     // }
 
-    fn submit_work(&self, data: String) -> errors::Result<SubmitResponse> {
+    fn submit_work(&self, data: String) -> errors::Result<BoxFuture<SubmitResponse>> {
         warn!("submint work: {}", data);
         if let Ok(bytes) = hex::decode(data) {
             let bytes = bytes.as_slice();
@@ -110,7 +110,7 @@ impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
             let merkle_root = Decode::decode(&mut data).unwrap();
             let mut work = match self.work_manager.read().get_work_by_merkle(merkle_root) {
                 Ok(work) => work,
-                Err(e) => return Err(errors::ErrorKind::SumbitJobError.into())
+                Err(e) => return Ok(Box::new(SubmitResponse{reject_reason: "not found work by merkle root".to_string().as_bytes().to_vec()}))
             };
 
             warn!("target: {:?}", target_to_hex(work.target.clone()));
@@ -135,11 +135,9 @@ impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
             let n_t = target_to_hex(nonce_target.clone());
             work.nonce_target = Some(nonce_target);
             warn!("submit work, total work: merkle:{:?}, nonce-target:{:?}, nonce:{:?}", work.merkle_root.clone(), n_t, work.nonce);
-            if self.work_manager.write().submit_work(work).is_err() {
-                warn!("submit a invalid work.");
-            }
+            return self.work_manager.write().submit_work_future(work)
         }
-        Ok(SubmitResponse{reject_reason: vec![]})
+        Ok(Box::new(SubmitResponse{reject_reason: "submit data format error".to_string().as_bytes().to_vec()}))
     }
 }
 
