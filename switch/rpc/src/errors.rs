@@ -56,13 +56,13 @@ error_chain! {
 			description("rpc error"),
 			display("Rpc error"),
 		}
-		GetJobError {
-			description("get job work failed"),
-			display("Get job work failed"),
+		GetWorkError {
+			description("get work failed"),
+			display("Get work failed"),
 		}
-		SumbitJobError {
-			description("submit job failed"),
-			display("Submit job failed"),
+		SumbitWorkError(reason: String) {
+			description("submit work failed"),
+			display("Submit work failed: {}", reason),
 		}
 	}
 }
