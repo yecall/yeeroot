@@ -82,23 +82,6 @@ mod tests {
     use crate::utils::log2;
     use crate::utils::pow2;
 
-    use parity_codec::Encode;
-    #[test]
-    fn test_vec() {
-        let bytes= vec![
-                         50u8,51u8, 52u8, 53u8, 54u8, 55u8, 56u8,57u8,58u8,59u8,
-                         50u8,51u8, 52u8, 53u8, 54u8, 55u8, 56u8,57u8,58u8,59u8,
-                         50u8,51u8, 52u8, 53u8, 54u8, 55u8, 56u8,57u8,58u8,59u8,
-                         50u8,51u8, 52u8, 53u8, 54u8, 55u8, 56u8,57u8,58u8];
-
-        let buf=bytes.encode();
-        assert_eq!(buf[0], 156u8);
-
-        // let v=1234567u64;
-        // let buf=v.encode();
-        // assert_eq!(buf, vec![1,2,3]);
-    }
-
     #[test]
     fn test_log2(){
 

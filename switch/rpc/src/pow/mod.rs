@@ -1,5 +1,5 @@
 use jsonrpc_derive::rpc;
-use primitives::{sr25519, storage::{StorageKey, StorageData}};
+use primitives::{U256, sr25519, storage::{StorageKey, StorageData}};
 use crate::rpc::futures::{Future, Stream};
 use crate::Config;
 use crate::client::RpcClient;
@@ -29,144 +29,150 @@ use yee_consensus_pow_primitives::PowTarget;
 use tokio::timer::Interval;
 use tokio::runtime::{Runtime, TaskExecutor};
 use std::time::{Instant, Duration};
-use log::{info, warn};
+use log::{info, debug};
 use std::ptr::read_unaligned;
 
 #[rpc]
 pub trait PowApi<Hash> {
-	#[rpc(name = "get_work")]
-	fn get_work(&self) -> errors::Result<Job<Hash>>;
+    #[rpc(name = "get_work")]
+    fn get_work(&self) -> errors::Result<Job<Hash>>;
 
-	#[rpc(name = "submit_work")]
-	fn submit_work(&self, data: String) -> BoxFuture<()>;
-	// fn submit_work(&self, work: SubmitJob<Hash>) -> errors::Result<SubmitResponse>;
+    #[rpc(name = "submit_work")]
+    fn submit_work(&self, data: String) -> BoxFuture<()>;
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Job<Hash> {
-	pub merkle_root: Hash,
-	pub extra_data: Vec<u8>,
-	pub target: PowTarget,
+    pub merkle_root: Hash,
+    pub extra_data: Vec<u8>,
+    pub target: PowTarget,
 }
 
-#[derive(Serialize, Deserialize, Default, Debug)]
-pub struct SubmitJob<Hash> {
-	pub merkle_root: Hash,
-	pub extra_data: Vec<u8>,
-	pub nonce: u64,
+#[derive(Default, Debug)]
+struct SubmitJob<Hash> {
+    merkle_root: Hash,
+    extra_data: Vec<u8>,
+    nonce: u64,
+    nonce_target: U256,
 }
 
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct SubmitResponse {
-	pub reject_reason: Vec<u8>,
+    pub reject_reason: Vec<u8>,
 }
 
 pub struct Pow<WM: WorkManager> where {
-	work_manager: Arc<RwLock<WM>>
+    work_manager: Arc<RwLock<WM>>
 }
 
 impl<WM: WorkManager> Pow<WM> where
 {
-	pub fn new(wm: Arc<RwLock<WM>>) -> Self {
-		Self {
-			work_manager: wm,
-		}
-	}
+    pub fn new(wm: Arc<RwLock<WM>>) -> Self {
+        Self {
+            work_manager: wm,
+        }
+    }
 }
 
 impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
-	WM: WorkManager + Send + Sync + 'static,
-	<WM::Hashing as HashT>::Output: Decode + Encode,
+    WM: WorkManager + Send + Sync + 'static,
+    <WM::Hashing as HashT>::Output: Decode + Encode,
 {
-	fn get_work(&self) -> errors::Result<Job<<WM::Hashing as HashT>::Output>> {
-		let work = self.work_manager.read().get_work()?;
-		info!("get_work: {:?}", work);
+    fn get_work(&self) -> errors::Result<Job<<WM::Hashing as HashT>::Output>> {
+        let work = self.work_manager.read().get_work()?;
+        info!("get_work: {:?}", work);
 
-		// for test
-		let root = work.merkle_root;
-		if let Ok(_work) = self.work_manager.read().get_work_by_merkle(root) {
-			info!("{}", "ok");
-		}
+        let root = work.merkle_root;
+        if let Ok(_work) = self.work_manager.read().get_work_by_merkle(root) {
+            info!("{}", "ok");
+        }
 
-		Ok(Job { merkle_root: work.merkle_root, extra_data: work.extra_data, target: work.target })
-	}
+        Ok(Job { merkle_root: work.merkle_root, extra_data: work.extra_data, target: work.target })
+    }
 
-	// fn submit_work(&self, job: SubmitJob<<WM::Hashing as HashT>::Output>) -> errors::Result<SubmitResponse> {
-	//     let work = match self.work_manager.read().get_work_by_merkle(job.merkle_root) {
-	//         Ok(work) => work,
-	//         Err(e) => return Err(errors::ErrorKind::SumbitJobError.into())
-	//     };
-	//     if self.work_manager.write().submit_work(work).is_err() {
-	//         // todo
-	//     }
-	//     Ok(SubmitResponse { received: 1u8 })
-	// }
+    fn submit_work(&self, data: String) -> BoxFuture<()> {
+        info!("submit work: {}", data);
 
-	fn submit_work(&self, data: String) -> BoxFuture<()> {
-		warn!("submint work: {}", data);
-
-		let bytes = match hex::decode(data) {
-			Ok(bytes) => bytes,
-			Err(_) => return Box::new(
+        let bytes = match hex::decode(data) {
+            Ok(bytes) => bytes,
+            Err(_) => return Box::new(
                 future::err(errors::Error::from(errors::ErrorKind::SumbitWorkError("submit data format error".to_string())).into()))
-		};
-
-		let bytes = bytes.as_slice();
-		let mut data = &bytes[..32];
-		let merkle_root = Decode::decode(&mut data).unwrap();
-		let mut work = match self.work_manager.read().get_work_by_merkle(merkle_root) {
-			Ok(work) => work,
-			Err(e) => return Box::new(
+        };
+        let job = match self.decode_submit_work(bytes) {
+            Some(job) => job,
+            None => return Box::new(
+                future::err(errors::Error::from(errors::ErrorKind::SumbitWorkError("submit data format error".to_string())).into()))
+        };
+        let mut work = match self.work_manager.read().get_work_by_merkle(job.merkle_root) {
+            Ok(work) => work,
+            Err(e) => return Box::new(
                 future::err(errors::Error::from(errors::ErrorKind::SumbitWorkError("not found work by merkle root".to_string())).into())),
-		};
+        };
 
-		warn!("target: {:?}", target_to_hex(work.target.clone()));
-		work.extra_data = bytes[33..72].to_vec();
+        work.extra_data = job.extra_data;
+        work.nonce = Some(job.nonce);
+        work.nonce_target = Some(job.nonce_target);
 
-		let nonce = &bytes[72..80];
-		let mut buf = [0u8; 8];
-		for i in 0..8 {
-			buf[i] = nonce[7 - i];
-		}
-		let mut non = 0u64;
-		if let Ok(nonce) = u64::from_bytes(&buf[..]) {
-			work.nonce = Some(nonce);
-			non = nonce;
-		}
-
-		let source = (work.merkle_root.clone(), work.extra_data.clone(), non);
-		let buf = source.encode();
-		warn!("submit work,data: {:?}", hex::encode(buf));
-		let source_hash = WM::Hashing::hash_of(&source);
-		let nonce_target = PowTarget::from(source_hash.as_ref());
-		let n_t = target_to_hex(nonce_target.clone());
-		work.nonce_target = Some(nonce_target);
-		warn!("submit work, total work: merkle:{:?}, nonce-target:{:?}, nonce:{:?}", work.merkle_root.clone(), n_t, work.nonce);
-
-        Box::new(self.work_manager.write().submit_work_future(work).map_err(|e|{
+        Box::new(self.work_manager.write().submit_work_future(work).map_err(|e| {
             errors::Error::from(errors::ErrorKind::SumbitWorkError(format!("{}", e))).into()
         }))
-	}
+    }
+}
+
+impl<WM> Pow<WM> where
+    WM: WorkManager + Send + Sync + 'static,
+    <WM::Hashing as HashT>::Output: Decode + Encode,
+{
+    fn decode_submit_work(&self, input: Vec<u8>) -> Option<SubmitJob<<WM::Hashing as HashT>::Output>> {
+        if input.len() < 80 {
+            return None;
+        }
+        let bytes = input.as_slice();
+        let mut root_data = &bytes[..32];
+        let merkle_root: <WM::Hashing as HashT>::Output = match Decode::decode(&mut root_data) {
+            Some(r) => r,
+            None => return None
+        };
+
+        let extra_data = bytes[33..72].to_vec();
+
+        let nonce = &bytes[72..80];
+        let mut buf = [0u8; 8];
+        for i in 0..8 {
+            buf[i] = nonce[7 - i];
+        }
+        let nonce = match u64::from_bytes(&buf[..]) {
+            Ok(n) => n,
+            Err(_e) => return None
+        };
+
+        let source = (merkle_root.clone(), extra_data.clone(), nonce);
+        let buf = source.encode();
+        debug!("submit work,data: {:?}", hex::encode(buf));
+        let source_hash = WM::Hashing::hash_of(&source);
+        let nonce_target = PowTarget::from(source_hash.as_ref());
+        Some(SubmitJob { merkle_root, extra_data, nonce, nonce_target })
+    }
 }
 
 fn target_to_hex(input: PowTarget) -> String {
-	let buf: Vec<u8> = input.0
-		.iter()
-		.map(|x| x.to_le_bytes().to_vec())
-		.flatten()
-		.collect();
-	let mut buf = buf.as_slice();
-	hex::encode(buf)
+    let buf: Vec<u8> = input.0
+        .iter()
+        .map(|x| x.to_le_bytes().to_vec())
+        .flatten()
+        .collect();
+    let mut buf = buf.as_slice();
+    hex::encode(buf)
 }
 
 fn le_to_be(input: Vec<u8>) -> Vec<u8> {
-	let mut result: Vec<u8> = Vec::with_capacity(input.len());
-	let size = input.len() / 4;
-	for i in 0..size {
-		result.append(&mut vec![input[i * 4 + 3]]);
-		result.append(&mut vec![input[i * 4 + 2]]);
-		result.append(&mut vec![input[i * 4 + 1]]);
-		result.append(&mut vec![input[i * 4]]);
-	}
-	result
+    let mut result: Vec<u8> = Vec::with_capacity(input.len());
+    let size = input.len() / 4;
+    for i in 0..size {
+        result.append(&mut vec![input[i * 4 + 3]]);
+        result.append(&mut vec![input[i * 4 + 2]]);
+        result.append(&mut vec![input[i * 4 + 1]]);
+        result.append(&mut vec![input[i * 4]]);
+    }
+    result
 }
