@@ -36,7 +36,7 @@ use primitives::blake2_256;
 
 extern crate crypto;
 
-use yee_switch_rpc::Config;
+use yee_primitives::Config;
 use rand::Rng;
 use merkle_light::merkle::MerkleTree;
 use yee_consensus_pow::{MiningHash, MiningAlgorithm, CompactMerkleProof, OriginalMerkleProof};

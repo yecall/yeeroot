@@ -21,6 +21,7 @@ use sr_primitives;
 use yee_switch_rpc::{self, author::AuthorApi, state::StateApi};
 use yee_switch_rpc::system::SystemApi;
 use yee_switch_rpc::chain::ChainApi;
+use yee_switch_rpc::pow::PowApi;
 
 /// Maximal payload accepted by RPC servers
 const MAX_PAYLOAD: usize = 15 * 1024 * 1024;
@@ -31,16 +32,18 @@ pub type HttpServer = http::Server;
 pub type WsServer = ws::Server;
 
 /// Construct rpc `IoHandler`
-pub fn rpc_handler<A, S, Y, C, Hash, Number>(
+pub fn rpc_handler<A, S, Y, C, P, Hash, Number>(
 	author: A,
 	state: S,
 	system: Y,
 	chain: C,
+	pow: Option<P>,
 ) -> RpcHandler where
 	A: AuthorApi<Hash>,
 	S: StateApi<Hash>,
 	Y: SystemApi,
 	C: ChainApi<Number, Hash>,
+	P: PowApi<Hash>,
 	Hash: Send + Sync + 'static + sr_primitives::Serialize + sr_primitives::DeserializeOwned,
 	Number: Send + Sync + 'static + sr_primitives::Serialize + sr_primitives::DeserializeOwned,
 {   let mut io = pubsub::PubSubHandler::default();
@@ -48,6 +51,9 @@ pub fn rpc_handler<A, S, Y, C, Hash, Number>(
 	io.extend_with(state.to_delegate());
 	io.extend_with(system.to_delegate());
 	io.extend_with(chain.to_delegate());
+	pow.map(|pow|{
+		io.extend_with(pow.to_delegate());
+	});
 	io
 }
 

@@ -7,5 +7,6 @@ error_chain! {
 		Io(::std::io::Error) #[doc="IO error"];
 	}
 	links {
+		Mining(yee_mining2::error::Error, yee_mining2::error::ErrorKind) #[doc="Mining error"];
 	}
 }

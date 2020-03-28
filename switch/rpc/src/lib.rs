@@ -20,23 +20,10 @@ pub mod author;
 pub mod state;
 pub mod system;
 pub mod chain;
+pub mod pow;
 mod errors;
 mod client;
+use yee_primitives::{Config, Shard};
 use jsonrpc_core as rpc;
 use parity_codec::alloc::collections::HashMap;
-
-#[derive(Clone, Debug)]
-pub struct Config{
-    pub shards: HashMap<String, Shard>,
-}
-
-#[derive(Clone, Debug)]
-pub struct Shard {
-    pub rpc: Vec<String>,
-}
-
-impl Config{
-    fn get_shard_count(&self)->u16{
-        self.shards.len() as u16
-    }
-}
+use mining::work_manager;

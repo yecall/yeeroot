@@ -18,26 +18,28 @@
 pub mod params;
 pub mod config;
 pub mod error;
-use substrate_cli::{VersionInfo};
+
+use substrate_cli::VersionInfo;
 use crate::params::SwitchCommandCmd;
-use log::{info};
+use log::info;
 use futures::future::Future;
 use std::net::SocketAddr;
 use yee_switch_rpc::author::Author;
 use yee_switch_rpc::state::State;
 use yee_switch_rpc::system::System;
 use yee_switch_rpc::chain::Chain;
+use yee_switch_rpc::pow::Pow;
 use crate::config::get_config;
 use crate::params::DEFAULT_RPC_PORT;
 use crate::params::DEFAULT_WS_PORT;
+use tokio::runtime::Runtime;
 
-pub const TARGET : &str = "switch";
+pub const TARGET: &str = "switch";
 
 pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
-
     let config = get_config(&cmd, &version)?;
 
-    let rpc_config : yee_switch_rpc::Config = config.into();
+    let rpc_config: yee_primitives::Config = config.into();
 
 
     let rpc_interface: &str = if cmd.rpc_external { "0.0.0.0" } else { "127.0.0.1" };
@@ -50,21 +52,30 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     let (signal, exit) = exit_future::signal();
 
+    let work_manger = if cmd.enable_work_manager || cmd.mine {
+        Some(yee_mining2::start_work_manager(&rpc_config)?)
+    } else {
+        None
+    };
+
     if cmd.mine {
-        yee_mining2::start_mining(&rpc_config).map_err(|e| "mining error")?;
+        let work_manager = work_manger.clone().expect("qed");
+        yee_mining2::start_mining(work_manager, &rpc_config).map_err(|e| "mining error")?;
     }
 
     let handler = || {
-
         let author = Author::new(rpc_config.clone());
         let state = State::new(rpc_config.clone());
         let system = System::new(rpc_config.clone());
         let chain = Chain::new(rpc_config.clone());
-        yee_switch_rpc_servers::rpc_handler::<_, _, _, _, yee_runtime::Hash, yee_runtime::BlockNumber>(
+
+        let pow =  work_manger.clone().map(Pow::new);
+        yee_switch_rpc_servers::rpc_handler::<_, _, _, _, _, yee_runtime::Hash, yee_runtime::BlockNumber>(
             author,
             state,
             system,
             chain,
+            pow,
         )
     };
 

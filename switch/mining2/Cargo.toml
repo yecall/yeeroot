@@ -20,10 +20,10 @@ exit-future = "0.1"
 parity-codec = "3.2"
 yee-runtime = { path = "../../runtime" }
 yee-serde-hex = { package = "yee-serde-hex", path = "../../rpc/serde-hex" }
-yee-switch-rpc = { package = "yee-switch-rpc", path = "../rpc" }
 yee-rpc = { package = "yee-rpc", path = "../../rpc" }
 yee-sharding = { package = "yee-sharding", path = "../../core/sharding" }
 yee-consensus-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../../core/consensus/pow/primitives" }
 yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensus/pow" }
 merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }

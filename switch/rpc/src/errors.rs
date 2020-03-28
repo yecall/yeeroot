@@ -21,6 +21,11 @@ use log::warn;
 use jsonrpc_client_transports::RpcError;
 
 error_chain! {
+
+	links {
+		Mining(mining::error::Error, mining::error::ErrorKind) #[doc="Mining error"];
+	}
+
 	errors {
 		/// Not implemented yet
 		Unimplemented {
@@ -50,6 +55,14 @@ error_chain! {
 		RpcError(e: jsonrpc_client_transports::RpcError) {
 			description("rpc error"),
 			display("Rpc error"),
+		}
+		GetWorkError {
+			description("get work failed"),
+			display("Get work failed"),
+		}
+		SumbitWorkError(reason: String) {
+			description("submit work failed"),
+			display("Submit work failed: {}", reason),
 		}
 	}
 }
