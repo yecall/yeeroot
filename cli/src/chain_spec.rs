@@ -39,6 +39,8 @@ pub enum Alternative {
 	LocalTestnet,
     /// Proof-of-Concept chain with prebuilt runtime.
     POCTestnet,
+	/// Witch prebuilt runtime.
+	TestNet,
 }
 
 fn account_key(s: &str) -> AccountId {
@@ -112,6 +114,16 @@ impl Alternative {
                 None,
                 None,
             ),
+			Alternative::TestNet => ChainSpec::from_genesis(
+				"TestNet",
+				"testnet",
+				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect()),
+				vec![],
+				None,
+				None,
+				None,
+				None,
+			),
 		})
 	}
 
@@ -119,7 +131,8 @@ impl Alternative {
 		match s {
 			"dev" => Some(Alternative::Development),
             "local" => Some(Alternative::LocalTestnet),
-            "" | "poc" => Some(Alternative::POCTestnet),
+            "poc" => Some(Alternative::POCTestnet),
+			"" => Some(Alternative::TestNet),
 			_ => None,
 		}
 	}
@@ -130,7 +143,7 @@ fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
     testnet_template_genesis(
         endowed_accounts, code,
         primitives::U256::from(0x0000ffff) << 224,
-        15,
+        30,
     )
 }
 
