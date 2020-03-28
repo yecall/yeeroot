@@ -154,25 +154,3 @@ impl<WM> Pow<WM> where
         Some(SubmitJob { merkle_root, extra_data, nonce, nonce_target })
     }
 }
-
-fn target_to_hex(input: PowTarget) -> String {
-    let buf: Vec<u8> = input.0
-        .iter()
-        .map(|x| x.to_le_bytes().to_vec())
-        .flatten()
-        .collect();
-    let mut buf = buf.as_slice();
-    hex::encode(buf)
-}
-
-fn le_to_be(input: Vec<u8>) -> Vec<u8> {
-    let mut result: Vec<u8> = Vec::with_capacity(input.len());
-    let size = input.len() / 4;
-    for i in 0..size {
-        result.append(&mut vec![input[i * 4 + 3]]);
-        result.append(&mut vec![input[i * 4 + 2]]);
-        result.append(&mut vec![input[i * 4 + 1]]);
-        result.append(&mut vec![input[i * 4]]);
-    }
-    result
-}
