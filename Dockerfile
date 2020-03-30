@@ -9,7 +9,7 @@ WORKDIR /yeeroot
 COPY . /yeeroot
 
 RUN mkdir -p /yeeroot/runtime/wasm/target/wasm32-unknown-unknown/release && \
-    ln -s ../../../../../prebuilt/yee_runtime/pocnet.wasm \
+    ln -s ../../../../../prebuilt/yee_runtime/testnet.wasm \
         /yeeroot/runtime/wasm/target/wasm32-unknown-unknown/release/yee_runtime_wasm.compact.wasm && \
     cargo build --release
 
