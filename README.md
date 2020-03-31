@@ -7,7 +7,7 @@
 YeeCo is a permissionless, secure, high performance and scalable public blockchain platform powered by full sharding technology on PoW consensus.
 
   
-📣 YeeCo Testnet released! (2020-03-31)
+📣 YeeCo Testnet launched! (2020-03-31)
  - [View release notes](https://github.com/yeeco/wiki/blob/master/docs/release-notes/testnet-release-notes.md) 
  - [View blockchain explorer](https://testnet.yeescan.org/)
 
