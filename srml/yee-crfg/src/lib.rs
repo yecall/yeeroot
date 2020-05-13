@@ -32,7 +32,7 @@ pub use crfg_primitives as fg_primitives;
 
 #[cfg(feature = "std")]
 use serde::Serialize;
-use rstd::{prelude::*, vec};
+use rstd::{prelude::*};
 use parity_codec as codec;
 use codec::{Encode, Decode};
 use fg_primitives::ScheduledChange;
@@ -220,8 +220,8 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-        fn update_authorities(origin, info: <T as Trait>::SessionKey){
-			use primitives::traits::{Zero, As};
+        fn update_authorities(_origin, info: <T as Trait>::SessionKey){
+			use primitives::traits::{As};
 
 			let mut authorities = <Module<T>>::crfg_authorities();
 			while authorities.len() >= crate::fg_primitives::MAX_AUTHORITIES_SIZE.as_() {

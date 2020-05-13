@@ -177,7 +177,7 @@ fn testnet_template_genesis(
             genesis_pow_target,
             pow_target_adj: 60_u64.into(),
             target_block_time: target_block_time.into(),
-	        block_reward: 5000000000,
+	        block_reward: 25600000000,
 	        block_reward_latency: block_reward_latency.into(),
         }),
 		indices: Some(IndicesConfig {

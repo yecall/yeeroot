@@ -31,11 +31,10 @@ use substrate_service::{
 use yee_runtime::{
     Call,
     UncheckedExtrinsic,
-    AccountId,
     Hash as RuntimeHash,
 };
 use runtime_primitives::{
-    generic::{BlockId, DigestItem},
+    generic::{BlockId},
     traits::{ProvideRuntimeApi, Digest, Block as BlockT, Header, Hash, Zero},
 };
 use substrate_client::{
@@ -58,7 +57,7 @@ use yee_sharding_primitives::ShardingAPI;
 use foreign_network::{SyncProvider, message::generic::OutMessage};
 use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
-use util::relay_decode::RelayTransfer;
+// use util::relay_decode::RelayTransfer;
 use finality_tracker::FinalityTrackerDigestItem;
 use yee_sr_primitives::{RelayTypes, RelayParams};
 use ansi_term::Colour;
@@ -86,7 +85,7 @@ pub fn start_relay_transfer<F, C, A>(
     let network_send = foreign_network.clone();
     let network_rev = foreign_network.clone();
     let client_notify = client.clone();
-    let client_rcv = client.clone();
+    // let client_rcv = client.clone();
     let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
@@ -174,7 +173,7 @@ pub fn start_relay_transfer<F, C, A>(
                 info!(target: "foreign-relay", "{}: {:?}", Colour::Green.paint("Receive relay-transaction"), txs);
             }
             OutMessage::BestBlockInfoChanged(shard_num, info) => {
-                let mut number: u64 = info.best_number.into();
+                let number: u64 = info.best_number.into();
                 if let Some(chain) = foreign_chains.read().as_ref().unwrap().get_shard_component(shard_num) {
                     let block_id = BlockId::number(number.into());
                     let spv_header = chain.client().header(&block_id).unwrap().unwrap();

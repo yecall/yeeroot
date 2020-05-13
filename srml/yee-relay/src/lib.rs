@@ -3,7 +3,7 @@
 use parity_codec::{Compact};
 use rstd::vec::Vec;
 use rstd::prelude::*;
-use srml_support::{decl_module, decl_event, decl_storage, dispatch::Result};
+use srml_support::{decl_module, dispatch::Result};
 use yee_sr_primitives::{RelayTypes};
 
 pub trait Trait: system::Trait {

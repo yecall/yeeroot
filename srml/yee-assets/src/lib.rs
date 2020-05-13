@@ -23,10 +23,10 @@
 use srml_support::{StorageValue, StorageMap, Parameter, decl_module, decl_event, decl_storage, ensure, dispatch::Result};
 use primitives::{traits::{Member, SimpleArithmetic, As, Zero, StaticLookup}};
 use sharding_primitives::ShardingInfo;
-use parity_codec::{Decode, Encode, Compact, Input};
+use parity_codec::{Encode};
 use system::ensure_signed;
 use rstd::prelude::Vec;
-use yee_sr_primitives::{RelayTypes, RelayParams, OriginExtrinsic, SHARD_CODE_SIZE};
+use yee_sr_primitives::{RelayTypes, OriginExtrinsic, SHARD_CODE_SIZE};
 
 pub trait Trait: sharding::Trait {
 	/// The overarching event type.

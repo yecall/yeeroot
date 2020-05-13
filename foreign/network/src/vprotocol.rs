@@ -120,7 +120,7 @@ pub struct PeerInfo<B: BlockT> {
 /// Context for a network-specific handler.
 pub trait Context<B: BlockT> {
     /// Get a reference to the client.
-    fn client(&self) -> &crate::chain::Client<B>;
+    fn client(&self) -> &dyn crate::chain::Client<B>;
 
     /// Point out that a peer has been malign or irresponsible or appeared lazy.
     fn report_peer(&mut self, who: PeerId, reason: Severity);
@@ -159,7 +159,7 @@ impl<'a, B: BlockT + 'a, H: ExHashT + 'a> Context<B> for ProtocolContext<'a, B, 
         self.context_data.peers.get(who).map(|p| p.info.clone())
     }
 
-    fn client(&self) -> &Client<B> {
+    fn client(&self) -> &dyn Client<B> {
         &*self.context_data.chain
     }
 
@@ -186,7 +186,7 @@ impl<'a, B: BlockT + 'a, H: ExHashT + 'a> Context<B> for ProtocolContext<'a, B, 
 struct ContextData<B: BlockT, H: ExHashT> {
     /// All connected peers
     peers: HashMap<PeerId, Peer<B, H>>,
-    pub chain: Arc<Client<B>>,
+    pub chain: Arc<dyn Client<B>>,
     /// self full node sharding number.
     shard_num: u16,
 }
@@ -194,7 +194,7 @@ struct ContextData<B: BlockT, H: ExHashT> {
 impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     pub fn new(
         network_chan: NetworkChan<B>,
-        chain: Arc<Client<B>>,
+        chain: Arc<dyn Client<B>>,
         shard_num: u16,
         protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>,
     ) -> error::Result<Self> {

@@ -17,7 +17,7 @@
 
 use bech32::{ToBase32, Error, FromBase32};
 use std::fmt;
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use serde::Deserialize;
 use parity_codec::alloc::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug)]

@@ -3,7 +3,7 @@
 
 use rstd::vec::Vec;
 use system::ensure_signed;
-use parity_codec::Codec;
+// use parity_codec::Codec;
 use srml_support::{decl_module, decl_event, dispatch::Result};
 use yee_sr_primitives::MAX_STORAGE_SIZE;
 

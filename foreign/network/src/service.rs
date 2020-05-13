@@ -339,7 +339,7 @@ fn start_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	registered: RegisteredProtocol<Message<B>>,
 	identify_specialization: I,
 	from_network_chan: FromNetworkChan<B>,
-	chain: Arc<Client<B>>,
+	chain: Arc<dyn Client<B>>,
 	protocol_msg_sender: Sender<ProtocolMsg<B, H>>,
 ) -> Result<((oneshot::Sender<()>, thread::JoinHandle<()>), Arc<Mutex<NetworkService<Message<B>, I>>>, ForeignPeersetHandle), Error> {
 	// Start the main service.
@@ -380,7 +380,7 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	network_port: NetworkPort<B>,
 	peerset: ForeignPeersetHandle,
 	from_network_chan: FromNetworkChan<B>,
-	chain: Arc<Client<B>>,
+	chain: Arc<dyn Client<B>>,
 	protocol_msg_sender: Sender<ProtocolMsg<B, H>>,
 ) -> impl Future<Item = (), Error = io::Error> {
 
@@ -480,7 +480,7 @@ fn run_thread<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT>(
 	});
 
 	// Merge all futures into one.
-	let futures: Vec<Box<Future<Item = (), Error = io::Error> + Send>> = vec![
+	let futures: Vec<Box<dyn Future<Item = (), Error = io::Error> + Send>> = vec![
 		Box::new(protocol) as Box<_>,
 		Box::new(network) as Box<_>,
 		Box::new(client) as Box<_>
@@ -574,7 +574,7 @@ struct VNetworkHolder<B: BlockT + 'static, I: IdentifySpecialization>{
 	network_port_list: Arc<RwLock<HashMap<u16, substrate_network::service::NetworkPort<B>>>>,
 	from_network_port: Arc<FromNetworkPort<B>>,
 	protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
-	chain_list: Arc<RwLock<HashMap<u16, Arc<substrate_network::chain::Client<B>>>>>,
+	chain_list: Arc<RwLock<HashMap<u16, Arc<dyn substrate_network::chain::Client<B>>>>>,
 	from_network_chan: FromNetworkChan<B>,
 	import_queue_port_list: Arc<RwLock<HashMap<u16, vnetwork::ImportQueuePort<B>>>>,
 	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
@@ -637,7 +637,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
 		from_network_chan: FromNetworkChan<B>,
 		import_queue_port_list: Arc<RwLock<HashMap<u16, vnetwork::ImportQueuePort<B>>>>,
-		chain_list: Arc<RwLock<HashMap<u16, Arc<substrate_network::chain::Client<B>>>>>,
+		chain_list: Arc<RwLock<HashMap<u16, Arc<dyn substrate_network::chain::Client<B>>>>>,
 		out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 		network_ready: Arc<RwLock<bool>>,
 	) -> impl Future<Item = (), Error = io::Error> {
@@ -822,7 +822,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		});
 
 		// Merge all futures into one.
-		let futures: Vec<Box<Future<Item = (), Error = io::Error> + Send>> = vec![
+		let futures: Vec<Box<dyn Future<Item = (), Error = io::Error> + Send>> = vec![
 			Box::new(protocol) as Box<_>,
 			Box::new(network) as Box<_>,
 			Box::new(import_queue) as Box<_>,

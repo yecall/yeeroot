@@ -31,7 +31,7 @@ pub struct Params<B: BlockT, I: IdentifySpecialization> {
 	/// Network layer configuration.
 	pub network_config: NetworkConfiguration,
 	/// Substrate relay chain access point.
-	pub chain: Arc<Client<B>>,
+	pub chain: Arc<dyn Client<B>>,
 	/// Identify specialization.
 	pub identify_specialization: I,
 }

@@ -26,9 +26,9 @@ use inherents::{
 	InherentData, MakeFatalError,
 };
 use srml_support::StorageValue;
-use primitives::traits::{As, One, Zero};
-use rstd::{prelude::*, result, cmp, vec};
-use system::{ensure_inherent, Trait as SystemTrait};
+// use primitives::traits::{As, One, Zero};
+use rstd::{prelude::*, result};
+use system::{ensure_inherent};
 
 use primitives::{
 	codec::{
