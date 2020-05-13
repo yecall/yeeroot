@@ -78,7 +78,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 {
 	type Error = ConsensusError;
 
-	fn on_start(&self, link: &::consensus_common::import_queue::Link<Block>) {
+	fn on_start(&self, link: &(dyn ::consensus_common::import_queue::Link<Block>)) {
 		let chain_info = match self.inner.info() {
 			Ok(info) => info.chain,
 			_ => return,

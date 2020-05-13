@@ -21,7 +21,7 @@
 use {
     serde::Serialize,
     inherents::{
-        InherentDataProviders, ProvideInherentData,
+        ProvideInherentData,
     },
 };
 use {
@@ -206,7 +206,7 @@ decl_module! {
 
             match current_scale_out_phase {
                 None => {
-                    if let Some(scale_out) = info.scale_out {
+                    if let Some(_scale_out) = info.scale_out {
                         <Self as Store>::CurrentScaleOutPhase::mutate(|orig| {
                             *orig = Some(ScaleOutPhase::Started{
                                 observe_util: block_number + scale_out_observe_blocks,
@@ -274,7 +274,7 @@ decl_module! {
 
         }
 
-        fn on_finalize(block_number: T::BlockNumber) {
+        fn on_finalize(_block_number: T::BlockNumber) {
 
             if let Some(shard_info) = Self::current_shard_info() {
                 Self::deposit_log(RawLog::ShardMarker(shard_info.num, shard_info.count));

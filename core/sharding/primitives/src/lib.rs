@@ -23,7 +23,7 @@ pub mod utils;
 
 use {
     substrate_client::decl_runtime_apis,
-    runtime_primitives::traits::{NumberFor, Block},
+    runtime_primitives::traits::{NumberFor},
 };
 
 #[derive(Clone, Debug)]

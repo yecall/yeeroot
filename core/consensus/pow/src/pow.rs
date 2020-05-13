@@ -275,11 +275,15 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
     };
 
     let target_block_time = context.genesis_target_block_time;
+    if timestamp < last_time {
+        panic!(format!("timestamp:{} < last_time: {}", timestamp, last_time))
+    }
     let time_gap = timestamp - last_time;
-    let expected_gap = target_block_time * 1000 * block_gap;
-    let new_pow_target = (curr_pow_target / expected_gap) * time_gap;
     info!("pow target adjustment: gap: {}, time: {}", block_gap, time_gap);
-    info!("old pow target: {:#x}, new pow target: {:#x}",curr_pow_target, new_pow_target);
+    let expected_gap = target_block_time * 1000 * block_gap;
+    let (mut new_pow_target, overflow) = (curr_pow_target / expected_gap).overflowing_mul(time_gap.into());
+    if overflow { new_pow_target = genesis_pow_target }
+    info!("old pow target: {:#x}, new pow target: {:#x}", curr_pow_target, new_pow_target);
 
     Ok(new_pow_target)
 }

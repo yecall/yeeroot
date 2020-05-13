@@ -134,13 +134,13 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 /// Substrate network service. Handles network IO and manages connectivity.
 pub struct Service<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> {
 	/// Sinks to propagate status updates.
-	status_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<ProtocolStatus<B>>>>>,
+	_status_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<ProtocolStatus<B>>>>>,
 	/// Are we connected to any peer?
-	is_offline: Arc<AtomicBool>,
+	_is_offline: Arc<AtomicBool>,
 	/// Are we actively catching up with the chain?
-	is_major_syncing: Arc<AtomicBool>,
+	_is_major_syncing: Arc<AtomicBool>,
 	/// Peers whom we are connected with.
-	peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>>,
+	_peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>>,
 //	/// Network service
 //	network: Arc<Mutex<NetworkService<Message<B>, I>>>,
 //	/// Peerset manager (PSM); manages the reputation of nodes and indicates the network which
@@ -160,7 +160,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	/// Creates and register protocol with the network service
 	pub fn new<H: ExHashT>(
 		params: Params<B, S, H, I>,
-		import_queue: Box<ImportQueue<B>>,
+		import_queue: Box<dyn ImportQueue<B>>,
 	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>, ImportQueuePort<B>), Error> {
 		let (network_chan, network_port) = network_channel();
 		let status_sinks = Arc::new(Mutex::new(Vec::new()));
@@ -183,10 +183,10 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 		)?;
 
 		let service = Arc::new(Service {
-			status_sinks,
-			is_offline,
-			is_major_syncing,
-			peers,
+			_status_sinks: status_sinks,
+			_is_offline: is_offline,
+			_is_major_syncing: is_major_syncing,
+			_peers: peers,
 			//peerset,
 			//network,
 			protocol_sender: protocol_sender.clone(),
@@ -271,7 +271,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 
 	/// Execute a closure with the chain-specific network specialization.
 	pub fn with_spec<F>(&self, f: F)
-		where F: FnOnce(&mut S, &mut Context<B>) + Send + 'static
+		where F: FnOnce(&mut S, &mut dyn Context<B>) + Send + 'static
 	{
 		let _ = self
 			.protocol_sender
@@ -280,7 +280,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 
 	/// Execute a closure with the consensus gossip.
 	pub fn with_gossip<F>(&self, f: F)
-		where F: FnOnce(&mut ConsensusGossip<B>, &mut Context<B>) + Send + 'static
+		where F: FnOnce(&mut ConsensusGossip<B>, &mut dyn Context<B>) + Send + 'static
 	{
 		let _ = self
 			.protocol_sender
@@ -290,7 +290,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	/// Are we in the process of downloading the chain?
 	/// Used by both SyncProvider and SyncOracle.
 	fn is_major_syncing(&self) -> bool {
-		self.is_major_syncing.load(Ordering::Relaxed)
+		self._is_major_syncing.load(Ordering::Relaxed)
 	}
 }
 

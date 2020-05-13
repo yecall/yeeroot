@@ -89,7 +89,7 @@ pub struct PeerInfo<B: BlockT> {
 pub struct ContextData<B: BlockT, H: ExHashT> {
 	// All connected peers
 	pub peers: HashMap<PeerId, Peer<B, H>>,
-	pub chain: Arc<Client<B>>,
+	pub chain: Arc<dyn Client<B>>,
 }
 
 /// Messages sent to Protocol from elsewhere inside the system.
@@ -132,7 +132,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		is_major_syncing: Arc<AtomicBool>,
 		network_chan: NetworkChan<B>,
 		config: ProtocolConfig,
-		chain: Arc<Client<B>>,
+		chain: Arc<dyn Client<B>>,
 	) -> error::Result<(Sender<ProtocolMsg<B, H>>, Sender<FromNetworkMsg<B>>)> {
 		let (protocol_sender, port) = channel::unbounded();
 		let (from_network_sender, from_network_port) = channel::bounded(4);
