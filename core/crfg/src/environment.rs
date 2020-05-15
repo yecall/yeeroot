@@ -49,6 +49,7 @@ use crate::justification::CrfgJustification;
 use crate::until_imported::UntilVoteTargetImported;
 
 use ed25519::Public as AuthorityId;
+use ansi_term::Colour;
 
 /// Data about a completed round.
 pub(crate) type CompletedRound<H, N> = (u64, RoundState<H, N>);
@@ -195,8 +196,17 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 			self.voters.clone(),
 		);
 
-		let local_key = self.config.local_key.as_ref()
-			.filter(|pair| self.voters.contains_key(&pair.public().into()));
+		let local_key = match self.config.local_key.as_ref()
+			.filter(|pair| self.voters.contains_key(&pair.public().into())) {
+			Some(key) => Some(key),
+			None => match self.config.local_next_key.as_ref().filter(|pair| self.voters.contains_key(&pair.public().into())) {
+				Some(key) => {
+					info!("{}: use new authority-id for voting", Colour::Green.paint("crfg"));
+					Some(key)
+				},
+				None => None
+			}
+		};
 
 		let (out_rx, outgoing) = crate::communication::outgoing_messages::<Block, _>(
 			round,
@@ -500,7 +510,7 @@ pub(crate) fn canonical_at_height<B, E, Block: BlockT<Hash=H256>, RA>(
 	B: Backend<Block, Blake2Hasher>,
 	E: CallExecutor<Block, Blake2Hasher> + Send + Sync,
 {
-	use runtime_primitives::traits::{One, Zero, BlockNumberToHash};
+	use runtime_primitives::traits::BlockNumberToHash;
 
 	if height > base.1 {
 		return Ok(None);

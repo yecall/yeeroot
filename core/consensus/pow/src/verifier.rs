@@ -61,7 +61,7 @@ use yee_sharding_primitives::utils::shard_num_for;
 use merkle_light::proof::Proof as MLProof;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
-use log::{debug, info, warn, error};
+use log::{warn, error};
 use parking_lot::RwLock;
 use primitives::H256;
 use yee_context::Context;

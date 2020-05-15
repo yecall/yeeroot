@@ -29,7 +29,7 @@ use runtime_primitives::{
     Proof as ExtrinsicProof,
 };
 use client::blockchain::HeaderBackend;
-use pow_primitives::{PowTarget, YeePOWApi};
+use pow_primitives::{PowTarget};
 use crate::CompatibleDigestItem;
 use yee_sharding::ShardingDigestItem;
 use log::{debug, info};

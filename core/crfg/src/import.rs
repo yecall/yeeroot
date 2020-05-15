@@ -205,7 +205,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			);
 
 			match maybe_change {
-				Err(e) => match api.has_api_with::<CrfgApi<Block>, _>(&at, |v| v >= 2) {
+				Err(e) => match api.has_api_with::<dyn CrfgApi<Block>, _>(&at, |v| v >= 2) {
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 					Ok(true) => {
 						// API version is high enough to support forced changes

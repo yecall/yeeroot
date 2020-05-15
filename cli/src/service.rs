@@ -212,7 +212,7 @@ construct_service_factory! {
                 FullComponents::<Factory>::new(config, executor)
             },
         AuthoritySetup = {
-            |mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>| {
+            |mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>, next_key: Option<Arc<Pair>>| {
                 let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
@@ -249,7 +249,7 @@ construct_service_factory! {
 
                 // restarter
                 let restarter_param = restarter::Params{
-                    authority_id: key.clone().map(|k|k.public()),
+                    authority_id: next_key.clone().map(|k|k.public()),
                     coinbase: service.config.custom.coinbase.clone(),
                     shard_num: service.config.custom.shard_num,
                     shard_count: service.config.custom.shard_count,
@@ -259,21 +259,24 @@ construct_service_factory! {
                 start_restarter::<FullComponents<Self>>(restarter_param, service.client(), &executor);
 
                 // crfg
-                let local_key = if service.config.disable_grandpa {
-                    None
+                let (local_key, local_next_key) = if service.config.disable_grandpa {
+                    (None, None)
                 } else {
-                    key.clone()
+                    (key.clone(), next_key.clone())
                 };
+
+                let worker_key = if local_next_key.is_some() { local_next_key.clone() } else { local_key.clone() };
 
 	            crfg::register_crfg_inherent_data_provider(
                     &service.config.custom.inherent_data_providers.clone(),
-	                local_key.clone().unwrap().public()
+	                worker_key.clone().unwrap().public()
 	            )?;
 
                 info!("Running crfg session as Authority {}", local_key.clone().unwrap().public());
                 executor.spawn(crfg::run_crfg(
                     crfg::Config {
                         local_key,
+                        local_next_key,
                         // FIXME #1578 make this available through chainspec
                         gossip_duration: Duration::from_millis(333),
                         justification_period: 4096,
@@ -286,7 +289,7 @@ construct_service_factory! {
                 )?);
 
                 // pow
-                if let Some(ref key) = key {
+                if let Some(ref key) = worker_key {
                     info!("Using authority key {}", key.public());
                     let proposer = Arc::new(ProposerFactory {
                         client: service.client(),

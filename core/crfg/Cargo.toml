@@ -24,6 +24,7 @@ fg_primitives = { package = "crfg-primitives", path = "./primitives" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", features = ["derive-codec"] }
 srml-crfg = { package = "yee-srml-crfg", path = "../../srml/yee-crfg" }
 srml-finality-tracker = { package = "srml-finality-tracker", path = "../../srml/yee-tracker" }
+ansi_term = "0.11"
 
 [dev-dependencies]
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

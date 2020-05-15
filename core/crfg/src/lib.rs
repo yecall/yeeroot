@@ -85,6 +85,7 @@ use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 // use runtime_primitives::traits::As;
+use ansi_term::Colour;
 
 pub use fg_primitives::ScheduledChange;
 
@@ -183,6 +184,8 @@ pub struct Config {
 	pub justification_period: u64,
 	/// The local signing key.
 	pub local_key: Option<Arc<ed25519::Pair>>,
+	/// The next local signing key.
+	pub local_next_key: Option<Arc<ed25519::Pair>>,
 	/// Some local identifier of the voter.
 	pub name: Option<String>,
 }
@@ -422,7 +425,7 @@ impl<Block: BlockT> network_gossip::Validator<Block::Hash> for GossipValidator<B
 		}
 	}
 
-	fn message_expired<'a>(&'a self) -> Box<FnMut(Block::Hash, &[u8]) -> bool + 'a> {
+	fn message_expired<'a>(&'a self) -> Box<dyn FnMut(Block::Hash, &[u8]) -> bool + 'a> {
 		let rounds = self.rounds.read();
 		Box::new(move |_topic, mut data| {
 			match GossipMessage::<Block>::decode(&mut data) {
@@ -828,6 +831,10 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		last_completed: environment::LastCompletedRound::new(set_state.round()),
 	});
 
+	if initial_environment.config.local_next_key.is_some(){
+		info!("{} set new crfg authority key", Colour::Green.paint("crfg:"));
+	}
+
 	let initial_state = (initial_environment, set_state, voter_commands_rx.into_future());
 	let voter_work = future::loop_fn(initial_state, move |params| {
 		let (env, set_state, voter_commands_rx) = params;
@@ -893,7 +900,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 						"voters" => ?voters,
 						"set_id" => ?new.set_id,
 					);
-
+					info!("{} ChangeAuthorities", Colour::Red.paint("crfg"));
 					// start the new authority set using the block where the
 					// set changed (not where the signal happened!) as the base.
 					let genesis_state = RoundState::genesis((new.canon_hash, new.canon_number));

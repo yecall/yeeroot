@@ -422,6 +422,7 @@ impl<B: BlockT + 'static> ImportQueuePort<B> {
 	}
 }
 
+/// missing doc
 pub enum ImportQueueMsg<B: BlockT> {
 	/// A batch of blocks has been processed, with or without errors.
 	BlocksProcessed(Vec<B::Hash>, bool),

@@ -96,7 +96,7 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 
 	shard_count: u16,
 
-	chain: Arc<Client<B>>,
+	chain: Arc<dyn Client<B>>,
 }
 
 impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H> {
