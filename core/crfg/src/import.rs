@@ -388,9 +388,15 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		let just_in_case = guard.consume();
 		if let Some((_, ref authorities)) = just_in_case {
 			let authorities_change = match applied_changes {
-				AppliedChanges::Forced(ref new) => Some(new),
-				AppliedChanges::Standard(_) => None, // the change isn't actually applied yet.
-				AppliedChanges::None => None,
+				AppliedChanges::Forced(ref new) => {
+					Some(new)
+				},
+				AppliedChanges::Standard(_) => {
+					None // the change isn't actually applied yet.
+				},
+				AppliedChanges::None => {
+					None
+				},
 			};
 
 			crate::aux_schema::update_authority_set(

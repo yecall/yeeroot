@@ -198,7 +198,9 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 
 		let local_key = match self.config.local_key.as_ref()
 			.filter(|pair| self.voters.contains_key(&pair.public().into())) {
-			Some(key) => Some(key),
+			Some(key) => {
+				Some(key)
+			},
 			None => match self.config.local_next_key.as_ref().filter(|pair| self.voters.contains_key(&pair.public().into())) {
 				Some(key) => {
 					info!("{}: use new authority-id for voting", Colour::Green.paint("crfg"));

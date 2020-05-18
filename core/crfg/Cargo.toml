@@ -21,7 +21,7 @@ inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/s
 network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, branch = "yee-v1.0" }
 fg_primitives = { package = "crfg-primitives", path = "./primitives" }
-grandpa = { package = "finality-grandpa", version = "0.6.0", features = ["derive-codec"] }
+grandpa = { package = "finality-grandpa", version = "0.6.0", path = "../finality-grandpa", features = ["derive-codec"] }
 srml-crfg = { package = "yee-srml-crfg", path = "../../srml/yee-crfg" }
 srml-finality-tracker = { package = "srml-finality-tracker", path = "../../srml/yee-tracker" }
 ansi_term = "0.11"

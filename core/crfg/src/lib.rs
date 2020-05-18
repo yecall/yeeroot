@@ -831,7 +831,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		last_completed: environment::LastCompletedRound::new(set_state.round()),
 	});
 
-	if initial_environment.config.local_next_key.is_some(){
+	if config.local_next_key.is_some(){
 		info!("{} set new crfg authority key", Colour::Green.paint("crfg:"));
 	}
 
@@ -842,6 +842,20 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		telemetry!(CONSENSUS_DEBUG; "afg.starting_new_voter";
 			"name" => ?config.name(), "set_id" => ?env.set_id
 		);
+		let voters = authority_set.clone().current_authorities();
+		let local_key = match config.local_key.as_ref()
+			.filter(|pair| voters.contains_key(&pair.public().into())) {
+			Some(key) => {
+				Some(key.clone())
+			},
+			None => match config.local_next_key.as_ref().filter(|pair| voters.contains_key(&pair.public().into())) {
+				Some(key) => {
+					info!("{}: use new authority-id for committer", Colour::Green.paint("crfg"));
+					Some(key.clone())
+				},
+				None => None
+			}
+		};
 
 		let mut maybe_voter = match set_state.clone() {
 			VoterSetState::Live(last_round_number, last_round_state) => {
@@ -856,7 +870,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 				);
 
 				let committer_data = committer_communication(
-					config.local_key.clone(),
+					local_key,
 					env.set_id,
 					&env.voters,
 					&client,
