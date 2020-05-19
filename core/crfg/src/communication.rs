@@ -246,19 +246,23 @@ impl<B: BlockT, N: Network<B>> Network<B> for BroadcastHandle<B, N> {
 // check a message.
 pub(crate) fn check_message_sig<Block: BlockT>(
 	message: &Message<Block>,
-	id: &AuthorityId,
-	signature: &AuthoritySignature,
+	id: &Vec<AuthorityId>,
+	signature: &Vec<AuthoritySignature>,
 	round: u64,
 	set_id: u64,
 ) -> Result<(), ()> {
-	let as_public = AuthorityId::from_raw(id.0);
-	let encoded_raw = localized_payload(round, set_id, message);
-	if ed25519::Pair::verify(signature, &encoded_raw, as_public) {
-		Ok(())
-	} else {
-		debug!(target: "afg", "Bad signature on message from {:?}", id);
-		Err(())
+	if id.len() != signature.len() {
+		return Err(())
 	}
+	for i in 0..id.len() {
+		let as_public = AuthorityId::from_raw(id[i].0);
+		let encoded_raw = localized_payload(round, set_id, message);
+		if !ed25519::Pair::verify(&signature[i], &encoded_raw, as_public) {
+			debug!(target: "afg", "Bad signature on message from {:?}", id);
+			return Err(())
+		}
+	}
+	Ok(())
 }
 
 /// converts a message stream into a stream of signed messages.
@@ -282,24 +286,26 @@ pub(crate) fn checked_message_stream<Block: BlockT, S>(
 			match msg {
 				GossipMessage::VoteOrPrecommit(msg) => {
 					// check signature.
-					if !voters.contains_key(&msg.message.id) {
-						debug!(target: "afg", "Skipping message from unknown voter {}", msg.message.id);
-						return Ok(None);
+					for ref id in msg.message.id.clone() {
+						if !voters.contains_key(id) {
+							debug!(target: "afg", "Skipping message from unknown voter {}", id);
+							return Ok(None);
+						}
 					}
 
 					match &msg.message.message {
 						Prevote(prevote) => {
-							debug!(target: "afg", "Received prevote, voter: {}, target_number: {}, target_hash: {}", msg.message.id, prevote.target_number, prevote.target_hash);
+							debug!(target: "afg", "Received prevote, voter: {:?}, target_number: {}, target_hash: {}", msg.message.id.clone(), prevote.target_number, prevote.target_hash);
 							telemetry!(CONSENSUS_INFO; "afg.received_prevote";
-								"voter" => ?format!("{}", msg.message.id),
+								"voter" => ?format!("{:?}", msg.message.id.clone()),
 								"target_number" => ?prevote.target_number,
 								"target_hash" => ?prevote.target_hash,
 							);
 						},
 						Precommit(precommit) => {
-							debug!(target: "afg", "Received precommit, voter: {}, target_number: {}, target_hash: {}", msg.message.id, precommit.target_number, precommit.target_hash);
+							debug!(target: "afg", "Received precommit, voter: {:?}, target_number: {}, target_hash: {}", msg.message.id.clone(), precommit.target_number, precommit.target_hash);
 							telemetry!(CONSENSUS_INFO; "afg.received_precommit";
-								"voter" => ?format!("{}", msg.message.id),
+								"voter" => ?format!("{:?}", msg.message.id.clone()),
 								"target_number" => ?precommit.target_number,
 								"target_hash" => ?precommit.target_hash,
 							);
@@ -321,7 +327,7 @@ pub(crate) fn checked_message_stream<Block: BlockT, S>(
 pub(crate) struct OutgoingMessages<Block: BlockT, N: Network<Block>> {
 	round: u64,
 	set_id: u64,
-	locals: Option<(Arc<ed25519::Pair>, AuthorityId)>,
+	locals: Vec<(Arc<ed25519::Pair>, AuthorityId)>,
 	sender: mpsc::UnboundedSender<SignedMessage<Block>>,
 	network: N,
 }
@@ -332,32 +338,38 @@ impl<Block: BlockT, N: Network<Block>> Sink for OutgoingMessages<Block, N>
 	type SinkError = Error;
 
 	fn start_send(&mut self, msg: Message<Block>) -> StartSend<Message<Block>, Error> {
-		// when locals exist, sign messages on import
-		if let Some((ref pair, ref local_id)) = self.locals {
+		if self.locals.len() == 0 {
+			return Ok(AsyncSink::Ready);
+		}
+
+		let target_hash = msg.target().0.clone();
+		let mut signatures = vec![];
+		let mut local_ids = vec![];
+		for (ref pair, ref local_id) in &self.locals {
 			let encoded = localized_payload(self.round, self.set_id, &msg);
 			let signature = pair.sign(&encoded[..]);
-
-			let target_hash = msg.target().0.clone();
-			let signed = SignedMessage::<Block> {
-				message: msg,
-				signature,
-				id: local_id.clone(),
-			};
-
-			let message = GossipMessage::VoteOrPrecommit(VoteOrPrecommitMessage::<Block> {
-				message: signed.clone(),
-				round: self.round,
-				set_id: self.set_id,
-			});
-
-			// announce our block hash to peers and propagate the
-			// message.
-			self.network.announce(self.round, self.set_id, target_hash);
-			self.network.send_message(self.round, self.set_id, message.encode(), false);
-
-			// forward the message to the inner sender.
-			let _ = self.sender.unbounded_send(signed);
+			signatures.push(signature);
+			local_ids.push(local_id.clone());
 		}
+		let signed = SignedMessage::<Block> {
+			message: msg,
+			signature: signatures,
+			id: local_ids,
+		};
+
+		let message = GossipMessage::VoteOrPrecommit(VoteOrPrecommitMessage::<Block> {
+			message: signed.clone(),
+			round: self.round,
+			set_id: self.set_id,
+		});
+
+		// announce our block hash to peers and propagate the
+		// message.
+		self.network.announce(self.round, self.set_id, target_hash);
+		self.network.send_message(self.round, self.set_id, message.encode(), false);
+
+		// forward the message to the inner sender.
+		let _ = self.sender.unbounded_send(signed);
 
 		Ok(AsyncSink::Ready)
 	}
@@ -384,22 +396,20 @@ impl<Block: BlockT, N: Network<Block>> Drop for OutgoingMessages<Block, N> {
 pub(crate) fn outgoing_messages<Block: BlockT, N: Network<Block>>(
 	round: u64,
 	set_id: u64,
-	local_key: Option<Arc<ed25519::Pair>>,
+	local_key: Vec<Arc<ed25519::Pair>>,
 	voters: Arc<VoterSet<AuthorityId>>,
 	network: N,
 ) -> (
 	impl Stream<Item=SignedMessage<Block>,Error=Error>,
 	OutgoingMessages<Block, N>,
 ) {
-	let locals = local_key.and_then(|pair| {
+	let mut local_key = local_key.clone();
+	local_key.retain(|pair| {
 		let public = pair.public();
 		let id = AuthorityId(public.0);
-		if voters.contains_key(&id) {
-			Some((pair, id))
-		} else {
-			None
-		}
+		voters.contains_key(&id)
 	});
+	let locals = local_key.into_iter().map(|key| (key.clone(), AuthorityId(key.public().0))).collect::<Vec<_>>();
 
 	let (tx, rx) = mpsc::unbounded();
 	let outgoing = OutgoingMessages::<Block, N> {

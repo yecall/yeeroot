@@ -268,13 +268,17 @@ impl<H, N, E: Environment<H, N>> VotingRound<H, N, E> where
 
 			match message {
 				Message::Prevote(prevote) => {
-					if let Some(e) = self.votes.import_prevote(&*self.env, prevote, id, signature)? {
-						self.env.prevote_equivocation(self.votes.number(), e);
+					for i in 0..signature.len() {
+						if let Some(e) = self.votes.import_prevote(&*self.env, prevote.clone(), id[i].clone(), signature[i].clone())? {
+							self.env.prevote_equivocation(self.votes.number(), e);
+						}
 					}
 				}
 				Message::Precommit(precommit) => {
-					if let Some(e) = self.votes.import_precommit(&*self.env, precommit, id, signature)? {
-						self.env.precommit_equivocation(self.votes.number(), e);
+					for i in 0..signature.len() {
+						if let Some(e) = self.votes.import_precommit(&*self.env, precommit.clone(), id[i].clone(), signature[i].clone())? {
+							self.env.precommit_equivocation(self.votes.number(), e);
+						}
 					}
 				}
 			};

@@ -207,9 +207,9 @@ pub struct SignedMessage<H, N, S, Id> {
 	/// The internal message which has been signed.
 	pub message: Message<H, N>,
 	/// The signature on the message.
-	pub signature: S,
+	pub signature: Vec<S>,
 	/// The Id of the signer
-	pub id: Id,
+	pub id: Vec<Id>,
 }
 
 impl<H, N: Copy, S, Id> SignedMessage<H, N, S, Id> {

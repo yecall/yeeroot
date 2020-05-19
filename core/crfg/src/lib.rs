@@ -352,7 +352,7 @@ impl<Block: BlockT> GossipValidator<Block> {
 			full.round,
 			full.set_id
 		) {
-			debug!(target: "afg", "Bad message signature {}", full.message.id);
+			debug!(target: "afg", "Bad message signature {:?}", full.message.id);
 			telemetry!(CONSENSUS_DEBUG; "afg.bad_msg_signature"; "signature" => ?full.message.id);
 			return network_gossip::ValidationResult::Invalid;
 		}
@@ -384,8 +384,8 @@ impl<Block: BlockT> GossipValidator<Block> {
 		for (precommit, &(ref sig, ref id)) in full.message.precommits.iter().zip(&full.message.auth_data) {
 			if let Err(()) = communication::check_message_sig::<Block>(
 				&GrandpaMessage::Precommit(precommit.clone()),
-				id,
-				sig,
+				&vec![id.clone()],
+				&vec![sig.clone()],
 				full.round,
 				full.set_id,
 			) {
@@ -914,7 +914,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 						"voters" => ?voters,
 						"set_id" => ?new.set_id,
 					);
-					info!("{} ChangeAuthorities", Colour::Red.paint("crfg"));
+					info!("{}: change Authorities", Colour::Green.paint("crfg"));
 					// start the new authority set using the block where the
 					// set changed (not where the signal happened!) as the base.
 					let genesis_state = RoundState::genesis((new.canon_hash, new.canon_number));

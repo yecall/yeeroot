@@ -195,25 +195,24 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 			self.network.messages_for(round, self.set_id),
 			self.voters.clone(),
 		);
-
-		let local_key = match self.config.local_key.as_ref()
+		let mut local_keys = vec![];
+		match self.config.local_key.as_ref()
 			.filter(|pair| self.voters.contains_key(&pair.public().into())) {
+			Some(key) => local_keys.push(key.clone()),
+			None => {}
+		};
+		match self.config.local_next_key.as_ref().filter(|pair| self.voters.contains_key(&pair.public().into())) {
 			Some(key) => {
-				Some(key)
+				info!("{}: use new authority-id for voting", Colour::Green.paint("crfg"));
+				local_keys.push(key.clone());
 			},
-			None => match self.config.local_next_key.as_ref().filter(|pair| self.voters.contains_key(&pair.public().into())) {
-				Some(key) => {
-					info!("{}: use new authority-id for voting", Colour::Green.paint("crfg"));
-					Some(key)
-				},
-				None => None
-			}
+			None => {}
 		};
 
 		let (out_rx, outgoing) = crate::communication::outgoing_messages::<Block, _>(
 			round,
 			self.set_id,
-			local_key.cloned(),
+			local_keys,
 			self.voters.clone(),
 			self.network.clone(),
 		);
