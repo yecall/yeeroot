@@ -205,7 +205,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			);
 
 			match maybe_change {
-				Err(e) => match api.has_api_with::<CrfgApi<Block>, _>(&at, |v| v >= 2) {
+				Err(e) => match api.has_api_with::<dyn CrfgApi<Block>, _>(&at, |v| v >= 2) {
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 					Ok(true) => {
 						// API version is high enough to support forced changes
@@ -388,9 +388,15 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		let just_in_case = guard.consume();
 		if let Some((_, ref authorities)) = just_in_case {
 			let authorities_change = match applied_changes {
-				AppliedChanges::Forced(ref new) => Some(new),
-				AppliedChanges::Standard(_) => None, // the change isn't actually applied yet.
-				AppliedChanges::None => None,
+				AppliedChanges::Forced(ref new) => {
+					Some(new)
+				},
+				AppliedChanges::Standard(_) => {
+					None // the change isn't actually applied yet.
+				},
+				AppliedChanges::None => {
+					None
+				},
 			};
 
 			crate::aux_schema::update_authority_set(

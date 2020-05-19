@@ -144,8 +144,8 @@ impl<Block: BlockT<Hash=H256>> CrfgJustification<Block> {
 		for signed in self.commit.precommits.iter() {
 			if let Err(_) = communication::check_message_sig::<Block>(
 				&grandpa::Message::Precommit(signed.precommit.clone()),
-				&signed.id,
-				&signed.signature,
+				&vec![signed.id.clone()],
+				&vec![signed.signature.clone()],
 				self.round,
 				set_id,
 			) {

@@ -220,49 +220,12 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-        fn update_authorities(_origin, info: <T as Trait>::SessionKey){
-			use primitives::traits::{As};
-
-			let mut authorities = <Module<T>>::crfg_authorities();
-			while authorities.len() >= crate::fg_primitives::MAX_AUTHORITIES_SIZE.as_() {
-				authorities.remove(0);
-			}
-			authorities.push((info, 1));
-
-			let scheduled_at = system::ChainContext::<T>::default().current_height();
-			<PendingChange<T>>::put(StoredPendingChange {
-				delay: T::BlockNumber::sa(0),
-				scheduled_at,
-				next_authorities: authorities,
-				forced: None,
-			});
+        fn update_authorities(_origin, info: <T as Trait>::SessionKey) {
+			Self::reset_authorities(info);
         }
 
 		fn on_finalize(block_number: T::BlockNumber) {
-			if let Some(pending_change) = <PendingChange<T>>::get() {
-				if block_number == pending_change.scheduled_at {
-					if let Some(median) = pending_change.forced {
-						Self::deposit_log(RawLog::ForcedAuthoritiesChangeSignal(
-							median,
-							pending_change.delay,
-							pending_change.next_authorities.clone(),
-						));
-					} else {
-						Self::deposit_log(RawLog::AuthoritiesChangeSignal(
-							pending_change.delay,
-							pending_change.next_authorities.clone(),
-						));
-					}
-				}
-
-				if block_number == pending_change.scheduled_at + pending_change.delay {
-					Self::deposit_event(
-						RawEvent::NewAuthorities(pending_change.next_authorities.clone())
-					);
-					<AuthorityStorageVec<T::SessionKey>>::set_items(pending_change.next_authorities);
-					<PendingChange<T>>::kill();
-				}
-			}
+			Self::finalize(block_number);
 		}
 	}
 }
@@ -276,6 +239,51 @@ impl<T: Trait> Module<T> {
 	/// Deposit one of this module's logs.
 	fn deposit_log(log: Log<T>) {
 		<system::Module<T>>::deposit_log(<T as Trait>::Log::from(log).into());
+	}
+
+	fn reset_authorities(info: <T as Trait>::SessionKey){
+		use primitives::traits::{As};
+
+		let mut authorities = <Module<T>>::crfg_authorities();
+		while authorities.len() >= crate::fg_primitives::MAX_AUTHORITIES_SIZE.as_() {
+			authorities.remove(0);
+		}
+		authorities.push((info, 1));
+
+		let scheduled_at = system::ChainContext::<T>::default().current_height();
+		<PendingChange<T>>::put(StoredPendingChange {
+			delay: T::BlockNumber::sa(0),
+			scheduled_at,
+			next_authorities: authorities,
+			forced: None,
+		});
+	}
+
+	fn finalize(block_number: T::BlockNumber) {
+		if let Some(pending_change) = <PendingChange<T>>::get() {
+			if block_number == pending_change.scheduled_at {
+				if let Some(median) = pending_change.forced {
+					Self::deposit_log(RawLog::ForcedAuthoritiesChangeSignal(
+						median,
+						pending_change.delay,
+						pending_change.next_authorities.clone(),
+					));
+				} else {
+					Self::deposit_log(RawLog::AuthoritiesChangeSignal(
+						pending_change.delay,
+						pending_change.next_authorities.clone(),
+					));
+				}
+			}
+
+			if block_number == pending_change.scheduled_at + pending_change.delay {
+				Self::deposit_event(
+					RawEvent::NewAuthorities(pending_change.next_authorities.clone())
+				);
+				<AuthorityStorageVec<T::SessionKey>>::set_items(pending_change.next_authorities);
+				<PendingChange<T>>::kill();
+			}
+		}
 	}
 }
 

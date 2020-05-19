@@ -226,7 +226,7 @@ impl<Block: BlockT> BlockUntilImported<Block> for SignedMessage<Block> {
 
 		if let Some(number) = status_check.block_number(target_hash)? {
 			if number != target_number {
-				warn_authority_wrong_target(target_hash, msg.id);
+				msg.id.iter().for_each(|id| warn_authority_wrong_target(target_hash, id.clone()));
 			} else {
 				ready(msg);
 			}
@@ -240,7 +240,7 @@ impl<Block: BlockT> BlockUntilImported<Block> for SignedMessage<Block> {
 	fn wait_completed(self, canon_number: NumberFor<Block>) -> Option<Self::Blocked> {
 		let (&target_hash, target_number) = self.target();
 		if canon_number != target_number {
-			warn_authority_wrong_target(target_hash, self.id);
+			self.id.iter().for_each(|id| warn_authority_wrong_target(target_hash, id.clone()));
 
 			None
 		} else {
