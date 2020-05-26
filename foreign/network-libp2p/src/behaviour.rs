@@ -280,8 +280,8 @@ impl<TMessage, TSubstream, I> NetworkBehaviourEventProcess<IdentifyEvent> for Be
 					self.drop_node(&peer_id);
 					return;
 				}
-				if !info.protocol_version.contains("substrate") {
-					warn!(target: "sub-libp2p-foreign", "Connected to a non-Substrate node: {:?}", info);
+				if !info.protocol_version.contains("yee") {
+					warn!(target: "sub-libp2p-foreign", "Connected to a non-yee node: {:?}", info);
 				}
 				if info.listen_addrs.len() > 30 {
 					warn!(target: "sub-libp2p-foreign", "Node {:?} has reported more than 30 addresses; \
