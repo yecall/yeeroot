@@ -419,8 +419,6 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 				let jobs = self.jobs.clone();
 
 				let task = future::lazy(move || {
-					debug!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job_target);
-
 					if nonce_target <= job_target {
 						let merkle_proof = merkle_tree.gen_proof(actual_shard_num as usize);
 
@@ -444,6 +442,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 						};
 						future::ok(job_result)
 					} else {
+						warn!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job_target);
 						future::err(error::Error::from(error::ErrorKind::TargetNotAccpect))
 					}
 				}).and_then(move |job_result| {
