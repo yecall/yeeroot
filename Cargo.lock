@@ -5378,6 +5378,7 @@ dependencies = [
  "util 0.4.0",
  "yee-foreign-chain 0.4.0",
  "yee-foreign-network 0.4.0",
+ "yee-primitives 0.5.0",
  "yee-runtime 1.0.0",
  "yee-sharding-primitives 0.1.0",
  "yee-sr-primitives 0.4.0",
@@ -5467,6 +5468,7 @@ name = "yee-rpc"
 version = "0.1.0"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-derive 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-pubsub 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5474,6 +5476,7 @@ dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-basic-authorship 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -5487,6 +5490,8 @@ dependencies = [
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-consensus-pow 0.1.0",
  "yee-consensus-pow-primitives 0.1.0",
+ "yee-foreign-relay 0.4.0",
+ "yee-primitives 0.5.0",
  "yee-runtime 1.0.0",
  "yee-serde-hex 0.4.0",
 ]

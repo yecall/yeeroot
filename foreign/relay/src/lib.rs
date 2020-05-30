@@ -21,7 +21,7 @@ use std::{
     iter::once,
 };
 use parity_codec::{Decode, Encode, Compact};
-use futures::Stream;
+use futures::{Stream,sync::mpsc};
 use substrate_service::{
     config::Configuration,
     ServiceFactory,
@@ -45,7 +45,7 @@ use substrate_client::{
     BlockBody,
 };
 use substrate_primitives::{
-    hexdisplay::HexDisplay,
+    hexdisplay::HexDisplay, H256
 };
 use transaction_pool::txpool::{self, Pool as TransactionPool};
 use log::{debug, info, warn, error};
@@ -61,6 +61,7 @@ use parking_lot::RwLock;
 use finality_tracker::FinalityTrackerDigestItem;
 use yee_sr_primitives::{RelayTypes, RelayParams};
 use ansi_term::Colour;
+use yee_primitives::RecommitRelay;
 
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
@@ -68,6 +69,7 @@ pub fn start_relay_transfer<F, C, A>(
     foreign_network: Arc<dyn SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash>>,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pool: Arc<TransactionPool<A>>,
+    recomit_relay_receiver: mpsc::UnboundedReceiver<RecommitRelay<<F::Block as BlockT>::Hash>>,
 ) -> error::Result<()>
     where F: ServiceFactory + Send + Sync,
           C: 'static + Send + Sync,
@@ -82,10 +84,11 @@ pub fn start_relay_transfer<F, C, A>(
           <<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Digest as Digest>::Item: FinalityTrackerDigestItem,
           u64: From<<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Number>,
 {
-    let network_send = foreign_network.clone();
+    // let network_send = foreign_network.clone();
     let network_rev = foreign_network.clone();
+    let recommit_network = foreign_network.clone();
     let client_notify = client.clone();
-    // let client_rcv = client.clone();
+    let client_recommit = client.clone();
     let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
@@ -97,61 +100,7 @@ pub fn start_relay_transfer<F, C, A>(
             let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
             for tx in &body {
                 let ec = tx.encode();
-                debug!(target: "foreign-relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
-                let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).unwrap();
-                let sig = &ex.signature;
-                if let None = sig {
-                    continue;
-                }
-                match ex.function {
-                    Call::Balances(BalancesCall::transfer(dest, value)) => {
-                        let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
-                        if ds.is_none() {
-                            continue;
-                        }
-                        let ds = ds.unwrap();
-                        if cs as u16 == ds {
-                            continue;
-                        }
-
-                        // create relay transfer
-                        let h: Compact<u64> = Compact((*header.number()).into());
-                        let function = Call::Relay(RelayCall::transfer(RelayTypes::Balance, ec, h, hash, *header.parent_hash()));
-                        let relay = UncheckedExtrinsic::new_unsigned(function);
-                        let buf = relay.encode();
-                        let relay = Decode::decode(&mut buf.as_slice()).unwrap();
-                        let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
-                        info!(target: "foreign-relay", "{}: shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}",
-                              Colour::Green.paint("Send Balance-relay-transaction"), ds, h.0, value, relay_hash, HexDisplay::from(&buf));
-
-                        // broadcast relay transfer
-                        network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
-                    },
-                    Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
-                        let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
-                        if ds.is_none() {
-                            continue;
-                        }
-                        let ds = ds.unwrap();
-                        if cs as u16 == ds {
-                            continue;
-                        }
-
-                        // create relay transfer
-                        let h: Compact<u64> = Compact((*header.number()).into());
-                        let function = Call::Relay(RelayCall::transfer(RelayTypes::Assets, ec, h, hash, *header.parent_hash()));
-                        let relay = UncheckedExtrinsic::new_unsigned(function);
-                        let buf = relay.encode();
-                        let relay = Decode::decode(&mut buf.as_slice()).unwrap();
-                        let relay_hash = <<FactoryBlock<F> as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
-                        info!(target: "foreign-relay", "{}: shard: {}, height: {}, AssetID: {}, amount: {}, hash:{:?}, encode: {}",
-                              Colour::Green.paint("Send Asset-relay-transaction"), ds, h.0, id, value, relay_hash, HexDisplay::from(&buf));
-
-                        // broadcast relay transfer
-                        network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
-                    },
-                    _ => {}
-                }
+                process_relay_extrinsic(ec, &header, hash, foreign_network.clone(), tc as u16, cs as u16);
             }
 
             Ok(())
@@ -198,7 +147,95 @@ pub fn start_relay_transfer<F, C, A>(
         Ok(())
     });
 
+    let recommit_relay = recomit_relay_receiver.for_each( move |tx| {
+        let hash = tx.hash;
+        let block_id = BlockId::Hash(hash.into());
+        let header = client_recommit.header(block_id);
+        let header = match header {
+            Ok(h) => {
+                match h {
+                    Some(hh) => hh,
+                    None => return Ok(())
+                }
+            },
+            Err(_) => return Ok(())
+        };
+
+        let api = client_recommit.runtime_api();
+        let tc = api.get_shard_count(&block_id).unwrap();    // total count
+        let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
+        let ec = tx.encode();
+        process_relay_extrinsic(ec, &header, hash, recommit_network.clone(), tc as u16, cs as u16);
+        Ok(())
+    });
+
     executor.spawn(import_events);
     executor.spawn(foreign_events);
+    executor.spawn(recommit_relay);
     Ok(())
+}
+
+
+fn process_relay_extrinsic<Block>(ec: Vec<u8>, header: &<Block as BlockT>::Header, hash: <<Block as BlockT>::Header as Header>::Hash, network_send: Arc<dyn SyncProvider<Block, <<Block as BlockT>::Header as Header>::Hash>>, tc: u16, cs: u16) -> bool where
+    Block: BlockT<Hash=H256>,
+    <<Block as BlockT>::Header as Header>::Number: From<u64>,
+    u64: From<<<Block as BlockT>::Header as Header>::Number>,
+{
+    let mut result = false;
+    debug!(target: "foreign-relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
+    let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).unwrap();
+    let sig = &ex.signature;
+    if let None = sig {
+        return result;
+    }
+    match ex.function {
+        Call::Balances(BalancesCall::transfer(dest, value)) => {
+            let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc);    // dest shard
+            if ds.is_none() {
+                return result;
+            }
+            let ds = ds.unwrap();
+            if cs == ds {
+                return result;
+            }
+
+            // create relay transfer
+            let h: Compact<u64> = Compact((*header.number()).into());
+            let function = Call::Relay(RelayCall::transfer(RelayTypes::Balance, ec, h, hash, *header.parent_hash()));
+            let relay = UncheckedExtrinsic::new_unsigned(function);
+            let buf = relay.encode();
+            let relay = Decode::decode(&mut buf.as_slice()).unwrap();
+            let relay_hash = <<Block as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
+            info!(target: "foreign-relay", "{}: shard: {}, height: {}, amount: {}, hash:{:?}, encode: {}",
+                  Colour::Green.paint("Send Balance-relay-transaction"), ds, h.0, value, relay_hash, HexDisplay::from(&buf));
+
+            // broadcast relay transfer
+            network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
+        },
+        Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
+            let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
+            if ds.is_none() {
+                return result;
+            }
+            let ds = ds.unwrap();
+            if cs == ds {
+                return result;
+            }
+
+            // create relay transfer
+            let h: Compact<u64> = Compact((*header.number()).into());
+            let function = Call::Relay(RelayCall::transfer(RelayTypes::Assets, ec, h, hash, *header.parent_hash()));
+            let relay = UncheckedExtrinsic::new_unsigned(function);
+            let buf = relay.encode();
+            let relay = Decode::decode(&mut buf.as_slice()).unwrap();
+            let relay_hash = <<Block as BlockT>::Header as Header>::Hashing::hash(buf.as_slice());
+            info!(target: "foreign-relay", "{}: shard: {}, height: {}, AssetID: {}, amount: {}, hash:{:?}, encode: {}",
+                  Colour::Green.paint("Send Asset-relay-transaction"), ds, h.0, id, value, relay_hash, HexDisplay::from(&buf));
+
+            // broadcast relay transfer
+            network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
+        },
+        _ => {}
+    }
+    return true;
 }
