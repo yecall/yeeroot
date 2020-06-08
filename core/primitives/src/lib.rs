@@ -18,6 +18,7 @@
 use bech32::{ToBase32, Error, FromBase32};
 use std::fmt;
 use serde::Deserialize;
+use parity_codec::{Encode, Decode};
 use parity_codec::alloc::collections::HashMap;
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -115,6 +116,12 @@ impl Config{
 	pub fn get_shard_count(&self)->u16{
 		self.shards.len() as u16
 	}
+}
+
+#[derive(Encode, Decode, Clone, Debug)]
+pub struct RecommitRelay<Hash> {
+	pub hash: Hash,
+	pub index: usize
 }
 
 #[cfg(test)]

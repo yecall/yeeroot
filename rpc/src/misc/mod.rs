@@ -1,54 +1,44 @@
+use std::sync::Arc;
+use std::hash::Hasher;
 use parity_codec::{Encode, Decode};
 use jsonrpc_derive::rpc;
 use jsonrpc_core::BoxFuture;
 use crate::errors;
 use jsonrpc_core::futures::future::{self, Future, IntoFuture};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use runtime_primitives::traits::{Block as BlockT};
+use serde_json::Value;
 use std::marker::PhantomData;
-use substrate_primitives::H256;
-
-#[derive(Clone, Serialize, Deserialize, Debug)]
-struct RelayData(Vec<u8>);
+use yee_primitives::RecommitRelay;
+use futures::sync::mpsc;
 
 #[rpc]
-pub trait MiscApi<Hash> where
-    Hash: Encode,
-{
-    #[rpc(name = "other_get_relay_extrinsic_data")]
-    fn get_relay_extrinsic_data(&self, hash: Hash) -> errors::Result<RelayData>;
-
-    #[rpc(name = "other_recommit_relay_extrinsic")]
-    fn recommit_relay_extrinsic(&self, data: Vec<u8>) -> errors::Result<()>;
+pub trait MiscApi<Hash> {
+    #[rpc(name = "chain_recommitRelay")]
+    fn recommit_relay_extrinsic(&self, hash: Hash, index: usize) -> errors::Result<()>;
 }
 
-pub struct Misc<B> where
-    B: BlockT,
-{
-    _b: PhantomData<B>
+pub struct Misc<Hash> {
+    recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
 }
 
-impl<B> Misc<B> where
-    B: BlockT,
-{
-    pub fn new() -> Self {
-        Self{
-            _b: PhantomData
+impl<Hash> Misc<Hash> {
+    pub fn new(recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>) -> Self {
+        Self {
+            recommit_relay_sender
         }
     }
 }
 
-impl<B> MiscApi<B::Hash> for Misc<B> where
-    B: BlockT,
+impl<Hash> MiscApi<Hash> for Misc<Hash> where
+    Hash: Send + Sync + 'static,
 {
-    fn get_relay_extrinsic_data(&self, hash: B::Hash) -> errors::Result<RelayData> {
-        // todo
-        Ok(RelayData(vec![1u8]))
-
-    }
-
-    fn recommit_relay_extrinsic(&self, data: Vec<u8>) -> errors::Result<()> {
-        // todo
+    fn recommit_relay_extrinsic(&self, hash: Hash, index: usize)  -> errors::Result<()> {
+        let recommit_param = RecommitRelay {
+            hash,
+            index
+        };
+        let sender = self.recommit_relay_sender.as_ref();
+        sender.as_ref().unwrap().unbounded_send(recommit_param);
         Ok(())
     }
 }

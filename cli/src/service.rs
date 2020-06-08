@@ -13,7 +13,7 @@ use substrate_service::{
 };
 use basic_authorship::ProposerFactory;
 use substrate_client as client;
-use primitives::{ed25519::Pair, Pair as PairT};
+use primitives::{ed25519::Pair, Pair as PairT, H256};
 use inherents::InherentDataProviders;
 use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
@@ -35,6 +35,9 @@ use {
 };
 use substrate_cli::{TriggerExit};
 use sharding_primitives::ScaleOut;
+use runtime_primitives::traits::{Header, Block as BlockT};
+use futures::sync::mpsc;
+use yee_primitives::RecommitRelay;
 
 mod foreign;
 use foreign::{start_foreign_network};
@@ -81,6 +84,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
+    pub recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>,
     pub mine: bool,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub hrp: Hrp,
@@ -100,6 +104,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             foreign_port: Default::default(),
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
+            recommit_relay_sender: Arc::new(None),
             mine: Default::default(),
             foreign_chains: Arc::new(RwLock::new(None)),
             hrp: Default::default(),
@@ -128,6 +133,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             inherent_data_providers: Default::default(),
             bootnodes_router_conf: None,
             job_manager: Arc::new(RwLock::new(None)),
+            recommit_relay_sender: Arc::new(None),
             foreign_chains: Arc::new(RwLock::new(None)),
         }
     }
@@ -147,9 +153,15 @@ impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::Service
     }
 }
 
-impl<F> ProvideJobManager<DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where F: substrate_service::ServiceFactory {
+impl<F> ProvideJobManager<H256, DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where
+    F: substrate_service::ServiceFactory,
+{
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
+    }
+
+    fn recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<H256>>>> {
+        self.recommit_relay_sender.clone()
     }
 }
 
@@ -215,6 +227,7 @@ construct_service_factory! {
             |mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>, next_key: Option<Arc<Pair>>| {
                 let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
+                let (sender, receiver): (mpsc::UnboundedSender<RecommitRelay<H256>>, mpsc::UnboundedReceiver<RecommitRelay<H256>>) = mpsc::unbounded();
 
                 // foreign network
                 // let config = &service.config;
@@ -237,6 +250,7 @@ construct_service_factory! {
                     executor.clone(),
                 )?;
                 service.config.custom.foreign_chains = Arc::new(RwLock::new(Some(foreign_chain)));
+                service.config.custom.recommit_relay_sender = Arc::new(Some(sender));
 
                 // relay
                 yee_relay::start_relay_transfer::<Self, _, _>(
@@ -244,7 +258,8 @@ construct_service_factory! {
                     &executor,
                     foreign_network.clone(),
                     service.config.custom.foreign_chains.clone(),
-                    service.transaction_pool()
+                    service.transaction_pool(),
+                    receiver
                 ).map_err(|e| format!("{:?}", e))?;
 
                 // restarter

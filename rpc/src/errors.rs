@@ -38,6 +38,10 @@ error_chain! {
 			description("job not found"),
 			display("Job not found"),
 		}
+		RecommitFailed {
+			description("recommit relay extrinsic failed"),
+			display("Recommit relay extrinsic failed"),
+		}
 	}
 }
 

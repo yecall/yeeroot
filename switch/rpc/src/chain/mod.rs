@@ -50,6 +50,10 @@ pub trait ChainApi<Number, Hash> {
 	/// By default returns latest block hash.
 	#[rpc(name = "chain_getBlockHash", alias("chain_getHead"))]
 	fn block_hash(&self, shard_num: u16, number: Option<NumberOrHex<Number>>) -> BoxFuture<Option<Hash>>;
+
+	/// Recommit relay transfer to dest shard nodes
+	#[rpc(name = "chain_recommitRelay")]
+	fn recommit_relay(&self, shard_num: u16, hash: Hash, index: u16)  -> BoxFuture<Option<Value>>;
 }
 
 /// Chain API
@@ -109,4 +113,14 @@ impl<Number, Hash> ChainApi<Number, Hash> for Chain
 			.unwrap_or_else(|e|Box::new(future::err(e.into())))
 	}
 
+	fn recommit_relay(&self, shard_num: u16, hash: Hash, index: u16)  -> BoxFuture<Option<Value>> {
+		let shard_count = self.config.get_shard_count();
+
+		if shard_num >= shard_count{
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::InvalidShard).into()));
+		}
+
+		self.rpc_client.call_method_async("chain_recommitRelay", "Option<Value>", (hash, index), shard_num)
+			.unwrap_or_else(|e|Box::new(future::err(e.into())))
+	}
 }

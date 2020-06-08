@@ -80,18 +80,18 @@ impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
 {
     fn get_work(&self) -> errors::Result<Job<<WM::Hashing as HashT>::Output>> {
         let work = self.work_manager.read().get_work()?;
-        info!("get_work: {:?}", work);
+        info!("pow/mod.rs -> get_work: {:?}", work);
 
         let root = work.merkle_root;
-        if let Ok(_work) = self.work_manager.read().get_work_by_merkle(root) {
-            info!("{}", "ok");
+        if let Ok(work) = self.work_manager.read().get_work_by_merkle(root) {
+            debug!("work exist {:?}", work);
         }
 
         Ok(Job { merkle_root: work.merkle_root, extra_data: work.extra_data, target: work.target })
     }
 
     fn submit_work(&self, data: String) -> BoxFuture<()> {
-        info!("submit work: {}", data);
+        info!("pow/mod.rs -> submit_work, raw-data: {}", data);
 
         let bytes = match hex::decode(data) {
             Ok(bytes) => bytes,
