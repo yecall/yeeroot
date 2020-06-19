@@ -230,8 +230,9 @@ impl<
         // decode parameters and dispatch
         let (f, s) = xt.deconstruct();
         let r = f.dispatch(s.into());
-        <system::Module<System>>::note_applied_extrinsic(&r, encoded_len as u32);
-
+        if r.is_ok() {
+            <system::Module<System>>::note_applied_extrinsic(&r, encoded_len as u32);
+        }
         r.map(|_| internal::ApplyOutcome::Success).or_else(|e| match e {
             primitives::BLOCK_FULL => Err(internal::ApplyError::FullBlock),
             e => Ok(internal::ApplyOutcome::Fail(e))
