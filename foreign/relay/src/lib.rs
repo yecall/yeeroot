@@ -21,7 +21,7 @@ use std::{
     iter::once,
 };
 use parity_codec::{Decode, Encode, Compact};
-use futures::{Stream,sync::mpsc};
+use futures::{Stream, sync::mpsc};
 use substrate_service::{
     config::Configuration,
     ServiceFactory,
@@ -32,6 +32,7 @@ use yee_runtime::{
     Call,
     UncheckedExtrinsic,
     Hash as RuntimeHash,
+    AccountId,
 };
 use runtime_primitives::{
     generic::{BlockId},
@@ -44,9 +45,7 @@ use substrate_client::{
     blockchain::HeaderBackend,
     BlockBody,
 };
-use substrate_primitives::{
-    hexdisplay::HexDisplay, H256
-};
+use substrate_primitives::{hexdisplay::HexDisplay, H256, Blake2Hasher};
 use transaction_pool::txpool::{self, Pool as TransactionPool};
 use log::{debug, info, warn, error};
 use substrate_cli::error;
@@ -59,9 +58,11 @@ use foreign_chain::{ForeignChain, ForeignChainConfig};
 use parking_lot::RwLock;
 // use util::relay_decode::RelayTransfer;
 use finality_tracker::FinalityTrackerDigestItem;
-use yee_sr_primitives::{RelayTypes, RelayParams};
+use yee_sr_primitives::{RelayTypes, RelayParams, OriginExtrinsic};
 use ansi_term::Colour;
 use yee_primitives::RecommitRelay;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
+use hash_db::Hasher;
 
 pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
@@ -89,6 +90,7 @@ pub fn start_relay_transfer<F, C, A>(
     let recommit_network = foreign_network.clone();
     let client_notify = client.clone();
     let client_recommit = client.clone();
+    let client_fe = client.clone();
     let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
             let hash = notification.hash;
@@ -111,12 +113,64 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::RelayExtrinsics(txs) => {
                 for tx in &txs {
                     let tx = tx.encode();
-                    if let Some(_r_t) = RelayParams::<RuntimeHash>::decode(tx.clone()) {
+                    if let Some(r_t) = RelayParams::<RuntimeHash>::decode(tx.clone()) {
                         let block_id = BlockId::number(Zero::zero());
                         let tx = Decode::decode(&mut tx.as_slice()).unwrap();
-                        pool.submit_relay_extrinsic(&block_id, tx, true).expect("Submit relay transfer into pool failed!");
+
+                        let h = Blake2Hasher::hash(r_t.origin().as_slice());
+                        if h != r_t.hash() {
+                            continue;
+                        }
+                        // verify proof
+                        match OriginExtrinsic::<AccountId, u128>::decode(r_t.relay_type(), r_t.origin()) {
+                            Some(oe) => {
+                                let from = oe.from();
+                                let api = client_fe.runtime_api();
+                                let tc = api.get_shard_count(&block_id).unwrap();    // total count
+                                let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
+                                let fs = yee_sharding_primitives::utils::shard_num_for(&from, tc);    // from shard
+                                if fs.is_none() {
+                                    continue;
+                                }
+                                let fs = fs.unwrap();
+                                if fs == cs {
+                                    continue;
+                                }
+
+                                if let Some(chain) = foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
+                                    let block_id = BlockId::hash(r_t.block_hash());
+                                    let proof = chain.client().proof(&block_id);
+                                    if proof.is_err() {
+                                        continue;
+                                    }
+                                    let proof = proof.unwrap();
+                                    if proof.is_none() {
+                                        continue;
+                                    }
+                                    let proof = proof.unwrap();
+                                    let proof = MultiLayerProof::from_bytes(proof.as_slice());
+                                    if proof.is_err() {
+                                        continue;
+                                    }
+                                    let proof = proof.unwrap();
+                                    if proof.contains(fs, h) {
+                                        let block_id = BlockId::number(Zero::zero());
+                                        let _ = pool.submit_relay_extrinsic(&block_id, tx, true).map_err(|e| warn!("submit relay extrinsic to pool failed: {:}", e));
+                                    }
+
+                                    // let pow_seal = header.digest().logs().iter().filter_map(CompatibleDigestItem::as_pow_seal).next();
+                                    // match pow_seal {
+                                    //     Some(seal) => {
+                                    //         seal.relay_proof
+                                    //     },
+                                    //     None => {}
+                                    // }
+                                }
+                            }
+                            None => {}
+                        }
                     } else {
-                        warn!(target:"foreign-relay", "receive bad relay extrinsic: {:?}", tx);
+                        warn!(target: "foreign-relay", "receive bad relay extrinsic: {:?}", tx);
                     }
                 }
                 info!(target: "foreign-relay", "{}: {:?}", Colour::Green.paint("Receive relay-transaction"), txs);
@@ -147,7 +201,7 @@ pub fn start_relay_transfer<F, C, A>(
         Ok(())
     });
 
-    let recommit_relay = recomit_relay_receiver.for_each( move |tx| {
+    let recommit_relay = recomit_relay_receiver.for_each(move |tx| {
         let hash = tx.hash;
         let block_id = BlockId::Hash(hash.into());
         let header = client_recommit.header(block_id);
@@ -157,7 +211,7 @@ pub fn start_relay_transfer<F, C, A>(
                     Some(hh) => hh,
                     None => return Ok(())
                 }
-            },
+            }
             Err(_) => return Ok(())
         };
 
@@ -211,7 +265,7 @@ fn process_relay_extrinsic<Block>(ec: Vec<u8>, header: &<Block as BlockT>::Heade
 
             // broadcast relay transfer
             network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
-        },
+        }
         Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
             let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
             if ds.is_none() {
@@ -234,7 +288,7 @@ fn process_relay_extrinsic<Block>(ec: Vec<u8>, header: &<Block as BlockT>::Heade
 
             // broadcast relay transfer
             network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
-        },
+        }
         _ => {}
     }
     return true;

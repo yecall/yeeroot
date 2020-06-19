@@ -229,6 +229,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                                 let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
                                 if proof.contains(ds, h) {
                                     continue;
+                                } else {
+                                    return Err("relay extrinsic not in proof".to_string());
                                 }
                             }
                             None => { return Err(err_str.to_string()); }
