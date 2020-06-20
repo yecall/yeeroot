@@ -190,7 +190,7 @@ impl<
         for i in 0..shard_count {
             if extrinsic_shard.contains_key(&i) {
                 let exs = extrinsic_shard.get(&i).unwrap();
-                let tree = MerkleTree::from_iter((*exs).clone());
+                let tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::from_iter((*exs).clone());
                 layer2_leaves.push(tree.root());
                 layer1_merkles.push((i, Some(tree)));
             } else {
@@ -200,9 +200,8 @@ impl<
             }
         }
         let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
-        let layer2_root = layer2_tree.root().as_bytes();
-        let o = proof.as_bytes();
-        assert_eq!(layer2_root, o, "proof root not match");
+        let layer2_root = layer2_tree.root();
+        assert_eq!(layer2_root.as_bytes(), proof.as_bytes(), "proof root not match");
 
         // post-extrinsics book-keeping.
         <system::Module<System>>::note_finished_extrinsics();
