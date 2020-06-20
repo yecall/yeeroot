@@ -19,12 +19,15 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate core;
+use core::iter::FromIterator;
+
 use rstd::prelude::*;
 use rstd::marker::PhantomData;
 use rstd::result;
 use primitives::traits::{
     self, Header, Zero, One, Checkable, Extrinsic, Applyable, CheckEqual, OnFinalize,
-    OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker,
+    OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker, BlakeTwo256
 };
 use srml_support::{Dispatchable, traits::MakePayment};
 use parity_codec::{Codec, Encode, Decode, Compact};
@@ -143,14 +146,20 @@ impl<
         let cur_shard = Decode::decode(input).unwrap();
         let shard_count = Decode::decode(input).unwrap();
 
-        Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number(), cur_shard, shard_count);
+        let pow_seal = &header.digest().logs()[len -1];
+        let data = pow_seal.encode();
+        let mut root = [0u8; 32];
+        root.copy_from_slice(&data[data.len() - 32..]);
+        let proof: H256 = root.into();
+
+        Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number(), proof, cur_shard, shard_count);
 
         // any final checks
         Self::final_checks(&header);
     }
 
     /// Execute given extrinsics and take care of post-extrinsics book-keeping
-    fn execute_extrinsics_with_book_keeping(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, cur_shard: u16, shard_count: u16) {
+    fn execute_extrinsics_with_book_keeping(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, proof: H256, cur_shard: u16, shard_count: u16) {
         // let mut exe_result = vec![];
         // let mut hashs = vec![];
         let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
@@ -191,12 +200,9 @@ impl<
             }
         }
         let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
-        let layer2_root = layer2_tree.root();
-        let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles);
-       // debug!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
-        //(layer2_root, multi_proof.into_bytes())
-
-        // extrinsics.into_iter().for_each(Self::apply_extrinsic_no_note);
+        let layer2_root = layer2_tree.root().as_bytes();
+        let o = proof.as_bytes();
+        assert_eq!(layer2_root, o, "proof root not match");
 
         // post-extrinsics book-keeping.
         <system::Module<System>>::note_finished_extrinsics();
