@@ -113,62 +113,10 @@ pub fn start_relay_transfer<F, C, A>(
             OutMessage::RelayExtrinsics(txs) => {
                 for tx in &txs {
                     let tx = tx.encode();
-                    if let Some(r_t) = RelayParams::<RuntimeHash>::decode(tx.clone()) {
+                    if let Some(_r_t) = RelayParams::<RuntimeHash>::decode(tx.clone()) {
                         let block_id = BlockId::number(Zero::zero());
                         let tx = Decode::decode(&mut tx.as_slice()).unwrap();
-
-                        let h = Blake2Hasher::hash(r_t.origin().as_slice());
-                        if h != r_t.hash() {
-                            continue;
-                        }
-                        // verify proof
-                        match OriginExtrinsic::<AccountId, u128>::decode(r_t.relay_type(), r_t.origin()) {
-                            Some(oe) => {
-                                let from = oe.from();
-                                let api = client_fe.runtime_api();
-                                let tc = api.get_shard_count(&block_id).unwrap();    // total count
-                                let cs = api.get_curr_shard(&block_id).unwrap().unwrap();    // current shard
-                                let fs = yee_sharding_primitives::utils::shard_num_for(&from, tc);    // from shard
-                                if fs.is_none() {
-                                    continue;
-                                }
-                                let fs = fs.unwrap();
-                                if fs == cs {
-                                    continue;
-                                }
-
-                                if let Some(chain) = foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
-                                    let block_id = BlockId::hash(r_t.block_hash());
-                                    let proof = chain.client().proof(&block_id);
-                                    if proof.is_err() {
-                                        continue;
-                                    }
-                                    let proof = proof.unwrap();
-                                    if proof.is_none() {
-                                        continue;
-                                    }
-                                    let proof = proof.unwrap();
-                                    let proof = MultiLayerProof::from_bytes(proof.as_slice());
-                                    if proof.is_err() {
-                                        continue;
-                                    }
-                                    let proof = proof.unwrap();
-                                    if proof.contains(fs, h) {
-                                        let block_id = BlockId::number(Zero::zero());
-                                        let _ = pool.submit_relay_extrinsic(&block_id, tx, true).map_err(|e| warn!("submit relay extrinsic to pool failed: {:}", e));
-                                    }
-
-                                    // let pow_seal = header.digest().logs().iter().filter_map(CompatibleDigestItem::as_pow_seal).next();
-                                    // match pow_seal {
-                                    //     Some(seal) => {
-                                    //         seal.relay_proof
-                                    //     },
-                                    //     None => {}
-                                    // }
-                                }
-                            }
-                            None => {}
-                        }
+                        let _ = pool.submit_relay_extrinsic(&block_id, tx, false).map_err(|e| warn!("submit relay extrinsic to pool failed: {:?}", e));
                     } else {
                         warn!(target: "foreign-relay", "receive bad relay extrinsic: {:?}", tx);
                     }
