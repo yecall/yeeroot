@@ -18,6 +18,10 @@ yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../c
 substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 relay = { package = "yee-srml-relay", path = "../yee-relay", default-features = false }
 yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
+hash-db = "0.12"
+merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
+yee-merkle = { path = "../../core/util/merkle" }
+hashbrown = "0.8.0"
 
 [dev-dependencies]
 hex-literal = "0.1.0"

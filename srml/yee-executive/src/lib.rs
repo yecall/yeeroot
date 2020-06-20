@@ -23,15 +23,24 @@ use rstd::prelude::*;
 use rstd::marker::PhantomData;
 use rstd::result;
 use primitives::traits::{
-    self, Header, Zero, One, Checkable, Applyable, CheckEqual, OnFinalize,
+    self, Header, Zero, One, Checkable, Extrinsic, Applyable, CheckEqual, OnFinalize,
     OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker,
 };
 use srml_support::{Dispatchable, traits::MakePayment};
-use parity_codec::{Codec, Encode, Compact};
+use parity_codec::{Codec, Encode, Decode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
+use primitives::generic::DigestItem;
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
-use yee_sr_primitives::{RelayParams, OriginExtrinsic};
+use yee_sr_primitives::{RelayParams, OriginExtrinsic, };
+use hash_db::Hasher;
+use substrate_primitives::{H256, Blake2Hasher};
+use merkle_light::hash::Algorithm;
+use merkle_light::proof::Proof;
+use merkle_light::merkle::MerkleTree;
+use hashbrown::HashMap;
+use yee_sharding_primitives::utils::shard_num_for;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 
 mod internal {
     pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
@@ -49,6 +58,9 @@ mod internal {
         Fail(&'static str),
     }
 }
+
+const GENERATED_MODULE_LOG_PREFIX: u8 = 2;
+const GENERATED_SHARDING_PREFIX: u8 = 0;
 
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
@@ -124,15 +136,67 @@ impl<
 
         // execute extrinsics
         let (header, extrinsics) = block.deconstruct();
-        Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+        let len = header.digest().logs().len();
+        let digest = &header.digest().logs()[len -1];
+        let data = digest.encode();
+        let input = &mut &data[3..];    // todo
+        let cur_shard = Decode::decode(input).unwrap();
+        let shard_count = Decode::decode(input).unwrap();
+
+        Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number(), cur_shard, shard_count);
 
         // any final checks
         Self::final_checks(&header);
     }
 
     /// Execute given extrinsics and take care of post-extrinsics book-keeping
-    fn execute_extrinsics_with_book_keeping(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>) {
-        extrinsics.into_iter().for_each(Self::apply_extrinsic_no_note);
+    fn execute_extrinsics_with_book_keeping(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, cur_shard: u16, shard_count: u16) {
+        // let mut exe_result = vec![];
+        // let mut hashs = vec![];
+        let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
+        for tx in extrinsics {
+            let bytes = tx.encode();
+            let is_signed = tx.is_signed().unwrap();
+            let hash = Blake2Hasher::hash(bytes.as_slice());
+            match Self::apply_extrinsic_no_note(tx) {
+                Ok(ApplyOutcome::Success) => {
+                    if is_signed {
+                        let ex_type = OriginExtrinsic::<H256, u128>::decode_type(bytes.clone());
+                        let ex = OriginExtrinsic::<H256, u128>::decode(ex_type, bytes).unwrap();
+                        let to = ex.to();
+                        if let Some(num) = shard_num_for(&to, shard_count) {
+                            if num != cur_shard {
+                                let v = extrinsic_shard.entry(num).or_insert(vec![hash]);
+                                v.push(hash);
+                            }
+                        }
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        let mut layer1_merkles = Vec::new();
+        let mut layer2_leaves = vec![];
+        for i in 0..shard_count {
+            if extrinsic_shard.contains_key(&i) {
+                let exs = extrinsic_shard.get(&i).unwrap();
+                let tree = MerkleTree::from_iter((*exs).clone());
+                layer2_leaves.push(tree.root());
+                layer1_merkles.push((i, Some(tree)));
+            } else {
+                let hash: H256 = Default::default();
+                layer2_leaves.push(hash);
+                layer1_merkles.push((i, None));
+            }
+        }
+        let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
+        let layer2_root = layer2_tree.root();
+        let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles);
+       // debug!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
+        //(layer2_root, multi_proof.into_bytes())
+
+        // extrinsics.into_iter().for_each(Self::apply_extrinsic_no_note);
 
         // post-extrinsics book-keeping.
         <system::Module<System>>::note_finished_extrinsics();
@@ -168,11 +232,11 @@ impl<
     }
 
     /// Apply an extrinsic inside the block execution function.
-    fn apply_extrinsic_no_note(uxt: Block::Extrinsic) {
+    fn apply_extrinsic_no_note(uxt: Block::Extrinsic) -> result::Result<ApplyOutcome, ApplyError>{
         let l = uxt.encode().len();
         match Self::apply_extrinsic_with_len(uxt, l, None) {
-            Ok(internal::ApplyOutcome::Success) => (),
-            Ok(internal::ApplyOutcome::Fail(e)) => runtime_io::print(e),
+            Ok(internal::ApplyOutcome::Success) => Ok(ApplyOutcome::Success),
+            Ok(internal::ApplyOutcome::Fail(e)) => { runtime_io::print(e); Ok(ApplyOutcome::Fail) },
             Err(internal::ApplyError::CantPay) => panic!("All extrinsics should have sender able to pay their fees"),
             Err(internal::ApplyError::BadSignature(_)) => panic!("All extrinsics should be properly signed"),
             Err(internal::ApplyError::Stale) | Err(internal::ApplyError::Future) => panic!("All extrinsics should have the correct nonce"),
@@ -230,9 +294,7 @@ impl<
         // decode parameters and dispatch
         let (f, s) = xt.deconstruct();
         let r = f.dispatch(s.into());
-        if r.is_ok() {
-            <system::Module<System>>::note_applied_extrinsic(&r, encoded_len as u32);
-        }
+        <system::Module<System>>::note_applied_extrinsic(&r, encoded_len as u32);
         r.map(|_| internal::ApplyOutcome::Success).or_else(|e| match e {
             primitives::BLOCK_FULL => Err(internal::ApplyError::FullBlock),
             e => Ok(internal::ApplyOutcome::Fail(e))
@@ -259,6 +321,10 @@ impl<
         let storage_root = System::Hashing::storage_root();
         header.state_root().check_equal(&storage_root);
         assert!(header.state_root() == &storage_root, "Storage root must match that calculated.");
+
+        // check proof
+
+
     }
 
     /// Check a given transaction for validity. This doesn't execute any

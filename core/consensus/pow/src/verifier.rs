@@ -121,20 +121,18 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
                 e
             })?;
 
-        let mut res_proof = proof;
+        // let mut res_proof = proof;
         // check body if not none
-        match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
+        self.check_body(&body, &pre_header, proof_root).map_err(|e| {
             error!("{}: {}", Colour::Red.paint("check body failed"), e);
             e
-        })? {
-            Some(p) => res_proof = Some(p),
-            None => {}
-        }
+        })?;
+
         let import_block = ImportBlock {
             origin,
             header: pre_header,
             justification,
-            proof: res_proof,
+            proof,
             post_digests: vec![seal],
             body,
             finalized: false,
@@ -160,21 +158,21 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
     /// check body
-    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<Option<Proof>, String> {
+    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<(), String> {
         match body.as_ref() {
             Some(exs) => {
                 // check proof root
-                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
-                if root != proof_root {
-                    return Err("Proof is invalid.".to_string());
-                }
+                // let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
+                // if root != proof_root {
+                //     return Err("Proof is invalid.".to_string());
+                // }
                 // check relay extrinsic.
                 self.check_relay_transfer(pre_header.digest().logs(), exs)?;
-                return Ok(Some(proof));
+                return Ok(());
             }
             None => {}
         }
-        Ok(None)
+        Ok(())
     }
 
     /// check relay transfer merkle proof
