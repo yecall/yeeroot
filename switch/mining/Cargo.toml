@@ -31,7 +31,7 @@ parity-codec = "3.2"
 chrono = "0.4"
 rust-crypto = "0.2.36"
 yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }
-merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
+merkle_light = { git = "https://github.com/yeeco/merkle_light.git", rev = "fd8bd7352681126fe4cf2d7f225de96d645bd1e1" }
 yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensus/pow" }
 runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 yee-rpc = { package = "yee-rpc", path = "../../rpc" }

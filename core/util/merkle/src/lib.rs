@@ -1,6 +1,8 @@
-use std::marker::PhantomData;
-use std::default::Default;
-use std::hash::Hasher;
+#![cfg_attr(not(feature = "std"), no_std)]
+
+use rstd::marker::PhantomData;
+use rstd::hash::Hasher;
+use rstd::prelude::*;
 use merkle_light::{
     merkle::MerkleTree,
     hash::Algorithm,
@@ -8,6 +10,8 @@ use merkle_light::{
 };
 use parity_codec::{Encode, Decode};
 use runtime_primitives::traits::{Hash as HashT, BlakeTwo256};
+
+#[cfg(feature = "std")]
 use log::error;
 
 #[derive(Debug, Clone)]
@@ -61,7 +65,8 @@ impl<H: HashT> Algorithm<ProofHash<H>> for ProofAlgorithm<H> {
     }
 }
 
-#[derive(Debug, Default, Clone, Encode, Decode)]
+#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Default, Clone, Encode, Decode)]
 pub struct MultiLayerProof {
     pub layer2_merkle: Option<MerkleTree<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>>,
     pub layer2_proof: Option<Vec<u8>>,
@@ -102,6 +107,7 @@ impl MultiLayerProof {
         let (num, data) = match layer1 {
             Some((num, data)) => (num, data),
             None => {
+                #[cfg(feature = "std")]
                 error!("failed to get special layer1 merkle tree");
                 return None;
             }
