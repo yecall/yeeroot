@@ -2042,14 +2042,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "merkle_light"
 version = "0.3.1"
-source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#81d11e0c6dbd9a6b87c4d7c21aa9b9c1a52e302b"
-dependencies = [
- "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "merkle_light"
-version = "0.3.1"
 source = "git+https://github.com/yeeco/merkle_light.git?rev=fd8bd7352681126fe4cf2d7f225de96d645bd1e1#fd8bd7352681126fe4cf2d7f225de96d645bd1e1"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5337,7 +5329,7 @@ dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "linked_hash_set 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?branch=yee)",
+ "merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?rev=fd8bd7352681126fe4cf2d7f225de96d645bd1e1)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 1.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6043,7 +6035,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum memoffset 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "0f9dc261e2b62d7a622bf416ea3c5245cdd5d9a7fcc428c0d06804dfce1775b3"
 "checksum memory-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)" = "1eeeeab44c01c7da4409e68ec5b5db74c92305386efab3615e495b1dacaec196"
 "checksum memory_units 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)" = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
-"checksum merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?branch=yee)" = "<none>"
 "checksum merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?rev=fd8bd7352681126fe4cf2d7f225de96d645bd1e1)" = "<none>"
 "checksum merlin 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "8c39467de91b004f5b9c06fac5bbc8e7d28309a205ee66905166b70804a71fea"
 "checksum mime 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "ba626b8a6de5da682e1caa06bdb42a335aee5a84db8e5046a3e8ab17ba0a3ae0"
