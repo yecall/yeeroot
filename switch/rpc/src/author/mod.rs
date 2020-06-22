@@ -64,7 +64,9 @@ impl<Hash> AuthorApi<Hash> for Author
 		};
 
 		let bytes : &[u8] = &xt.0;
-
+		if bytes.len() < 64 {
+			return Box::new(future::err(errors::Error::from(errors::ErrorKind::ParseError).into()));
+		}
 		let version = bytes[0];
 
 		let is_signed = version & 0b1000_0000 != 0;

@@ -38,7 +38,7 @@ use std::hash::Hasher;
 use merkle_light::hash::Algorithm;
 use merkle_light::proof::Proof;
 use merkle_light::merkle::MerkleTree;
-use yee_runtime::{Call, BalancesCall, UncheckedExtrinsic};
+use yee_runtime::{AccountId, Call, BalancesCall, AssetsCall, UncheckedExtrinsic};
 use yee_sharding_primitives::utils::shard_num_for;
 use primitives::{Blake2Hasher, H256};
 use hash_db::Hasher as BlakeHasher;
@@ -46,6 +46,7 @@ use std::iter::FromIterator;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
 use yee_context::Context;
+use yee_sr_primitives::{RelayTypes, OriginExtrinsic};
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
@@ -309,7 +310,12 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
             let ex: UncheckedExtrinsic = ex;
             if ex.signature.is_some() {
                 let hash = Blake2Hasher::hash(&mut bytes);
-                if let Call::Balances(BalancesCall::transfer(to, _)) = ex.function {
+                let to = match ex.function {
+                    Call::Balances(BalancesCall::transfer(to, _)) => Some(to.clone()),
+                    Call::Assets(AssetsCall::transfer(_, _, to, _)) => Some(to.clone()),
+                    _ => None
+                };
+                to.map(|to| {
                     if let Some(num) = shard_num_for(&to, shard_count) {
                         if num != shard_num {
                             if let Some(list) = extrinsic_shard.get_mut(&num) {
@@ -319,7 +325,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
                             }
                         }
                     }
-                }
+                });
             }
         }
     }
