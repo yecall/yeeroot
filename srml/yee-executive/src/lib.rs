@@ -18,20 +18,31 @@
 //! Executive: Handles all of the top-level stuff; essentially just executing blocks/extrinsics.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+extern crate core;
+use core::iter::FromIterator;
 
 use rstd::prelude::*;
 use rstd::marker::PhantomData;
 use rstd::result;
 use primitives::traits::{
-    self, Header, Zero, One, Checkable, Applyable, CheckEqual, OnFinalize,
-    OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker,
+    self, Header, Zero, One, Checkable, Extrinsic, Applyable, CheckEqual, OnFinalize,
+    OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker, BlakeTwo256
 };
 use srml_support::{Dispatchable, traits::MakePayment};
-use parity_codec::{Codec, Encode, Compact};
+use parity_codec::{Codec, Encode, Decode, Compact};
 use system::extrinsics_root;
 use primitives::{ApplyOutcome, ApplyError};
+use primitives::generic::DigestItem;
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 use yee_sr_primitives::{RelayParams, OriginExtrinsic};
+use hash_db::Hasher;
+use substrate_primitives::{H256, Blake2Hasher};
+use merkle_light::hash::Algorithm;
+use merkle_light::proof::Proof;
+use merkle_light::merkle::MerkleTree;
+use hashbrown::HashMap;
+use yee_sharding_primitives::utils::shard_num_for;
+use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 
 mod internal {
     pub const MAX_TRANSACTIONS_SIZE: u32 = 4 * 1024 * 1024;
@@ -124,7 +135,25 @@ impl<
 
         // execute extrinsics
         let (header, extrinsics) = block.deconstruct();
-        Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+        let len = header.digest().logs().len();
+
+        if len == 3 {
+            Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+        } else {
+            let digest = &header.digest().logs()[0];
+            let data = digest.encode();
+            let input = &mut &data[2..];
+            let cur_shard = Decode::decode(input).unwrap();
+            let shard_count = Decode::decode(input).unwrap();
+
+            let pow_seal = &header.digest().logs()[len -1];
+            let data = pow_seal.encode();
+            let mut root = [0u8; 32];
+            root.copy_from_slice(&data[data.len() - 32..]);
+            let proof: H256 = root.into();
+
+            Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), proof, cur_shard, shard_count);
+        }
 
         // any final checks
         Self::final_checks(&header);
@@ -133,6 +162,56 @@ impl<
     /// Execute given extrinsics and take care of post-extrinsics book-keeping
     fn execute_extrinsics_with_book_keeping(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>) {
         extrinsics.into_iter().for_each(Self::apply_extrinsic_no_note);
+
+        // post-extrinsics book-keeping.
+        <system::Module<System>>::note_finished_extrinsics();
+        <AllModules as OnFinalize<System::BlockNumber>>::on_finalize(block_number);
+    }
+
+    /// Execute given extrinsics and take care of post-extrinsics book-keeping
+    fn execute_extrinsics_with_book_keeping_with_proof(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, proof: H256, cur_shard: u16, shard_count: u16) {
+        // let mut exe_result = vec![];
+        // let mut hashs = vec![];
+        let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
+        for tx in extrinsics {
+            let bytes = tx.encode();
+            let is_signed = tx.is_signed().unwrap();
+            let hash = Blake2Hasher::hash(bytes.as_slice());
+            match Self::apply_extrinsic_no_note_with_proof(tx) {
+                Ok(ApplyOutcome::Success) => {
+                    if is_signed {
+                        let ex_type = OriginExtrinsic::<H256, u128>::decode_type(bytes.clone());
+                        let ex = OriginExtrinsic::<H256, u128>::decode(ex_type, bytes).unwrap();
+                        let to = ex.to();
+                        if let Some(num) = shard_num_for(&to, shard_count) {
+                            if num != cur_shard {
+                                let v = extrinsic_shard.entry(num).or_insert(vec![hash]);
+                                v.push(hash);
+                            }
+                        }
+                    }
+                },
+                _ => ()
+            }
+        }
+
+        let mut layer1_merkles = Vec::new();
+        let mut layer2_leaves = vec![];
+        for i in 0..shard_count {
+            if extrinsic_shard.contains_key(&i) {
+                let exs = extrinsic_shard.get(&i).unwrap();
+                let tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::from_iter((*exs).clone());
+                layer2_leaves.push(tree.root());
+                layer1_merkles.push((i, Some(tree)));
+            } else {
+                let hash: H256 = Default::default();
+                layer2_leaves.push(hash);
+                layer1_merkles.push((i, None));
+            }
+        }
+        let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
+        let layer2_root = layer2_tree.root();
+        assert_eq!(layer2_root.as_bytes(), proof.as_bytes(), "proof root not match");
 
         // post-extrinsics book-keeping.
         <system::Module<System>>::note_finished_extrinsics();
@@ -173,6 +252,19 @@ impl<
         match Self::apply_extrinsic_with_len(uxt, l, None) {
             Ok(internal::ApplyOutcome::Success) => (),
             Ok(internal::ApplyOutcome::Fail(e)) => runtime_io::print(e),
+            Err(internal::ApplyError::CantPay) => panic!("All extrinsics should have sender able to pay their fees"),
+            Err(internal::ApplyError::BadSignature(_)) => panic!("All extrinsics should be properly signed"),
+            Err(internal::ApplyError::Stale) | Err(internal::ApplyError::Future) => panic!("All extrinsics should have the correct nonce"),
+            Err(internal::ApplyError::FullBlock) => panic!("Extrinsics should not exceed block limit"),
+        }
+    }
+
+    /// Apply an extrinsic inside the block execution function.
+    fn apply_extrinsic_no_note_with_proof(uxt: Block::Extrinsic) -> result::Result<ApplyOutcome, ApplyError> {
+        let l = uxt.encode().len();
+        match Self::apply_extrinsic_with_len(uxt, l, None) {
+            Ok(internal::ApplyOutcome::Success) => Ok(ApplyOutcome::Success),
+            Ok(internal::ApplyOutcome::Fail(e)) => {runtime_io::print(e); Ok(ApplyOutcome::Fail)},
             Err(internal::ApplyError::CantPay) => panic!("All extrinsics should have sender able to pay their fees"),
             Err(internal::ApplyError::BadSignature(_)) => panic!("All extrinsics should be properly signed"),
             Err(internal::ApplyError::Stale) | Err(internal::ApplyError::Future) => panic!("All extrinsics should have the correct nonce"),

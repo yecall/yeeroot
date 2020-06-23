@@ -119,7 +119,7 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 	E: Environment<B> + 'static,
 	<E as Environment<B>>::Proposer: Proposer<B>,
 	<E as Environment<B>>::Error: Debug,
-	<<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
+	<<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=(B, Vec<bool>)>,
 	<<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
 	AuthorityId: Decode + Encode + Clone,
 	I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
@@ -155,7 +155,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 	      E: Environment<B> + 'static + Send + Sync,
 	      <E as Environment<B>>::Proposer: Proposer<B>,
 	      <E as Environment<B>>::Error: Debug,
-	      <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=B>,
+	      <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=(B, Vec<bool>)>,
 	      <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
 	      AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
 	      AccountId: Decode + Encode + Clone + Send + Sync + 'static,
@@ -186,7 +186,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 		let authority_id = self.authority_id.clone();
 		let context = self.context.clone();
 
-		let build_job = move |block: B| {
+		let build_job = move |(block, exe_result): (B, Vec<bool>)| {
 			let (header, body) = block.deconstruct();
 			let header_num = header.number().clone();
 			let header_pre_hash = header.hash();
@@ -195,7 +195,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 			let authority_id = authority_id;
 			let work_proof = WorkProof::Unknown;
 			// generate proof
-			let (relay_proof, proof) = gen_extrinsic_proof::<B>(&header, &body);
+			let (relay_proof, proof) = gen_extrinsic_proof::<B>(&header, &body, exe_result);
 
 			let pow_seal = PowSeal {
 				authority_id,

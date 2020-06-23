@@ -263,6 +263,47 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
         }
     }
 
+    pub fn decode_type(input: Vec<u8>) -> RelayTypes {
+        let mut input = input.as_slice();
+        // length
+        let _len: Vec<()> = Decode::decode(&mut input).unwrap();
+        // version
+        let version = input.read_byte().unwrap();
+        // is signed
+        let is_signed = version & 0b1000_0000 != 0;
+
+        let (_sender, _signature, _index, _era) = if is_signed {
+            // sender type
+            let _type = input.read_byte().unwrap();
+            // sender
+            let sender = Decode::decode(&mut input).unwrap();
+            // signature
+            let signature = input[..64].to_vec();
+            input = &input[64..];
+            // index
+            let index = Decode::decode(&mut input).unwrap();
+            // era
+            let era = if input[0] != 0u8 {
+                Decode::decode(&mut input).unwrap()
+            } else {
+                input = &input[1..];
+                Era::Immortal
+            };
+            (sender, signature, index, era)
+        } else {
+            (AccountId::default(), Vec::new(), Compact(0u64), Era::Immortal)
+        };
+
+        // module
+        let module: u8 = input.read_byte().unwrap();
+        match module {
+            5u8 => RelayTypes::Balance,
+            9u8 => RelayTypes::Assets,
+            _ => panic!("can't reach"),
+        }
+
+    }
+
     pub fn from(&self) -> AccountId {
         self.sender.clone()
     }
