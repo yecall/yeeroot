@@ -114,7 +114,7 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
             error!("{}: {}", Colour::Red.paint("get proof root failed"), e);
             e
         })?.relay_proof;
-        // check proof.
+        // check proof with header's proof_root
         self.check_relay_merkle_proof(proof.clone(), proof_root)
             .map_err(|e| {
                 error!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());

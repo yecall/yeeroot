@@ -28,7 +28,7 @@ rustc-hex = "2.0"
 regex = "1"
 serde = { version = "1.0.70", features = ["derive"] }
 serde_json = "1.0.24"
-merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
+merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", rev = "fd8bd7352681126fe4cf2d7f225de96d645bd1e1" }
 yee-merkle = { path = "../../core/util/merkle" }
 ansi_term = "0.11"
 

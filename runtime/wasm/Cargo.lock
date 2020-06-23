@@ -35,6 +35,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahash"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8fd72866655d1904d6b0997d0b07ba561047d070fbe29de039031c641b61217"
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -755,6 +761,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab9b7860757ce258c89fd48d28b68c41713e597a7b09e793f6c6a6e2ea37c827"
+dependencies = [
+ "ahash",
+ "autocfg 1.0.0",
+]
+
+[[package]]
 name = "hashmap_core"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1398,6 +1414,14 @@ name = "memory_units"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
+
+[[package]]
+name = "merkle_light"
+version = "0.3.1"
+source = "git+https://github.com/yeeco/merkle_light.git?rev=fd8bd7352681126fe4cf2d7f225de96d645bd1e1#fd8bd7352681126fe4cf2d7f225de96d645bd1e1"
+dependencies = [
+ "parity-codec",
+]
 
 [[package]]
 name = "merlin"
@@ -3018,7 +3042,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1c5676413eaeb1ea35300a0224416f57abc3bd251657e0fafc12c47ff98c060"
 dependencies = [
  "failure",
- "hashbrown",
+ "hashbrown 0.1.8",
  "hmac 0.7.1",
  "once_cell",
  "pbkdf2",
@@ -3623,6 +3647,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "yee-merkle"
+version = "0.4.0"
+dependencies = [
+ "log",
+ "merkle_light",
+ "parity-codec",
+ "sr-primitives",
+ "sr-std",
+]
+
+[[package]]
 name = "yee-runtime"
 version = "1.0.0"
 dependencies = [
@@ -3739,6 +3774,9 @@ dependencies = [
 name = "yee-srml-executive"
 version = "0.4.0"
 dependencies = [
+ "hash-db",
+ "hashbrown 0.8.0",
+ "merkle_light",
  "parity-codec",
  "serde",
  "sr-io",
@@ -3747,6 +3785,7 @@ dependencies = [
  "srml-support",
  "srml-system",
  "substrate-primitives",
+ "yee-merkle",
  "yee-sharding-primitives",
  "yee-sr-primitives",
  "yee-srml-balances",

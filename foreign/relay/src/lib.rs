@@ -21,7 +21,7 @@ use std::{
     iter::once,
 };
 use parity_codec::{Decode, Encode, Compact};
-use futures::{Stream,sync::mpsc};
+use futures::{Stream, sync::mpsc};
 use substrate_service::{
     config::Configuration,
     ServiceFactory,
@@ -45,9 +45,7 @@ use substrate_client::{
     blockchain::HeaderBackend,
     BlockBody,
 };
-use substrate_primitives::{
-    hexdisplay::HexDisplay, H256, Blake2Hasher
-};
+use substrate_primitives::{hexdisplay::HexDisplay, H256, Blake2Hasher};
 use transaction_pool::txpool::{self, Pool as TransactionPool};
 use log::{debug, info, warn, error};
 use substrate_cli::error;
@@ -120,7 +118,7 @@ pub fn start_relay_transfer<F, C, A>(
                         let tx = Decode::decode(&mut tx.as_slice()).unwrap();
                         let _ = pool.submit_relay_extrinsic(&block_id, tx, false).map_err(|e| warn!("submit relay extrinsic to pool failed: {:?}", e));
                     } else {
-                        warn!(target:"foreign-relay", "receive bad relay extrinsic: {:?}", tx);
+                        warn!(target: "foreign-relay", "receive bad relay extrinsic: {:?}", tx);
                     }
                 }
                 info!(target: "foreign-relay", "{}: {:?}", Colour::Green.paint("Receive relay-transaction"), txs);
@@ -151,7 +149,7 @@ pub fn start_relay_transfer<F, C, A>(
         Ok(())
     });
 
-    let recommit_relay = recomit_relay_receiver.for_each( move |tx| {
+    let recommit_relay = recomit_relay_receiver.for_each(move |tx| {
         let hash = tx.hash;
         let block_id = BlockId::Hash(hash.into());
         let header = client_recommit.header(block_id);
@@ -161,7 +159,7 @@ pub fn start_relay_transfer<F, C, A>(
                     Some(hh) => hh,
                     None => return Ok(())
                 }
-            },
+            }
             Err(_) => return Ok(())
         };
 
@@ -215,7 +213,7 @@ fn process_relay_extrinsic<Block>(ec: Vec<u8>, header: &<Block as BlockT>::Heade
 
             // broadcast relay transfer
             network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
-        },
+        }
         Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
             let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc as u16);    // dest shard
             if ds.is_none() {
@@ -238,7 +236,7 @@ fn process_relay_extrinsic<Block>(ec: Vec<u8>, header: &<Block as BlockT>::Heade
 
             // broadcast relay transfer
             network_send.on_relay_extrinsics(ds, vec![(relay_hash, relay)]);
-        },
+        }
         _ => {}
     }
     return true;
