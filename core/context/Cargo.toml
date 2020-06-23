@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 pow-primitives = { package = "yee-consensus-pow-primitives", path = "../consensus/pow/primitives" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
