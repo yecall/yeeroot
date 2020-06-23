@@ -19,12 +19,10 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-extern crate core;
-use core::iter::FromIterator;
-
 use rstd::prelude::*;
 use rstd::marker::PhantomData;
 use rstd::result;
+use rstd::iter::FromIterator;
 use primitives::traits::{
     self, Header, Zero, One, Checkable, Extrinsic, Applyable, CheckEqual, OnFinalize,
     OnInitialize, Hash, As, Digest, NumberFor, Block as BlockT, OffchainWorker, BlakeTwo256
@@ -61,9 +59,6 @@ mod internal {
 		Fail(&'static str),
 	}
 }
-
-const GENERATED_MODULE_LOG_PREFIX: u8 = 2;
-const GENERATED_SHARDING_PREFIX: u8 = 0;
 
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
@@ -173,20 +168,24 @@ impl<
         let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
         for tx in extrinsics {
             let bytes = tx.encode();
-            let is_signed = tx.is_signed().unwrap();
+            let is_signed = tx.is_signed();
             let hash = Blake2Hasher::hash(bytes.as_slice());
             match Self::apply_extrinsic_no_note_with_proof(tx) {
                 Ok(ApplyOutcome::Success) => {
-                    if is_signed {
+                    if is_signed == Some(true) {
                         let ex_type = OriginExtrinsic::<H256, u128>::decode_type(bytes.clone());
-                        let ex = OriginExtrinsic::<H256, u128>::decode(ex_type, bytes).unwrap();
-                        let to = ex.to();
-                        if let Some(num) = shard_num_for(&to, shard_count) {
-                            if num != cur_shard {
-                                let v = extrinsic_shard.entry(num).or_insert(vec![hash]);
-                                v.push(hash);
-                            }
-                        }
+						if let Some(ex_type) = ex_type {
+							let ex = OriginExtrinsic::<H256, u128>::decode(ex_type, bytes);
+							if let Some(ex) = ex {
+								let to = ex.to();
+								if let Some(num) = shard_num_for(&to, shard_count) {
+									if num != cur_shard {
+										let v = extrinsic_shard.entry(num).or_insert(vec![hash]);
+										v.push(hash);
+									}
+								}
+							}
+						}
                     }
                 },
                 _ => ()
@@ -321,6 +320,7 @@ impl<
 		let (f, s) = xt.deconstruct();
 		let r = f.dispatch(s.into());
 		<system::Module<System>>::note_applied_extrinsic(&r, encoded_len as u32);
+
 		r.map(|_| internal::ApplyOutcome::Success).or_else(|e| match e {
 			primitives::BLOCK_FULL => Err(internal::ApplyError::FullBlock),
 			e => Ok(internal::ApplyOutcome::Fail(e))
@@ -347,10 +347,6 @@ impl<
 		let storage_root = System::Hashing::storage_root();
 		header.state_root().check_equal(&storage_root);
 		assert!(header.state_root() == &storage_root, "Storage root must match that calculated.");
-
-		// check proof
-
-
 	}
 
 	/// Check a given transaction for validity. This doesn't execute any

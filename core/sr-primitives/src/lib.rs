@@ -263,28 +263,28 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
         }
     }
 
-    pub fn decode_type(input: Vec<u8>) -> RelayTypes {
+    pub fn decode_type(input: Vec<u8>) -> Option<RelayTypes> {
         let mut input = input.as_slice();
         // length
-        let _len: Vec<()> = Decode::decode(&mut input).unwrap();
+        let _len: Vec<()> = Decode::decode(&mut input)?;
         // version
-        let version = input.read_byte().unwrap();
+        let version = input.read_byte()?;
         // is signed
         let is_signed = version & 0b1000_0000 != 0;
 
         let (_sender, _signature, _index, _era) = if is_signed {
             // sender type
-            let _type = input.read_byte().unwrap();
+            let _type = input.read_byte()?;
             // sender
-            let sender = Decode::decode(&mut input).unwrap();
+            let sender = Decode::decode(&mut input)?;
             // signature
             let signature = input[..64].to_vec();
             input = &input[64..];
             // index
-            let index = Decode::decode(&mut input).unwrap();
+            let index = Decode::decode(&mut input)?;
             // era
             let era = if input[0] != 0u8 {
-                Decode::decode(&mut input).unwrap()
+                Decode::decode(&mut input)?
             } else {
                 input = &input[1..];
                 Era::Immortal
@@ -295,11 +295,11 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
         };
 
         // module
-        let module: u8 = input.read_byte().unwrap();
+        let module: u8 = input.read_byte()?;
         match module {
-            5u8 => RelayTypes::Balance,
-            9u8 => RelayTypes::Assets,
-            _ => panic!("can't reach"),
+            5u8 => Some(RelayTypes::Balance),
+            9u8 => Some(RelayTypes::Assets),
+            _ => None,
         }
 
     }
