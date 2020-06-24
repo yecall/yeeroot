@@ -249,7 +249,10 @@ construct_service_factory! {
                     foreign_network_wrapper,
                     executor.clone(),
                 )?;
-                service.config.custom.foreign_chains = Arc::new(RwLock::new(Some(foreign_chain)));
+                {
+                    let mut config_foreign_chains = service.config.custom.foreign_chains.write();
+                    *config_foreign_chains = Some(foreign_chain);
+                }
                 service.config.custom.recommit_relay_sender = Arc::new(Some(sender));
 
                 // relay
