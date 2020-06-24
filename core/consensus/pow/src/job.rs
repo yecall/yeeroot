@@ -301,41 +301,29 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 	fn accept(&self, extrinsic: &EX) -> bool {
 		let bs = extrinsic.encode();
 		let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
-		match RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
-			Some(rt) => {
-				let h = rt.hash();
-				let id = generic::BlockId::hash(h);
-				let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
-					Some(v) => v,
-					None => return false
-				};
-				let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
-					.expect("Internal error. Get shard num failed.");
-				if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
-					if let Some(lc) = foreign_chains.get_shard_component(fs) {
-						match lc.client().proof(&id) {
-							Ok(Some(proof)) => {
-								let proof = MultiLayerProof::from_bytes(proof.as_slice());
-								if proof.is_err() {
-									return false
-								}
-								let proof = proof.unwrap();
-								if proof.contains(cs, h) {
-									return true
-								} else {
-									return false
-								}
+		if let Some(rt) = RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
+			let id = generic::BlockId::hash(rt.hash());
+			let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
+				Some(v) => v,
+				None => return false
+			};
+			let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
+				.expect("Internal error. Get shard num failed.");
+			if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
+				if let Some(lc) = foreign_chains.get_shard_component(fs) {
+					if let Ok(Some(proof)) = lc.client().proof(&id) {
+						if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
+							if proof.contains(cs, h) {
+								return true
 							}
-							_ => return false
 						}
 					}
-					panic!("Internal error. Can't get shard component");
-				} else {
-					return false;
 				}
 			}
-			None => return true,
+			return false;
 		}
+
+		return true
 	}
 }
 
