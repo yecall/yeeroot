@@ -302,7 +302,8 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 		let bs = extrinsic.encode();
 		let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
 		if let Some(rt) = RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
-			let id = generic::BlockId::hash(rt.hash());
+			let hash = rt.hash();
+			let id = generic::BlockId::hash(rt.block_hash());
 			let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
 				Some(v) => v,
 				None => return false
@@ -313,7 +314,7 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 				if let Some(lc) = foreign_chains.get_shard_component(fs) {
 					if let Ok(Some(proof)) = lc.client().proof(&id) {
 						if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
-							if proof.contains(cs, h) {
+							if proof.contains(cs, hash) {
 								return true
 							}
 						}

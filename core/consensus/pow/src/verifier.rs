@@ -211,8 +211,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             let bs = tx.encode();
             match RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
                 Some(rt) => {
-                    let h = rt.hash();
-                    let id = generic::BlockId::hash(h);
+                    let hash = rt.hash();
+                    let id = generic::BlockId::hash(rt.block_hash());
                     let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
                         Some(v) => v,
                         None => {return Err("Decode origin extrinsic failed".to_string());}
@@ -224,7 +224,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                             match lc.client().proof(&id).map_err(|_| err_str)? {
                                 Some(proof) => {
                                     let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
-                                    if proof.contains(cs, h) {
+                                    if proof.contains(cs, hash) {
                                         continue;
                                     } else {
                                         return Err("relay extrinsic not in proof".to_string());
