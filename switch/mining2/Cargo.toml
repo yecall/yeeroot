@@ -25,5 +25,5 @@ yee-sharding = { package = "yee-sharding", path = "../../core/sharding" }
 yee-consensus-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../../core/consensus/pow/primitives" }
 yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensus/pow" }
 merkle_light = { git = "https://github.com/yeeco/merkle_light.git", rev = "fd8bd7352681126fe4cf2d7f225de96d645bd1e1" }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "e015c881080fbef2733413eb0fb5864b9c272797" }
 yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }

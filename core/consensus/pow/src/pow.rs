@@ -302,8 +302,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic], exe_res
     let (shard_num, shard_count) = (shard_num as u16, shard_count as u16);
 
     let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
-    for i in 0..body.len() - 5 {
-        let extrinsic = &body[i + 5];
+    for (i, extrinsic) in body.iter().enumerate() {
         let bytes = extrinsic.encode();
         let mut bytes = bytes.as_slice();
         if let Some(ex) = Decode::decode(&mut bytes) {

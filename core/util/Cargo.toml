@@ -8,6 +8,6 @@ edition = "2018"
 
 [dependencies]
 parity-codec = "3.5"
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
-substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "890461d48ad04070def58fdda3c23876e9b5339d", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "e015c881080fbef2733413eb0fb5864b9c272797" }
+primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "e015c881080fbef2733413eb0fb5864b9c272797" }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "e015c881080fbef2733413eb0fb5864b9c272797", default-features = false }

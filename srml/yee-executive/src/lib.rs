@@ -63,7 +63,7 @@ mod internal {
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
 	/// Actually execute all transitioning for `block`.
-	fn execute_block(block: Block);
+	fn execute_block(block: Block, extra: Option<Vec<u8>>);
 }
 
 pub struct Executive<System, Block, Context, Payment, AllModules>(
@@ -82,8 +82,8 @@ impl<
 	<<Block::Extrinsic as Checkable<Context>>::Checked as Applyable>::Call: Dispatchable,
 	<<<Block::Extrinsic as Checkable<Context>>::Checked as Applyable>::Call as Dispatchable>::Origin: From<Option<System::AccountId>>
 {
-	fn execute_block(block: Block) {
-		Executive::<System, Block, Context, Payment, AllModules>::execute_block(block);
+	fn execute_block(block: Block, extra: Option<Vec<u8>>) {
+		Executive::<System, Block, Context, Payment, AllModules>::execute_block(block, extra);
 	}
 }
 
@@ -126,27 +126,30 @@ impl<
 	}
 
 	/// Actually execute all transitioning for `block`.
-	pub fn execute_block(block: Block) {
+	pub fn execute_block(block: Block, extra: Option<Vec<u8>>) {
 		Self::initialize_block(block.header());
 
-		// any initial checks
+        // any initial checks
 		Self::initial_checks(&block);
 
 		// execute extrinsics
 		let (header, extrinsics) = block.deconstruct();
-        let len = header.digest().logs().len();
 
-        if len == 3 {
-            Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
-        } else {
-			let items = Self::digest_items(&header);
-			let shard_log = items.shard.expect("can't be reach");
-			let (cur_shard, shard_count) = (shard_log.shard_num, shard_log.shard_count);
-			let pow_log = items.pow_seal.expect("can't be reach");
-			let proof = pow_log.relay_proof;
+		let (shard_item, pow_seal_item) = match extra {
+			Some(extra) => Self::digest_items(&extra),
+			None => (None, None),
+		};
 
-            Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), proof, cur_shard, shard_count);
-        }
+		match (shard_item, pow_seal_item){
+			(Some(shard_item), Some(pow_seal_item)) => {
+				// println!("execute_extrinsics_with_book_keeping_with_proof: {:x}, {}, {}", pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
+				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
+			},
+			_ => {
+				// println!("execute_extrinsics_with_book_keeping");
+				Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+			}
+		}
 
 		// any final checks
 		Self::final_checks(&header);
@@ -208,6 +211,7 @@ impl<
         }
         let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
         let layer2_root = layer2_tree.root();
+		// println!("{:?} vs {:?}", layer2_root.as_bytes(), proof.as_bytes());
         assert_eq!(layer2_root.as_bytes(), proof.as_bytes(), "proof root not match");
 
         // post-extrinsics book-keeping.
@@ -440,58 +444,47 @@ impl<
 		<AllModules as OffchainWorker<System::BlockNumber>>::generate_extrinsics(n)
 	}
 
-	fn digest_items(header: &System::Header) -> DigestItems {
+	fn digest_items(logs: &[u8]) -> (Option<ShardDigestItem>, Option<PowSealItem>) {
 
-		let mut items = DigestItems{
-			shard: None,
-			pow_seal: None,
-		};
-        for item in header.digest().logs() {
-			let encoded = item.encode();
-			if encoded.len() > 0 {
-				match encoded[0] {
-					DIGEST_ITEM_TYPE_OTHER => {
-						let data = &mut &encoded[1..];
-						let data : Option<Vec<u8>> = Decode::decode(data);
-						if let Some(data) = data {
-							if data.len() == 6 && data[0] == SHARD_MODULE_PREFIX && data[1] == SHARD_SHARDING_PREFIX {
-								let input = &mut &data[2..];
-								let shard_num: Option<u16> = Decode::decode(input);
-								let shard_count: Option<u16> = Decode::decode(input);
-								if let (Some(shard_num), Some(shard_count)) = (shard_num, shard_count) {
-									items.shard = Some(ShardDigestItem {
-										shard_num,
-										shard_count
-									});
-								}
-							}
+		let mut shard = None;
+		let mut pow_seal = None;
+
+		let input = &mut &logs[..];
+		let logs : Vec<DigestItemEnum>  = Decode::decode(input).unwrap();
+
+		for log in logs{
+			match log{
+				DigestItemEnum::Other(data) => {
+					if data.len() == 6 && data[0] == SHARD_MODULE_PREFIX && data[1] == SHARD_SHARDING_PREFIX {
+						let input = &mut &data[2..];
+						let shard_num: Option<u16> = Decode::decode(input);
+						let shard_count: Option<u16> = Decode::decode(input);
+						if let (Some(shard_num), Some(shard_count)) = (shard_num, shard_count) {
+							shard = Some(ShardDigestItem {
+								shard_num,
+								shard_count
+							});
 						}
-					},
-					DIGEST_ITEM_TYPE_CONSENSUS => {
-						let data = &mut &encoded[1..];
-						let data: Option<([u8; 4], Vec<u8>)> = Decode::decode(data);
-						if let Some((_, data)) = data {
-							if data.len()>= 32 {
-								let input = &mut &data[data.len()-32..];
-								let relay_proof : Option<H256> = Decode::decode(input);
-								if let Some(relay_proof) = relay_proof{
-									items.pow_seal = Some(PowSealItem {
-										relay_proof
-									});
-								}
-							}
+					}
+				},
+				DigestItemEnum::Consensus(_, data) => {
+					if data.len()>= 32 {
+						let input = &mut &data[data.len()-32..];
+						let relay_proof : Option<H256> = Decode::decode(input);
+						if let Some(relay_proof) = relay_proof{
+							pow_seal = Some(PowSealItem {
+								relay_proof
+							});
 						}
-					},
-					_ => (),
-				}
+					}
+				},
+				_=> ()
 			}
-        }
-		items
+		}
+		(shard, pow_seal)
     }
 }
 
-const DIGEST_ITEM_TYPE_OTHER : u8 = 0;
-const DIGEST_ITEM_TYPE_CONSENSUS: u8 = 4;
 const SHARD_MODULE_PREFIX: u8 = 2;
 const SHARD_SHARDING_PREFIX: u8 = 0;
 
@@ -504,9 +497,13 @@ struct PowSealItem {
 	relay_proof: H256,
 }
 
-struct DigestItems {
-	shard: Option<ShardDigestItem>,
-	pow_seal: Option<PowSealItem>,
+#[derive(Decode)]
+enum DigestItemEnum{
+	Other(Vec<u8>),
+	AuthoritiesChange,
+	ChangesTrieRoot,
+	Seal,
+	Consensus([u8; 4], Vec<u8>),
 }
 
 #[cfg(test)]

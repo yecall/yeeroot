@@ -5,9 +5,9 @@ authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
 
 [dependencies]
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "890461d48ad04070def58fdda3c23876e9b5339d" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "e015c881080fbef2733413eb0fb5864b9c272797" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "e015c881080fbef2733413eb0fb5864b9c272797" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "e015c881080fbef2733413eb0fb5864b9c272797" }
 
 [features]
 default = ["std"]
