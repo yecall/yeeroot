@@ -28,6 +28,7 @@ use {
 		time::{
 			SystemTime, UNIX_EPOCH,
 		},
+		marker::{Send, Sync},
 	},
 };
 use {
@@ -36,11 +37,11 @@ use {
 		blockchain::HeaderBackend,
 	},
 	consensus_common::{
-		Environment, Proposer, BlockOrigin,  ForkChoiceStrategy, ImportBlock, BlockImport
+		Environment, Proposer, BlockOrigin,  ForkChoiceStrategy, ImportBlock, BlockImport, Filter
 	},
 	inherents::InherentDataProviders,
 	runtime_primitives::{
-		traits::{Block, ProvideRuntimeApi, DigestItemFor, NumberFor, Digest, Header},
+		traits::{Block, ProvideRuntimeApi, DigestItemFor, NumberFor, Digest, Header}, generic,
 	},
 };
 use {
@@ -51,6 +52,7 @@ use {
 use std::time::Duration;
 use crate::{PowSeal, WorkProof, CompatibleDigestItem, ShardExtra};
 use parity_codec::{Decode, Encode};
+use parking_lot::RwLock;
 use log::info;
 use {
 	pow_primitives::YeePOWApi,
@@ -61,6 +63,11 @@ use crate::verifier::check_scale;
 use primitives::H256;
 use ansi_term::Colour;
 use yee_context::Context;
+use substrate_service::ServiceFactory;
+use foreign_chain::ForeignChain;
+use yee_sr_primitives::{RelayParams, OriginExtrinsic};
+use yee_merkle::MultiLayerProof;
+use yee_runtime::AccountId;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -100,8 +107,11 @@ pub trait JobManager: Send + Sync
 
 }
 
-pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I> where
+pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I, F> where
 	B: Block,
+	AccountId: Encode + Decode + Clone + Default,
+	F: ServiceFactory + Send + Sync,
+	<F as ServiceFactory>::Configuration: Send+ Sync,
 {
 	client: Arc<C>,
 	env: Arc<E>,
@@ -110,10 +120,11 @@ pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I> where
 	block_import: Arc<I>,
 	shard_extra: ShardExtra<AccountId>,
 	context: Context<B>,
+	filter_extrinsic: Arc<FilterExtrinsic<B::Extrinsic, F, AccountId>>,
 	phantom: PhantomData<B>,
 }
 
-impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, AuthorityId, I> where
+impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId, AuthorityId, I, F> where
 	B: Block,
 	C: ChainHead<B>,
 	E: Environment<B> + 'static,
@@ -122,7 +133,10 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 	<<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=(B, Vec<bool>)>,
 	<<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
 	AuthorityId: Decode + Encode + Clone,
+	AccountId: Encode + Decode + Clone + Default,
 	I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+	F: ServiceFactory + Send + Sync,
+	<F as ServiceFactory>::Configuration: Send+ Sync,
 {
 	pub fn new(
 		client: Arc<C>,
@@ -132,6 +146,7 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 		block_import: Arc<I>,
 		shard_extra: ShardExtra<AccountId>,
 		context: Context<B>,
+		foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
 	) -> Self {
 		Self {
 			client,
@@ -139,14 +154,15 @@ impl<B, C, E, AccountId, AuthorityId, I> DefaultJobManager<B, C, E, AccountId, A
 			inherent_data_providers,
 			authority_id,
 			block_import,
-			shard_extra,
+			shard_extra: shard_extra.clone(),
 			context,
+			filter_extrinsic: Arc::new(FilterExtrinsic::<_, _, AccountId>::new(shard_extra, foreign_chains)),
 			phantom: PhantomData,
 		}
 	}
 }
 
-impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, E, AccountId, AuthorityId, I>
+impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, C, E, AccountId, AuthorityId, I, F>
 	where B: Block,
 	      DigestItemFor<B>: super::CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
 	      C: ChainHead<B> + Send + Sync + 'static,
@@ -158,9 +174,11 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 	      <<E as Environment<B>>::Proposer as Proposer<B>>::Create: IntoFuture<Item=(B, Vec<bool>)>,
 	      <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
 	      AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
-	      AccountId: Decode + Encode + Clone + Send + Sync + 'static,
+	      AccountId: Decode + Encode + Clone + Default + Send + Sync + 'static,
 	      I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
           <B as Block>::Hash: From<H256> + Ord,
+		  F: ServiceFactory + Send + Sync,
+		  <F as ServiceFactory>::Configuration: Send+ Sync,
 {
 	type Job = DefaultJob<B, AuthorityId>;
 
@@ -168,7 +186,7 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 		let get_data = || {
 			let chain_head = self.client.best_block_header()
 				.map_err(to_common_error)?;
-			let proposer = self.env.init(&chain_head, &vec![])
+			let proposer = self.env.init(&chain_head, &vec![], Some(self.filter_extrinsic.clone()))
 				.map_err(to_common_error)?;
 			let inherent_data = self.inherent_data_providers.create_inherent_data()
 				.map_err(to_common_error)?;
@@ -259,4 +277,77 @@ impl<B, C, E, AccountId, AuthorityId, I> JobManager for DefaultJobManager<B, C, 
 fn timestamp_now() -> Result<u64, consensus_common::Error> {
 	Ok(SystemTime::now().duration_since(UNIX_EPOCH)
 		.map_err(to_common_error)?.as_millis() as u64)
+}
+
+struct FilterExtrinsic<EX, F, AccountId>  where
+	EX: Encode + Decode,
+	AccountId: Encode + Decode + Clone + Default,
+	F: ServiceFactory + Send + Sync,
+	<F as ServiceFactory>::Configuration: Send+ Sync,
+{
+	shard_extra: ShardExtra<AccountId>,
+	foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
+	phantom_data: PhantomData<(EX, AccountId)>,
+}
+
+impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
+	EX: Encode + Decode,
+	AccountId: Encode + Decode + Clone + Default,
+	F: ServiceFactory + Send + Sync,
+	<F as ServiceFactory>::Configuration: Send+ Sync,
+{
+	fn accept(&self, extrinsic: &EX) -> bool {
+		let bs = extrinsic.encode();
+		let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
+		match RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
+			Some(rt) => {
+				let h = rt.hash();
+				let id = generic::BlockId::hash(h);
+				let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
+					Some(v) => v,
+					None => return false
+				};
+				let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
+					.expect("Internal error. Get shard num failed.");
+				if self.foreign_chains.read().is_some() {
+					if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
+						match lc.client().proof(&id) {
+							Ok(Some(proof)) => {
+								let proof = MultiLayerProof::from_bytes(proof.as_slice());
+								if proof.is_err() {
+									return false
+								}
+								let proof = proof.unwrap();
+								if proof.contains(cs, h) {
+									return true
+								} else {
+									return false
+								}
+							}
+							_ => return false
+						}
+					}
+					panic!("Internal error. Can't get shard component");
+				} else {
+					return false;
+				}
+			}
+			None => return true,
+		}
+	}
+}
+
+impl<EX, F, AccountId> FilterExtrinsic<EX, F, AccountId> where
+	EX: Encode + Decode,
+	AccountId: Encode + Decode + Clone + Default,
+	F: ServiceFactory + Send + Sync,
+	<F as ServiceFactory>::Configuration: Send+ Sync,
+{
+	pub fn new(shard_extra: ShardExtra<AccountId>, foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>) -> Self {
+		Self{
+			shard_extra,
+			foreign_chains,
+			phantom_data: PhantomData,
+		}
+	}
 }

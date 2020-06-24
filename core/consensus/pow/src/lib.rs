@@ -83,7 +83,7 @@ pub struct Params<AccountId, B> where
     pub context: Context<B>
 }
 
-pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
+pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
     local_key: Arc<P>,
     client: Arc<C>,
     block_import: Arc<I>,
@@ -93,6 +93,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     inherent_data_providers: InherentDataProviders,
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, P::Public>>>>>>,
     params: Params<AccountId, B>,
+    foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
 ) -> Result<impl Future<Item=(), Error=()>, consensus_common::Error> where
     B: Block,
     P: Pair + 'static,
@@ -108,6 +109,8 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
     OnExit: Future<Item=(), Error=()>,
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     <B as Block>::Hash: From<H256> + Ord,
+    F: ServiceFactory + Send + Sync,
+    <F as ServiceFactory>::Configuration: Send+ Sync,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
@@ -117,6 +120,7 @@ pub fn start_pow<B, P, C, I, E, AccountId, SO, OnExit>(
         block_import.clone(),
         params.shard_extra.clone(),
         params.context.clone(),
+        foreign_chains.clone(),
     ));
 
     let mut reg_lock = job_manager.write();
