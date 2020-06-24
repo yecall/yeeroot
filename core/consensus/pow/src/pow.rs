@@ -303,12 +303,12 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic], exe_res
 
     let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
     for (i, extrinsic) in body.iter().enumerate() {
-        let bytes = extrinsic.encode();
-        let mut bytes = bytes.as_slice();
+        let ex_bytes = extrinsic.encode();
+        let mut bytes = ex_bytes.as_slice();
         if let Some(ex) = Decode::decode(&mut bytes) {
             let ex: UncheckedExtrinsic = ex;
             if ex.signature.is_some() {
-                let hash = Blake2Hasher::hash(&mut bytes);
+                let hash = Blake2Hasher::hash(ex_bytes.as_slice());
                 let to = match ex.function {
                     Call::Balances(BalancesCall::transfer(to, _)) => Some(to.clone()),
                     Call::Assets(AssetsCall::transfer(_, _, to, _)) => Some(to.clone()),
@@ -317,11 +317,8 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic], exe_res
                 to.map(|to| {
                     if let Some(num) = shard_num_for(&to, shard_count) {
                         if num != shard_num && exe_result[i] {
-                            if let Some(list) = extrinsic_shard.get_mut(&num) {
-                                list.push(hash);
-                            } else {
-                                extrinsic_shard.insert(num, vec![hash]);
-                            }
+                            let v = extrinsic_shard.entry(num).or_insert(vec![]);
+                            v.push(hash);
                         }
                     }
                 });

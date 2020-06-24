@@ -49,7 +49,7 @@ use {
         BlockBody,
     },
     yee_sharding_primitives::ShardingAPI,
-    util::relay_decode::RelayTransfer,
+    // util::relay_decode::RelayTransfer,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     pow_primitives::YeePOWApi,
 };
@@ -65,6 +65,7 @@ use log::{warn, error};
 use parking_lot::RwLock;
 use primitives::H256;
 use yee_context::Context;
+use yee_sr_primitives::{RelayParams, OriginExtrinsic};
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -202,32 +203,40 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info)
             .next();
-        let (tc, _cs) = match shard_info {
+        let (tc, cs) = match shard_info {
             Some(info) => info,
             None => { return Err("Can't get shard info in header".to_string()); }
         };
         for tx in exs {
-            match RelayTransfer::decode(tx.encode().as_slice()) {
+            let bs = tx.encode();
+            match RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
                 Some(rt) => {
-                    let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt;
                     let h = rt.hash();
                     let id = generic::BlockId::hash(h);
-                    let ds = yee_sharding_primitives::utils::shard_num_for(&rt.transfer.sender(), tc as u16)
+                    let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
+                        Some(v) => v,
+                        None => {return Err("Decode origin extrinsic failed".to_string());}
+                    };
+                    let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
                         .expect("Internal error. Get shard num failed.");
-                    if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
-                        match lc.client().proof(&id).map_err(|_| err_str)? {
-                            Some(proof) => {
-                                let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
-                                if proof.contains(ds, h) {
-                                    continue;
-                                } else {
-                                    return Err("relay extrinsic not in proof".to_string());
+                    if self.foreign_chains.read().is_some() {
+                        if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
+                            match lc.client().proof(&id).map_err(|_| err_str)? {
+                                Some(proof) => {
+                                    let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
+                                    if proof.contains(cs, h) {
+                                        continue;
+                                    } else {
+                                        return Err("relay extrinsic not in proof".to_string());
+                                    }
                                 }
+                                None => { return Err(err_str.to_string()); }
                             }
-                            None => { return Err(err_str.to_string()); }
                         }
+                        panic!("Internal error. Can't get shard component");
+                    } else {
+                        return Err("get shard component failed".to_string());
                     }
-                    panic!("Internal error. Can't get shard component");
                 }
                 None => continue,
             }

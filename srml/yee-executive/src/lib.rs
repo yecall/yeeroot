@@ -183,7 +183,7 @@ impl<
 								let to = ex.to();
 								if let Some(num) = shard_num_for(&to, shard_count) {
 									if num != cur_shard {
-										let v = extrinsic_shard.entry(num).or_insert(vec![hash]);
+										let v = extrinsic_shard.entry(num).or_insert(vec![]);
 										v.push(hash);
 									}
 								}

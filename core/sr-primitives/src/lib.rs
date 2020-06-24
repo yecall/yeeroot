@@ -297,8 +297,8 @@ impl<AccountId, Balance> OriginExtrinsic<AccountId, Balance> where
         // module
         let module: u8 = input.read_byte()?;
         match module {
-            5u8 => Some(RelayTypes::Balance),
-            9u8 => Some(RelayTypes::Assets),
+            4u8 => Some(RelayTypes::Balance),
+            8u8 => Some(RelayTypes::Assets),
             _ => None,
         }
 
