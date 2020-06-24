@@ -219,8 +219,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
                     };
                     let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
                         .expect("Internal error. Get shard num failed.");
-                    if self.foreign_chains.read().is_some() {
-                        if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
+                    if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
+                        if let Some(lc) = foreign_chains.get_shard_component(fs) {
                             match lc.client().proof(&id).map_err(|_| err_str)? {
                                 Some(proof) => {
                                     let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;

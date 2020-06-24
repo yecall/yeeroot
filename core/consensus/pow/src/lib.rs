@@ -65,7 +65,7 @@ use yee_sharding::{ShardingDigestItem, ScaleOutPhaseDigestItem};
 use yee_srml_pow::RewardCondition;
 use yee_sharding_primitives::ScaleOut;
 use primitives::H256;
-use substrate_service::ServiceFactory;
+use substrate_service::{ServiceFactory, FactoryFullConfiguration};
 use yee_context::Context;
 
 mod job;
@@ -110,7 +110,8 @@ pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
     DigestItemFor<B>: CompatibleDigestItem<B, P::Public> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     <B as Block>::Hash: From<H256> + Ord,
     F: ServiceFactory + Send + Sync,
-    <F as ServiceFactory>::Configuration: Send+ Sync,
+    <F as ServiceFactory>::Configuration: ForeignChainConfig + Send+ Sync,
+    FactoryFullConfiguration<F>: Clone,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),

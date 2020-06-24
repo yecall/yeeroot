@@ -63,8 +63,8 @@ use crate::verifier::check_scale;
 use primitives::H256;
 use ansi_term::Colour;
 use yee_context::Context;
-use substrate_service::ServiceFactory;
-use foreign_chain::ForeignChain;
+use substrate_service::{ServiceFactory, FactoryFullConfiguration};
+use foreign_chain::{ForeignChain, ForeignChainConfig};
 use yee_sr_primitives::{RelayParams, OriginExtrinsic};
 use yee_merkle::MultiLayerProof;
 use yee_runtime::AccountId;
@@ -136,7 +136,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
 	AccountId: Encode + Decode + Clone + Default,
 	I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
 	F: ServiceFactory + Send + Sync,
-	<F as ServiceFactory>::Configuration: Send+ Sync,
+	<F as ServiceFactory>::Configuration: Send + Sync,
 {
 	pub fn new(
 		client: Arc<C>,
@@ -178,7 +178,8 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
 	      I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
           <B as Block>::Hash: From<H256> + Ord,
 		  F: ServiceFactory + Send + Sync,
-		  <F as ServiceFactory>::Configuration: Send+ Sync,
+		  <F as ServiceFactory>::Configuration: ForeignChainConfig + Send+ Sync,
+		  FactoryFullConfiguration<F>: Clone,
 {
 	type Job = DefaultJob<B, AuthorityId>;
 
@@ -294,7 +295,8 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 	EX: Encode + Decode,
 	AccountId: Encode + Decode + Clone + Default,
 	F: ServiceFactory + Send + Sync,
-	<F as ServiceFactory>::Configuration: Send+ Sync,
+	<F as ServiceFactory>::Configuration: ForeignChainConfig + Send+ Sync,
+	FactoryFullConfiguration<F>: Clone,
 {
 	fn accept(&self, extrinsic: &EX) -> bool {
 		let bs = extrinsic.encode();
@@ -309,8 +311,8 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 				};
 				let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
 					.expect("Internal error. Get shard num failed.");
-				if self.foreign_chains.read().is_some() {
-					if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
+				if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
+					if let Some(lc) = foreign_chains.get_shard_component(fs) {
 						match lc.client().proof(&id) {
 							Ok(Some(proof)) => {
 								let proof = MultiLayerProof::from_bytes(proof.as_slice());
