@@ -299,41 +299,38 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 	fn accept(&self, extrinsic: &EX) -> bool {
 		let bs = extrinsic.encode();
 		let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
-		match RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
-			Some(rt) => {
-				let h = rt.hash();
-				let id = generic::BlockId::hash(h);
-				let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
-					Some(v) => v,
-					None => return false
-				};
-				let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
-					.expect("Internal error. Get shard num failed.");
-				if self.foreign_chains.read().is_some() {
-					if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
-						match lc.client().proof(&id) {
-							Ok(Some(proof)) => {
-								let proof = MultiLayerProof::from_bytes(proof.as_slice());
-								if proof.is_err() {
-									return false
-								}
-								let proof = proof.unwrap();
-								if proof.contains(cs, h) {
-									return true
-								} else {
-									return false
-								}
-							}
-							_ => return false
-						}
-					}
-					panic!("Internal error. Can't get shard component");
-				} else {
-					return false;
-				}
-			}
-			None => return true,
+		let r_p = RelayParams::<<F::Block as Block>::Hash>::decode(bs);
+		if r_p.is_none() {
+			return true
 		}
+		let rt = r_p.unwrap();
+		let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()) {
+			Some(v) => v,
+			None => return false
+		};
+		let id = generic::BlockId::hash(rt.hash());
+		let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc)
+			.expect("Internal error. Get shard num failed.");
+		if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(fs) {
+			let proof = lc.client().proof(&id);
+			if proof.is_err() {
+				return false
+			}
+			let proof = proof.unwrap();
+			if proof.is_none() {
+				return false
+			}
+			let proof = proof.unwrap();
+			let proof = MultiLayerProof::from_bytes(proof.as_slice());
+			if proof.is_err() {
+				return false
+			}
+			let proof = proof.unwrap();
+			if proof.contains(cs, h) {
+				return true
+			}
+		}
+		return false
 	}
 }
 
