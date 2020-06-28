@@ -7,10 +7,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", rev = "1e243dee57293246ade03e04cafc8b767f06996b", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 parity-codec = { version = "3.2", default-features = false }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1e243dee57293246ade03e04cafc8b767f06996b", default-features = false }
-merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", rev = "fd8bd7352681126fe4cf2d7f225de96d645bd1e1", default-features = false }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "yee", default-features = false }
 log = { version = "0.4", optional = true }
 
 [features]

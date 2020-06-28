@@ -21,7 +21,7 @@ yee-stop-handler = { package = "yee-stop-handler", path = "util/stop-handler" }
 yee-jsonrpc-types = { package = "yee-jsonrpc-types", path = "util/jsonrpc-types" }
 yee-lru-cache = { package = "yee-lru-cache", path = "util/lru-cache" }
 yee-util = { package = "yee-util", path = "util" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1e243dee57293246ade03e04cafc8b767f06996b" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 tokio = "0.1.7"
 exit-future = "0.1"
 futures = "0.1"
@@ -31,8 +31,8 @@ parity-codec = "3.2"
 chrono = "0.4"
 rust-crypto = "0.2.36"
 yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }
-merkle_light = { git = "https://github.com/yeeco/merkle_light.git", rev = "fd8bd7352681126fe4cf2d7f225de96d645bd1e1" }
+merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
 yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensus/pow" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1e243dee57293246ade03e04cafc8b767f06996b" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 yee-rpc = { package = "yee-rpc", path = "../../rpc" }
 yee-serde-hex = { package = "yee-serde-hex", path = "../../rpc/serde-hex" }
