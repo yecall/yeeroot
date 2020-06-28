@@ -35,6 +35,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahash"
+version = "0.3.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8fd72866655d1904d6b0997d0b07ba561047d070fbe29de039031c641b61217"
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -755,6 +761,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab9b7860757ce258c89fd48d28b68c41713e597a7b09e793f6c6a6e2ea37c827"
+dependencies = [
+ "ahash",
+ "autocfg 1.0.0",
+]
+
+[[package]]
 name = "hashmap_core"
 version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1398,6 +1414,14 @@ name = "memory_units"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d96e3f3c0b6325d8ccd83c33b28acb183edcb6c67938ba104ec546854b0882"
+
+[[package]]
+name = "merkle_light"
+version = "0.3.1"
+source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#0e03c27068f821c65497d22705a96db82f6d3b2e"
+dependencies = [
+ "parity-codec",
+]
 
 [[package]]
 name = "merlin"
@@ -2387,7 +2411,7 @@ checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
 [[package]]
 name = "sr-api-macros"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "blake2-rfc",
  "proc-macro-crate",
@@ -2399,7 +2423,7 @@ dependencies = [
 [[package]]
 name = "sr-io"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "environmental",
  "hash-db",
@@ -2416,7 +2440,7 @@ dependencies = [
 [[package]]
 name = "sr-primitives"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "integer-sqrt",
  "log",
@@ -2431,7 +2455,7 @@ dependencies = [
 [[package]]
 name = "sr-std"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "rustc_version",
 ]
@@ -2439,7 +2463,7 @@ dependencies = [
 [[package]]
 name = "sr-version"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "impl-serde 0.1.1",
  "parity-codec",
@@ -2451,7 +2475,7 @@ dependencies = [
 [[package]]
 name = "srml-consensus"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hex-literal",
  "parity-codec",
@@ -2481,7 +2505,7 @@ dependencies = [
 [[package]]
 name = "srml-indices"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hex-literal",
  "parity-codec",
@@ -2500,7 +2524,7 @@ dependencies = [
 [[package]]
 name = "srml-metadata"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "parity-codec",
  "serde",
@@ -2511,7 +2535,7 @@ dependencies = [
 [[package]]
 name = "srml-session"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hex-literal",
  "parity-codec",
@@ -2529,7 +2553,7 @@ dependencies = [
 [[package]]
 name = "srml-support"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "bitmask",
  "hex-literal",
@@ -2548,7 +2572,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
@@ -2560,7 +2584,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural-tools"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2 0.4.30",
@@ -2572,7 +2596,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural-tools-derive"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "proc-macro2 0.4.30",
  "quote 0.6.13",
@@ -2582,7 +2606,7 @@ dependencies = [
 [[package]]
 name = "srml-system"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hex-literal",
  "parity-codec",
@@ -2598,7 +2622,7 @@ dependencies = [
 [[package]]
 name = "srml-timestamp"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hex-literal",
  "parity-codec",
@@ -2719,7 +2743,7 @@ dependencies = [
 [[package]]
 name = "substrate-client"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "error-chain",
  "fnv",
@@ -2748,7 +2772,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-authorities"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "parity-codec",
  "sr-io",
@@ -2763,7 +2787,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-common"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "crossbeam-channel",
  "error-chain",
@@ -2782,7 +2806,7 @@ dependencies = [
 [[package]]
 name = "substrate-executor"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "byteorder 1.3.2",
  "error-chain",
@@ -2805,7 +2829,7 @@ dependencies = [
 [[package]]
 name = "substrate-inherents"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "parity-codec",
  "parking_lot 0.7.1",
@@ -2816,7 +2840,7 @@ dependencies = [
 [[package]]
 name = "substrate-keyring"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hex-literal",
  "lazy_static",
@@ -2828,7 +2852,7 @@ dependencies = [
 [[package]]
 name = "substrate-offchain-primitives"
 version = "0.1.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "sr-primitives",
  "substrate-client",
@@ -2837,7 +2861,7 @@ dependencies = [
 [[package]]
 name = "substrate-panic-handler"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "backtrace",
  "log",
@@ -2846,7 +2870,7 @@ dependencies = [
 [[package]]
 name = "substrate-primitives"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "base58",
  "blake2-rfc",
@@ -2876,7 +2900,7 @@ dependencies = [
 [[package]]
 name = "substrate-serializer"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "serde",
  "serde_json",
@@ -2885,7 +2909,7 @@ dependencies = [
 [[package]]
 name = "substrate-state-machine"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hash-db",
  "heapsize",
@@ -2903,7 +2927,7 @@ dependencies = [
 [[package]]
 name = "substrate-telemetry"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "lazy_static",
  "log",
@@ -2920,7 +2944,7 @@ dependencies = [
 [[package]]
 name = "substrate-trie"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#5ab1318a586f02a8c77e1ca0b5c81690eec39c6a"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#a4805f95ab5498a47428ca3417a0a31257a39666"
 dependencies = [
  "hash-db",
  "memory-db",
@@ -3018,7 +3042,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1c5676413eaeb1ea35300a0224416f57abc3bd251657e0fafc12c47ff98c060"
 dependencies = [
  "failure",
- "hashbrown",
+ "hashbrown 0.1.8",
  "hmac 0.7.1",
  "once_cell",
  "pbkdf2",
@@ -3623,6 +3647,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "yee-merkle"
+version = "0.4.0"
+dependencies = [
+ "log",
+ "merkle_light",
+ "parity-codec",
+ "sr-primitives",
+ "sr-std",
+]
+
+[[package]]
 name = "yee-runtime"
 version = "1.0.0"
 dependencies = [
@@ -3739,6 +3774,9 @@ dependencies = [
 name = "yee-srml-executive"
 version = "0.4.0"
 dependencies = [
+ "hash-db",
+ "hashbrown 0.8.0",
+ "merkle_light",
  "parity-codec",
  "serde",
  "sr-io",
@@ -3747,6 +3785,7 @@ dependencies = [
  "srml-support",
  "srml-system",
  "substrate-primitives",
+ "yee-merkle",
  "yee-sharding-primitives",
  "yee-sr-primitives",
  "yee-srml-balances",

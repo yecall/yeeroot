@@ -38,7 +38,7 @@ use std::hash::Hasher;
 use merkle_light::hash::Algorithm;
 use merkle_light::proof::Proof;
 use merkle_light::merkle::MerkleTree;
-use yee_runtime::{Call, BalancesCall, UncheckedExtrinsic};
+use yee_runtime::{AccountId, Call, BalancesCall, AssetsCall, UncheckedExtrinsic};
 use yee_sharding_primitives::utils::shard_num_for;
 use primitives::{Blake2Hasher, H256};
 use hash_db::Hasher as BlakeHasher;
@@ -46,6 +46,7 @@ use std::iter::FromIterator;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
 use yee_context::Context;
+use yee_sr_primitives::{RelayTypes, OriginExtrinsic};
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
@@ -119,7 +120,7 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
     DigestFor<B>: Digest,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16>,
 {
-    match seal.work_proof{
+    match seal.work_proof {
         WorkProof::Unknown => Err(format!("invalid work proof")),
         WorkProof::Nonce(ref proof_nonce) => {
             if proof_nonce.extra_data.len() > MAX_EXTRA_DATA_LENGTH {
@@ -127,7 +128,7 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
             }
 
             let mut work_header = header.clone();
-            let seal_owned : PowSeal<B, AuthorityId> = seal.to_owned();
+            let seal_owned: PowSeal<B, AuthorityId> = seal.to_owned();
             let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(seal_owned);
             work_header.digest_mut().push(item);
 
@@ -142,9 +143,8 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
             let post_digest = work_header.digest_mut().pop().expect("must exist");
 
             Ok((post_digest, hash))
-        },
+        }
         WorkProof::Multi(ref proof_multi) => {
-
             let shard_info = header.digest().logs().iter().rev()
                 .filter_map(ShardingDigestItem::as_sharding_info)
                 .next();
@@ -206,7 +206,7 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
 
             //make hash
             let mut work_header = header.clone();
-            let seal_owned : PowSeal<B, AuthorityId> = seal.to_owned();
+            let seal_owned: PowSeal<B, AuthorityId> = seal.to_owned();
             let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(seal_owned);
             work_header.digest_mut().push(item);
 
@@ -225,7 +225,7 @@ fn to_common_error<E: Debug>(e: E) -> consensus_common::Error {
 
 /// calculate pow target
 pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>::Header, timestamp: u64, context: &Context<B>)
-    -> Result<PowTarget, consensus_common::Error> where
+                                          -> Result<PowTarget, consensus_common::Error> where
     B: Block,
     NumberFor<B>: SimpleArithmetic,
     DigestFor<B>: Digest,
@@ -243,7 +243,7 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
     let one = <NumberFor<B> as As<u64>>::sa(1u64);
     // not on adjustment, reuse parent pow target
     if next_num == one {
-        return Ok(genesis_pow_target)
+        return Ok(genesis_pow_target);
     } else if (next_num - one) % adj != Zero::zero() {
         let curr_pow_target = curr_header.digest().logs().iter().rev()
             .filter_map(CompatibleDigestItem::as_pow_seal).next()
@@ -289,7 +289,7 @@ pub fn calc_pow_target<B, C, AuthorityId>(client: Arc<C>, header: &<B as Block>:
 }
 
 /// Gen extrinsic proof for foreign chain.
-pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H256, ExtrinsicProof)
+pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic], exe_result: Vec<bool>) -> (H256, ExtrinsicProof)
     where
         B: Block,
         <<<B as Block>::Header as Header>::Digest as Digest>::Item: yee_sharding::ShardingDigestItem<u16>,
@@ -302,24 +302,26 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
     let (shard_num, shard_count) = (shard_num as u16, shard_count as u16);
 
     let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
-    for extrinsic in body {
-        let bytes = extrinsic.encode();
-        let mut bytes = bytes.as_slice();
+    for (i, extrinsic) in body.iter().enumerate() {
+        let ex_bytes = extrinsic.encode();
+        let mut bytes = ex_bytes.as_slice();
         if let Some(ex) = Decode::decode(&mut bytes) {
             let ex: UncheckedExtrinsic = ex;
             if ex.signature.is_some() {
-                let hash = Blake2Hasher::hash(&mut bytes);
-                if let Call::Balances(BalancesCall::transfer(to, _)) = ex.function {
+                let hash = Blake2Hasher::hash(ex_bytes.as_slice());
+                let to = match ex.function {
+                    Call::Balances(BalancesCall::transfer(to, _)) => Some(to.clone()),
+                    Call::Assets(AssetsCall::transfer(_, _, to, _)) => Some(to.clone()),
+                    _ => None
+                };
+                to.map(|to| {
                     if let Some(num) = shard_num_for(&to, shard_count) {
-                        if num != shard_num {
-                            if let Some(list) = extrinsic_shard.get_mut(&num) {
-                                list.push(hash);
-                            } else {
-                                extrinsic_shard.insert(num, vec![hash]);
-                            }
+                        if num != shard_num && exe_result[i] {
+                            let v = extrinsic_shard.entry(num).or_insert(vec![]);
+                            v.push(hash);
                         }
                     }
-                }
+                });
             }
         }
     }
@@ -327,7 +329,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
     let mut layer1_merkles = Vec::new();
     let mut layer2_leaves = vec![];
     for i in 0..shard_count {
-        if extrinsic_shard.contains_key(&i){
+        if extrinsic_shard.contains_key(&i) {
             let exs = extrinsic_shard.get(&i).unwrap();
             let tree = MerkleTree::from_iter((*exs).clone());
             layer2_leaves.push(tree.root());
@@ -340,7 +342,7 @@ pub fn gen_extrinsic_proof<B>(header: &B::Header, body: &[B::Extrinsic]) -> (H25
     }
     let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
     let layer2_root = layer2_tree.root();
-    let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles, );
+    let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles);
     debug!("{} height:{}, proof: {:?}", Colour::White.bold().paint("Gen proof"), header.number(), &multi_proof);
     (layer2_root, multi_proof.into_bytes())
 }
@@ -413,7 +415,7 @@ pub struct CompactMerkleProof<H: HashT> {
 }
 
 impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H> where H::Output: Encode + Decode {
-    fn from(omp: OriginalMerkleProof<H>) -> Self{
+    fn from(omp: OriginalMerkleProof<H>) -> Self {
         let lemma = omp.proof.lemma();
         let len = lemma.len();
 
@@ -422,7 +424,7 @@ impl<H: HashT> From<OriginalMerkleProof<H>> for CompactMerkleProof<H> where H::O
 
         //exclude first(leaf to proof) and last(root)
         let mut proof = Vec::new();
-        for i in 1..(len-1){
+        for i in 1..(len - 1) {
             let node = lemma[i];
             proof.push(node)
         }
@@ -443,7 +445,7 @@ fn parse_original<H>(cmp: CompactMerkleProof<H>) -> Result<OriginalMerkleProof<H
 {
     let num = cmp.num;
     let count = cmp.count;
-    if num >= count{
+    if num >= count {
         return Err(format!("Invalid num: {}", num));
     }
 
@@ -466,13 +468,13 @@ fn parse_original<H>(cmp: CompactMerkleProof<H>) -> Result<OriginalMerkleProof<H
 
     let mut path = Vec::new();
     let mut tmp_num = num;
-    for _ in 0..height{
-        let path_item = tmp_num % 2 == 0 ;
+    for _ in 0..height {
+        let path_item = tmp_num % 2 == 0;
         path.push(path_item);
         tmp_num = tmp_num / 2;
     }
 
-    Ok(OriginalMerkleProof{
+    Ok(OriginalMerkleProof {
         proof: Proof::new(lemma, path),
         num: num,
         count: count,
@@ -489,7 +491,7 @@ fn log2(n: u16) -> u16 {
     i - 1
 }
 
-fn pow2(n: u16) -> u16{
+fn pow2(n: u16) -> u16 {
     1u16 << n
 }
 
@@ -594,18 +596,18 @@ mod tests {
 
         let proof = t.gen_proof(1);
 
-        let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+        let ori_proof = OriginalMerkleProof::<BlakeTwo256> {
             proof,
             num: 1,
             count: 4,
         };
 
-        let compact_proof : CompactMerkleProof<BlakeTwo256> = ori_proof.into();
+        let compact_proof: CompactMerkleProof<BlakeTwo256> = ori_proof.into();
 
         let mut proof = Vec::new();
         proof.push(shard0_header_hash);
         proof.push(hash11);
-        let compact_proof2 = CompactMerkleProof::<BlakeTwo256>{
+        let compact_proof2 = CompactMerkleProof::<BlakeTwo256> {
             proof: proof,
             item: shard1_header_hash,
             root: root,
@@ -639,7 +641,7 @@ mod tests {
         //1
         let proof = t.gen_proof(1);
 
-        let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+        let ori_proof = OriginalMerkleProof::<BlakeTwo256> {
             proof,
             num: 1,
             count: 4,
@@ -648,7 +650,7 @@ mod tests {
         let mut proof = Vec::new();
         proof.push(shard0_header_hash);
         proof.push(hash11);
-        let compact_proof = CompactMerkleProof::<BlakeTwo256>{
+        let compact_proof = CompactMerkleProof::<BlakeTwo256> {
             proof: proof,
             item: shard1_header_hash,
             root: root,
@@ -662,7 +664,7 @@ mod tests {
         //2
         let proof = t.gen_proof(2);
 
-        let ori_proof = OriginalMerkleProof::<BlakeTwo256>{
+        let ori_proof = OriginalMerkleProof::<BlakeTwo256> {
             proof,
             num: 2,
             count: 4,
@@ -671,7 +673,7 @@ mod tests {
         let mut proof = Vec::new();
         proof.push(shard3_header_hash);
         proof.push(hash10);
-        let compact_proof = CompactMerkleProof::<BlakeTwo256>{
+        let compact_proof = CompactMerkleProof::<BlakeTwo256> {
             proof: proof,
             item: shard2_header_hash,
             root: root,
@@ -681,6 +683,5 @@ mod tests {
         let ori_proof2 = parse_original(compact_proof).expect("qed");
 
         assert_eq!(ori_proof, ori_proof2);
-
     }
 }

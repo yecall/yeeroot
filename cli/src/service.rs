@@ -249,7 +249,10 @@ construct_service_factory! {
                     foreign_network_wrapper,
                     executor.clone(),
                 )?;
-                service.config.custom.foreign_chains = Arc::new(RwLock::new(Some(foreign_chain)));
+                {
+                    let mut config_foreign_chains = service.config.custom.foreign_chains.write();
+                    *config_foreign_chains = Some(foreign_chain);
+                }
                 service.config.custom.recommit_relay_sender = Arc::new(Some(sender));
 
                 // relay
@@ -326,7 +329,7 @@ construct_service_factory! {
                         context: service.config.custom.context.clone().expect("qed"),
                     };
 
-                    executor.spawn(start_pow::<Self::Block, _, _, _, _, _, _, _>(
+                    executor.spawn(start_pow::<Self, Self::Block, _, _, _, _, _, _, _>(
                         key.clone(),
                         client.clone(),
                         block_import.clone(),
@@ -336,6 +339,7 @@ construct_service_factory! {
                         service.config.custom.inherent_data_providers.clone(),
                         service.config.custom.job_manager.clone(),
                         params,
+                        service.config.custom.foreign_chains.clone(),
                     )?);
                 }
 

@@ -28,6 +28,7 @@ yee-merkle = { path = "../../util/merkle" }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 yee-context = { package = "yee-context", path = "../../context" }
+yee-sr-primitives = { package = "yee-sr-primitives", path = "../../sr-primitives", default-features = false }
 util = { package = "util", path = "../../util" }
 hash-db = "0.12"
 ansi_term = "0.11"

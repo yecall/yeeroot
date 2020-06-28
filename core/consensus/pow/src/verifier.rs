@@ -49,7 +49,7 @@ use {
         BlockBody,
     },
     yee_sharding_primitives::ShardingAPI,
-    util::relay_decode::RelayTransfer,
+    // util::relay_decode::RelayTransfer,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     pow_primitives::YeePOWApi,
 };
@@ -65,6 +65,7 @@ use log::{warn, error};
 use parking_lot::RwLock;
 use primitives::H256;
 use yee_context::Context;
+use yee_sr_primitives::{RelayParams, OriginExtrinsic};
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -114,27 +115,24 @@ impl<F, C, AccountId, AuthorityId> Verifier<F::Block> for PowVerifier<F, C, Acco
             error!("{}: {}", Colour::Red.paint("get proof root failed"), e);
             e
         })?.relay_proof;
-        // check proof.
+        // check proof with header's proof_root
         self.check_relay_merkle_proof(proof.clone(), proof_root)
             .map_err(|e| {
                 error!("{}, number:{}, hash:{}", Colour::Red.paint("Proof validate failed"), number, hash.clone());
                 e
             })?;
 
-        let mut res_proof = proof;
+        // let mut res_proof = proof;
         // check body if not none
-        match self.check_body(&body, &pre_header, proof_root).map_err(|e| {
+        self.check_body(&body, &pre_header, proof_root).map_err(|e| {
             error!("{}: {}", Colour::Red.paint("check body failed"), e);
             e
-        })? {
-            Some(p) => res_proof = Some(p),
-            None => {}
-        }
+        })?;
         let import_block = ImportBlock {
             origin,
             header: pre_header,
             justification,
-            proof: res_proof,
+            proof,
             post_digests: vec![seal],
             body,
             finalized: false,
@@ -160,21 +158,15 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis>: Clone,
 {
     /// check body
-    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<Option<Proof>, String> {
+    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<(), String> {
         match body.as_ref() {
             Some(exs) => {
-                // check proof root
-                let (root, proof) = gen_extrinsic_proof::<F::Block>(&pre_header, &exs);
-                if root != proof_root {
-                    return Err("Proof is invalid.".to_string());
-                }
                 // check relay extrinsic.
                 self.check_relay_transfer(pre_header.digest().logs(), exs)?;
-                return Ok(Some(proof));
             }
             None => {}
         }
-        Ok(None)
+        Ok(())
     }
 
     /// check relay transfer merkle proof
@@ -211,32 +203,34 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info)
             .next();
-        let (tc, _cs) = match shard_info {
+        let (tc, cs) = match shard_info {
             Some(info) => info,
             None => { return Err("Can't get shard info in header".to_string()); }
         };
         for tx in exs {
-            match RelayTransfer::decode(tx.encode().as_slice()) {
-                Some(rt) => {
-                    let rt: RelayTransfer<AccountId, u128, <F::Block as Block>::Hash> = rt;
-                    let h = rt.hash();
-                    let id = generic::BlockId::hash(h);
-                    let ds = yee_sharding_primitives::utils::shard_num_for(&rt.transfer.sender(), tc as u16)
-                        .expect("Internal error. Get shard num failed.");
-                    if let Some(lc) = self.foreign_chains.read().as_ref().unwrap().get_shard_component(ds) {
-                        match lc.client().proof(&id).map_err(|_| err_str)? {
-                            Some(proof) => {
-                                let proof = MultiLayerProof::from_bytes(proof.as_slice()).map_err(|_| err_str)?;
-                                if proof.contains(ds, h) {
+            let bs = tx.encode();
+            let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
+            if let Some(rt) = RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
+                let hash = rt.hash();
+                let id = generic::BlockId::hash(rt.block_hash());
+                let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
+                    Some(v) => v,
+                    None => return Err("Decode origin extrinsic failed".to_string())
+                };
+                let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
+                    .expect("Internal error. Get shard num failed.");
+                if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
+                    if let Some(lc) = foreign_chains.get_shard_component(fs) {
+                        if let Ok(Some(proof)) = lc.client().proof(&id) {
+                            if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
+                                if proof.contains(cs, hash) {
                                     continue;
                                 }
                             }
-                            None => { return Err(err_str.to_string()); }
                         }
                     }
-                    panic!("Internal error. Can't get shard component");
                 }
-                None => continue,
+                return Err("relay extrinsic not in proof".to_string())
             }
         }
         Ok(())

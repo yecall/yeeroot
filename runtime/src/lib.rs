@@ -34,7 +34,9 @@ pub use {
 pub use runtime_primitives::BuildStorage;
 pub use consensus::Call as ConsensusCall;
 pub use timestamp::Call as TimestampCall;
+pub use relay::Call as RelayCall;
 pub use balances::Call as BalancesCall;
+pub use assets::Call as AssetsCall;
 pub use runtime_primitives::{Permill, Perbill};
 pub use timestamp::BlockPeriod;
 pub use support::{StorageValue, construct_runtime};
@@ -287,8 +289,8 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block) {
-			Executive::execute_block(block)
+		fn execute_block(block: Block, extra: Option<Vec<u8>>) {
+			Executive::execute_block(block, extra)
 		}
 
 		fn initialize_block(header: &<Block as BlockT>::Header) {

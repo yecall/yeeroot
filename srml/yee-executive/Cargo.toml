@@ -18,6 +18,10 @@ yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../c
 substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 relay = { package = "yee-srml-relay", path = "../yee-relay", default-features = false }
 yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
+hash-db = { version = "0.12", default-features = false }
+merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee", default-features = false }
+yee-merkle = { path = "../../core/util/merkle", default-features = false }
+hashbrown = "0.8.0"
 
 [dev-dependencies]
 hex-literal = "0.1.0"
@@ -37,5 +41,7 @@ std = [
 	"runtime_io/std",
 	"system/std",
 	"relay/std",
-	"yee-sr-primitives/std"
+	"yee-sr-primitives/std",
+	"merkle_light/std",
+	"yee-merkle/std",
 ]

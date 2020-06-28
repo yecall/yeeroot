@@ -31,3 +31,5 @@ util = { package = "util", path = "../../core/util" }
 finality-tracker = { package = "finality-tracker", path = "../../core/finality-tracker" }
 ansi_term = "0.11"
 yee-primitives = { path = "../../core/primitives" }
+yee-merkle = { path = "../../core/util/merkle" }
+hash-db = "0.12.4"
