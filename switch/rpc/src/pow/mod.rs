@@ -8,7 +8,7 @@ use serde::de::DeserializeOwned;
 use parity_codec::{KeyedVec, Codec, Decode, Encode, Input, Compact};
 use sr_io::blake2_256;
 use num_bigint::BigUint;
-use yee_runtime::AccountId;
+use yee_runtime::{AccountId, BlockNumber};
 use yee_sharding_primitives::utils::shard_num_for_bytes;
 use crate::errors;
 use jsonrpc_core::{BoxFuture, Error, ErrorCode};
@@ -31,6 +31,7 @@ use tokio::runtime::{Runtime, TaskExecutor};
 use std::time::{Instant, Duration};
 use log::{info, debug};
 use std::ptr::read_unaligned;
+use parity_codec::alloc::collections::HashMap;
 
 #[rpc]
 pub trait PowApi<Hash> {
@@ -46,6 +47,8 @@ pub struct Job<Hash> {
     pub merkle_root: Hash,
     pub extra_data: Vec<u8>,
     pub target: PowTarget,
+    pub shard_count: u16,
+    pub shard_block_number: HashMap<u16, BlockNumber>,
 }
 
 #[derive(Default, Debug)]
@@ -75,7 +78,7 @@ impl<WM: WorkManager> Pow<WM> where
 }
 
 impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
-    WM: WorkManager + Send + Sync + 'static,
+    WM: WorkManager<Number=BlockNumber> + Send + Sync + 'static,
     <WM::Hashing as HashT>::Output: Decode + Encode,
 {
     fn get_work(&self) -> errors::Result<Job<<WM::Hashing as HashT>::Output>> {
@@ -87,7 +90,15 @@ impl<WM> PowApi<<WM::Hashing as HashT>::Output> for Pow<WM> where
             debug!("work exist {:?}", work);
         }
 
-        Ok(Job { merkle_root: work.merkle_root, extra_data: work.extra_data, target: work.target })
+        let job = Job {
+            merkle_root: work.merkle_root,
+            extra_data: work.extra_data,
+            target: work.target,
+            shard_count: work.shard_count,
+            shard_block_number: work.shard_block_number,
+        };
+
+        Ok(job)
     }
 
     fn submit_work(&self, data: String) -> BoxFuture<()> {

@@ -56,7 +56,7 @@ impl<WM> Worker<WM> where
 
 		let _thread = thread::Builder::new().name("miner".to_string()).spawn(move || {
 
-			let mut old_work : Option<Work<<WM::Hashing as HashT>::Output>> = None;
+			let mut old_work : Option<Work<<WM::Hashing as HashT>::Output, WM::Number>> = None;
 			let mut old_nonce_start = 0u64;
 
 			loop {

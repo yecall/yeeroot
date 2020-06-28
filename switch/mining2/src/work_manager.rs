@@ -49,6 +49,7 @@ use crate::error;
 use log::{info, debug};
 use futures::future;
 use jsonrpc_core::BoxFuture;
+use yee_runtime::BlockNumber;
 
 const EXTRA_DATA: &str = "yee-switch";
 const RAW_WORK_LIFE: Duration = Duration::from_secs(60);
@@ -56,15 +57,16 @@ const REFRESH_JOB_DELAY: Duration = Duration::from_secs(2);
 
 pub trait WorkManager {
 	type Hashing: HashT;
+	type Number: Debug + Clone;
 
 	// notice that work may not refresh
-	fn get_work(&self) -> error::Result<Work<<Self::Hashing as HashT>::Output>>;
+	fn get_work(&self) -> error::Result<Work<<Self::Hashing as HashT>::Output, Self::Number>>;
 
-	fn get_work_by_merkle(&self, root: <Self::Hashing as HashT>::Output) -> error::Result<Work<<Self::Hashing as HashT>::Output>>;
+	fn get_work_by_merkle(&self, root: <Self::Hashing as HashT>::Output) -> error::Result<Work<<Self::Hashing as HashT>::Output, Self::Number>>;
 
-	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output>) -> error::Result<()>;
+	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output, Self::Number>) -> error::Result<()>;
 
-	fn submit_work_future(&self, work: Work<<Self::Hashing as HashT>::Output>) -> Box<dyn Future<Item=(), Error=error::Error> + Send>;
+	fn submit_work_future(&self, work: Work<<Self::Hashing as HashT>::Output, Self::Number>) -> Box<dyn Future<Item=(), Error=error::Error> + Send>;
 }
 
 impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, AuthorityId, Hashing> where
@@ -74,8 +76,9 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 	Hashing::Output: Ord + Encode + Decode,
 {
 	type Hashing = Hashing;
+	type Number = Number;
 
-	fn get_work(&self) -> error::Result<Work<<Self::Hashing as HashT>::Output>> {
+	fn get_work(&self) -> error::Result<Work<<Self::Hashing as HashT>::Output, Self::Number>> {
 		let jobs = &*self.jobs.read();
 
 		debug!("jobs: {:?}", jobs);
@@ -145,7 +148,7 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 		Ok(raw_work.work.expect("qed"))
 	}
 
-	fn get_work_by_merkle(&self, root: <Self::Hashing as HashT>::Output) -> error::Result<Work<<Self::Hashing as HashT>::Output>> {
+	fn get_work_by_merkle(&self, root: <Self::Hashing as HashT>::Output) -> error::Result<Work<<Self::Hashing as HashT>::Output, Self::Number>> {
 		let raw_work = Self::get_cache(self.work_cache.clone(), &root).ok_or(error::Error::from(error::ErrorKind::WorkExpired))?;
 		match raw_work.work {
 			Some(work) => Ok(work),
@@ -153,27 +156,30 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 		}
 	}
 
-	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output>) -> error::Result<()> {
+	fn submit_work(&self, work: Work<<Self::Hashing as HashT>::Output, Self::Number>) -> error::Result<()> {
 		self.accept_work(work)
 	}
 
-	fn submit_work_future(&self, work: Work<<Self::Hashing as HashT>::Output>) -> Box<dyn Future<Item=(), Error=error::Error> + Send> {
+	fn submit_work_future(&self, work: Work<<Self::Hashing as HashT>::Output, Self::Number>) -> Box<dyn Future<Item=(), Error=error::Error> + Send> {
 		self.accept_work_future(work)
 	}
 }
 
 #[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone)]
-pub struct Work<Hash> {
+pub struct Work<Hash, Number> {
 	pub merkle_root: Hash,
 	pub extra_data: Vec<u8>,
 	pub target: PowTarget,
+	pub shard_count: u16,
+	pub shard_block_number: HashMap<u16, Number>,
 	pub nonce: Option<u64>,
 	pub nonce_target: Option<PowTarget>,
 }
 
 #[derive(Debug, Clone)]
-pub struct RawWork<Number: SerdeHex, AuthorityId, Hashing> where
+pub struct RawWork<Number, AuthorityId, Hashing> where
+	Number: SerdeHex,
 	Hashing: HashT,
 	Hashing::Output: Ord + Encode + Decode,
 {
@@ -188,11 +194,12 @@ pub struct RawWork<Number: SerdeHex, AuthorityId, Hashing> where
 	merkle_tree: Option<MerkleTree<MiningHash<Hashing>, MiningAlgorithm<Hashing>>>,
 
 	// pow work
-	work: Option<Work<Hashing::Output>>,
+	work: Option<Work<Hashing::Output, Number>>,
 
 }
 
-impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashing> where
+impl<Number, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashing> where
+	Number: SerdeHex + Clone,
 	Hashing: HashT,
 	Hashing::Output: Ord + Encode + Decode,
 {
@@ -213,6 +220,12 @@ impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashin
 
 		let max_target = item_and_target_list.iter().map(|(_, target)| target).max().expect("qed").clone();
 
+		let shard_count = self.shard_count;
+
+		let shard_block_number = self.shard_jobs.iter().map(|(k,(_, v))| {
+			(*k, v.header.number.clone())
+		}).collect::<HashMap<_, _>>();
+
 		let merkle_tree: MerkleTree<MiningHash<Hashing>, MiningAlgorithm<Hashing>> =
 			MerkleTree::from_iter(item_list);
 
@@ -220,6 +233,8 @@ impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashin
 			merkle_root: merkle_tree.root(),
 			extra_data: EXTRA_DATA.as_bytes().to_vec(),
 			target: max_target,
+			shard_count,
+			shard_block_number,
 			nonce: None,
 			nonce_target: None,
 		};
@@ -229,7 +244,8 @@ impl<Number: SerdeHex, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashin
 	}
 }
 
-pub struct DefaultWorkManager<Number: SerdeHex, AuthorityId, Hashing> where
+pub struct DefaultWorkManager<Number, AuthorityId, Hashing> where
+	Number: SerdeHex + Clone,
 	Hashing: HashT,
 	Hashing::Output: Ord + Encode + Decode,
 {
@@ -292,7 +308,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		Ok(())
 	}
 
-	fn accept_work(&self, work: Work<Hashing::Output>) -> error::Result<()> {
+	fn accept_work(&self, work: Work<Hashing::Output, Number>) -> error::Result<()> {
 		let nonce = work.nonce.expect("qed");
 		let nonce_target = work.nonce_target.expect("qed");
 		let target = work.target.clone();
@@ -381,7 +397,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		Ok(())
 	}
 
-	fn accept_work_future(&self, work: Work<Hashing::Output>) -> Box<dyn Future<Item=(), Error=error::Error> + Send> {
+	fn accept_work_future(&self, work: Work<Hashing::Output, Number>) -> Box<dyn Future<Item=(), Error=error::Error> + Send> {
 		let nonce = work.nonce.expect("qed");
 		let nonce_target = work.nonce_target.expect("qed");
 
