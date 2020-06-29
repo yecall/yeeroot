@@ -43,6 +43,7 @@ use primitives::traits::CurrentHeight;
 use substrate_primitives::ed25519;
 use primitives::traits::MaybeSerializeDebug;
 use ed25519::Public as AuthorityId;
+use system::ensure_inherent;
 
 use inherents::{
 	RuntimeString, InherentIdentifier, ProvideInherent,
@@ -220,7 +221,8 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		fn deposit_event<T>() = default;
 
-        fn update_authorities(_origin, info: <T as Trait>::SessionKey) {
+        fn update_authorities(origin, info: <T as Trait>::SessionKey) {
+        	ensure_inherent(origin)?;
 			Self::reset_authorities(info);
         }
 
