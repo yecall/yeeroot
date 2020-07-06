@@ -223,7 +223,11 @@ decl_module! {
 
         fn update_authorities(origin, info: <T as Trait>::SessionKey) {
         	ensure_inherent(origin)?;
-			Self::reset_authorities(info);
+			Self::update_authorities_inner(info);
+        }
+
+        fn force_update_authorities(authorities: Vec<(T::SessionKey, u64)>, median: T::BlockNumber) {
+			Self::force_update_authorities_inner(authorities, median);
         }
 
 		fn on_finalize(block_number: T::BlockNumber) {
@@ -243,7 +247,7 @@ impl<T: Trait> Module<T> {
 		<system::Module<T>>::deposit_log(<T as Trait>::Log::from(log).into());
 	}
 
-	fn reset_authorities(info: <T as Trait>::SessionKey){
+	fn update_authorities_inner(info: <T as Trait>::SessionKey){
 		use primitives::traits::{As};
 
 		let mut authorities = <Module<T>>::crfg_authorities();
@@ -259,6 +263,20 @@ impl<T: Trait> Module<T> {
 			next_authorities: authorities,
 			forced: None,
 		});
+	}
+
+	fn force_update_authorities_inner(
+		authorities: Vec<(T::SessionKey, u64)>,
+		median: T::BlockNumber,
+	){
+		use primitives::traits::{As};
+
+		let delay = T::BlockNumber::sa(0);
+		Self::deposit_log(RawLog::ForcedAuthoritiesChangeSignal(
+			median,
+			delay,
+			authorities,
+		));
 	}
 
 	fn finalize(block_number: T::BlockNumber) {

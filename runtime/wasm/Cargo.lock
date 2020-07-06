@@ -3688,6 +3688,7 @@ dependencies = [
  "yee-srml-relay",
  "yee-srml-sharding",
  "yee-srml-storage",
+ "yee-srml-sudo",
 ]
 
 [[package]]
@@ -3845,6 +3846,21 @@ dependencies = [
  "srml-support",
  "srml-system",
  "yee-sr-primitives",
+]
+
+[[package]]
+name = "yee-srml-sudo"
+version = "1.0.0"
+dependencies = [
+ "hex-literal",
+ "parity-codec",
+ "parity-codec-derive",
+ "serde",
+ "sr-primitives",
+ "sr-std",
+ "srml-support",
+ "srml-support-procedural",
+ "srml-system",
 ]
 
 [[package]]

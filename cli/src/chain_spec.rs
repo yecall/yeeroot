@@ -14,7 +14,7 @@ use yee_runtime::{
 	AccountId, GenesisConfig, ConsensusConfig, TimestampConfig, BalancesConfig,
 	IndicesConfig, CrfgConfig,
     PowConfig, ShardingConfig,
-	AssetsConfig,
+	AssetsConfig, SudoConfig,
 };
 use substrate_service;
 use yee_primitives::{Address, AddressCodec};
@@ -202,6 +202,9 @@ fn testnet_template_genesis(
         }),
 		crfg: Some(CrfgConfig {
 			authorities: vec![],
+		}),
+		sudo: Some(SudoConfig {
+			key: endowed_accounts[0].clone(),
 		}),
 	}
 }
