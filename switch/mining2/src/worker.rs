@@ -85,7 +85,7 @@ impl<WM> Worker<WM> where
 						for nonce in nonce_start..nonce_end{
 
 							//test hash
-							let source = (work.merkle_root.clone(), work.extra_data.clone(), nonce);
+							let source = (work.merkle_root.clone(), nonce, work.extra_data.clone());
 							let source_hash = WM::Hashing::hash_of(&source);
 							let source_pow_target = PowTarget::from(source_hash.as_ref());
 							if &source_pow_target <= &work.target {
