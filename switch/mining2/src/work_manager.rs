@@ -39,7 +39,7 @@ use tokio::runtime::Runtime;
 use std::thread;
 use parity_codec::{Decode, Encode};
 use yee_sharding::{GENERATED_MODULE_LOG_PREFIX, GENERATED_SHARDING_PREFIX};
-use yee_consensus_pow_primitives::PowTarget;
+use yee_consensus_pow_primitives::{PowTarget, ExtraData};
 use yee_consensus_pow::{MiningHash, MiningAlgorithm, OriginalMerkleProof, CompactMerkleProof};
 use merkle_light::merkle::MerkleTree;
 use runtime_primitives::traits::Hash as HashT;
@@ -52,7 +52,7 @@ use jsonrpc_core::BoxFuture;
 use yee_runtime::BlockNumber;
 use futures::future::{Loop, Either};
 
-const EXTRA_DATA: &str = "yee-switch";
+// const EXTRA_DATA: &str = "yee-switch";
 const RAW_WORK_LIFE: Duration = Duration::from_secs(60);
 const REFRESH_JOB_DELAY: Duration = Duration::from_millis(500);
 const REFRESH_MAX_TRY_TIMES: usize = 40;
@@ -172,7 +172,7 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 #[derive(Debug, Clone)]
 pub struct Work<Hash, Number> {
 	pub merkle_root: Hash,
-	pub extra_data: Vec<u8>,
+	pub extra_data: ExtraData,
 	pub target: PowTarget,
 	pub shard_count: u16,
 	pub shard_block_number: HashMap<u16, Number>,
@@ -234,7 +234,7 @@ impl<Number, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashing> where
 
 		let work = Work {
 			merkle_root: merkle_tree.root(),
-			extra_data: EXTRA_DATA.as_bytes().to_vec(),
+			extra_data: Default::default(),
 			target: max_target,
 			shard_count,
 			shard_block_number,

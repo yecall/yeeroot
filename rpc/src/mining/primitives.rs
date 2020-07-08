@@ -17,7 +17,7 @@
 
 use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
                         WorkProof as DefaultWorkProof, ProofNonce as DefaultProofNonce, ProofMulti as DefaultProofMulti};
-use yee_consensus_pow_primitives::PowTarget;
+use yee_consensus_pow_primitives::{PowTarget, ExtraData};
 use runtime_primitives::traits::{Block as BlockT, Header as HeaderT, Digest as DigestT, ProvideRuntimeApi};
 use parity_codec::{Decode, Encode};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
@@ -88,7 +88,7 @@ pub struct ProofNonce {
 #[derive(Clone, Serialize, Deserialize, Debug, PartialEq)]
 pub struct ProofMulti<Hash> {
     #[serde(with = "SerdeHex")]
-    pub extra_data: Vec<u8>,
+    pub extra_data: ExtraData,
     pub merkle_root: Hash,
     #[serde(with = "SerdeHex")]
     pub nonce: u64,

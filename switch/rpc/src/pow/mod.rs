@@ -25,7 +25,7 @@ use runtime_primitives::traits::{BlakeTwo256, Hash as HashT};
 use std::sync::Arc;
 use yee_serde_hex::SerdeHex;
 use parking_lot::RwLock;
-use yee_consensus_pow_primitives::PowTarget;
+use yee_consensus_pow_primitives::{PowTarget, ExtraData};
 use tokio::timer::Interval;
 use tokio::runtime::{Runtime, TaskExecutor};
 use std::time::{Instant, Duration};
@@ -45,7 +45,7 @@ pub trait PowApi<Hash> {
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct Job<Hash> {
     pub merkle_root: Hash,
-    pub extra_data: Vec<u8>,
+    pub extra_data: ExtraData,
     pub target: PowTarget,
     pub shard_count: u16,
     pub shard_block_number: HashMap<u16, BlockNumber>,
@@ -54,7 +54,7 @@ pub struct Job<Hash> {
 #[derive(Default, Debug)]
 struct SubmitJob<Hash> {
     merkle_root: Hash,
-    extra_data: Vec<u8>,
+    extra_data: ExtraData,
     nonce: u64,
     nonce_target: U256,
 }
@@ -144,10 +144,7 @@ impl<WM> Pow<WM> where
             Some(r) => r,
             None => return None
         };
-
-        let extra_data = bytes[33..72].to_vec();
-
-        let nonce = &bytes[72..80];
+        let nonce = &bytes[32..40];
         let mut buf = [0u8; 8];
         for i in 0..8 {
             buf[i] = nonce[7 - i];
@@ -157,7 +154,11 @@ impl<WM> Pow<WM> where
             Err(_e) => return None
         };
 
-        let source = (merkle_root.clone(), extra_data.clone(), nonce);
+        let mut extra_data = [0u8; 40];
+        extra_data.copy_from_slice(&bytes[40..80]);
+        let extra_data = ExtraData::from(extra_data);
+
+        let source = (merkle_root.clone(), nonce, extra_data.clone());
         let buf = source.encode();
         debug!("submit work,data: {:?}", hex::encode(buf));
         let source_hash = WM::Hashing::hash_of(&source);

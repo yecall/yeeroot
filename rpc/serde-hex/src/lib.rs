@@ -18,6 +18,7 @@
 use std::{error, io};
 use serde::{Serializer, Deserializer, Serialize, Deserialize};
 use num_bigint::BigUint;
+use pow_primitives::ExtraData;
 
 pub trait SerdeHex: Sized {
     const DEFAULT_UINT_SIZE: usize = 0;
@@ -192,6 +193,24 @@ impl SerdeHex for BigUint {
 
     fn from_bytes(src: &[u8]) -> Result<Self, Self::Error> {
         Ok(BigUint::from_bytes_be(src))
+    }
+}
+
+impl SerdeHex for ExtraData {
+    type Error = io::Error;
+
+    fn uint_size() -> Option<usize> {
+        None
+    }
+
+    fn into_bytes(&self) -> Result<Vec<u8>, Self::Error> {
+        Ok(self.to_vec())
+    }
+
+    fn from_bytes(src: &[u8]) -> Result<Self, Self::Error> {
+        let mut v = [0u8; 40];
+        v.copy_from_slice(src);
+        Ok(ExtraData::from(v))
     }
 }
 

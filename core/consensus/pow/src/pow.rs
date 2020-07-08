@@ -29,7 +29,7 @@ use runtime_primitives::{
     Proof as ExtrinsicProof,
 };
 use client::blockchain::HeaderBackend;
-use pow_primitives::{PowTarget};
+use pow_primitives::{PowTarget, ExtraData};
 use crate::CompatibleDigestItem;
 use yee_sharding::ShardingDigestItem;
 use log::{debug, info};
@@ -102,7 +102,7 @@ impl ProofNonce {
 #[derive(Decode, Encode)]
 pub struct ProofMulti<B: Block> {
     /// Extra Data used to encode miner info AND more entropy
-    pub extra_data: Vec<u8>,
+    pub extra_data: ExtraData,
     /// merkle root of multi-mining headers
     pub merkle_root: B::Hash,
     /// POW block nonce
@@ -196,7 +196,7 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
             }
 
             //diff validate
-            let source = (proof_multi.merkle_root.clone(), proof_multi.extra_data.clone(), proof_multi.nonce);
+            let source = (proof_multi.merkle_root.clone(), proof_multi.nonce, proof_multi.extra_data.clone());
             let source_hash = <B::Header as Header>::Hashing::hash_of(&source);
             let source_pow_target = PowTarget::from(source_hash.as_ref());
 
