@@ -15,9 +15,9 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use yee_consensus_pow::{JobManager, DefaultJob, PowSeal,
+use yee_consensus_pow::{JobManager, DefaultJob, PowSeal, ExtraData,
                         WorkProof as DefaultWorkProof, ProofNonce as DefaultProofNonce, ProofMulti as DefaultProofMulti};
-use yee_consensus_pow_primitives::{PowTarget, ExtraData};
+use yee_consensus_pow_primitives::PowTarget;
 use runtime_primitives::traits::{Block as BlockT, Header as HeaderT, Digest as DigestT, ProvideRuntimeApi};
 use parity_codec::{Decode, Encode};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};

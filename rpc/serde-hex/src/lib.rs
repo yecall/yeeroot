@@ -18,7 +18,7 @@
 use std::{error, io};
 use serde::{Serializer, Deserializer, Serialize, Deserialize};
 use num_bigint::BigUint;
-use pow_primitives::ExtraData;
+use yee_pow::ExtraData;
 
 pub trait SerdeHex: Sized {
     const DEFAULT_UINT_SIZE: usize = 0;
