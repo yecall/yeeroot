@@ -3641,6 +3641,7 @@ dependencies = [
 name = "yee-consensus-pow-primitives"
 version = "0.1.0"
 dependencies = [
+ "parity-codec",
  "sr-primitives",
  "substrate-client",
  "substrate-primitives",

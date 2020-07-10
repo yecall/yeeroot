@@ -29,8 +29,9 @@ use runtime_primitives::{
     Proof as ExtrinsicProof,
 };
 use client::blockchain::HeaderBackend;
-use pow_primitives::{PowTarget, ExtraData};
+use pow_primitives::PowTarget;
 use crate::CompatibleDigestItem;
+use crate::extra_data::ExtraData;
 use yee_sharding::ShardingDigestItem;
 use log::{debug, info};
 use std::marker::PhantomData;

@@ -73,6 +73,10 @@ mod digest;
 mod pow;
 mod verifier;
 mod worker;
+mod big_array;
+mod extra_data;
+// use big_array::BigArray;
+pub use extra_data::ExtraData;
 
 pub struct Params<AccountId, B> where
     B: Block,
