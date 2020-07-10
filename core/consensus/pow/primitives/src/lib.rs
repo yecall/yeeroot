@@ -26,7 +26,6 @@ use {
     },
     substrate_client::decl_runtime_apis,
 };
-// use parity_codec::{Encode, Decode};
 
 /// `ConsensusEngineId` of Yee POW consensus.
 pub const YEE_POW_ENGINE_ID: ConsensusEngineId = [b'Y', b'e', b'e', b'!'];
