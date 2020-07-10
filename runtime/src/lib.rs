@@ -236,6 +236,11 @@ impl sharding::Trait for Runtime {
     type Log = Log;
 }
 
+impl sudo::Trait for Runtime {
+	type Event = Event;
+	type Proposal = Call;
+}
+
 /// DON'T CHANGE THE SORT
 construct_runtime!(
 	pub enum Runtime with Log(InternalLog: DigestItem<Hash, AuthorityId, AuthoritySignature>) where
@@ -255,6 +260,7 @@ construct_runtime!(
 		Assets: assets::{Module, Call, Storage, Config<T>, Event<T>},
 		Relay: relay::{Module, Call},
 		Storage: storage::{Module, Call, Event<T>},
+		Sudo: sudo,
 	}
 );
 

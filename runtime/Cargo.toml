@@ -32,6 +32,7 @@ consensus_authorities = { package = "substrate-consensus-authorities", git = "ht
 crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg", default-features = false }
 finality-tracker = { package = "srml-finality-tracker", path = "../srml/yee-tracker", default_features = false }
 storage = { package = "yee-srml-storage", path = "../srml/yee-storage", default-features = false }
+sudo = { package = "yee-srml-sudo", path = "../srml/yee-sudo", default-features = false }
 
 [features]
 default = ["std"]
@@ -63,4 +64,5 @@ std = [
 	"consensus_authorities/std",
 	"sharding_primitives/std",
 	"storage/std",
+	"sudo/std",
 ]
