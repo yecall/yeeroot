@@ -194,6 +194,14 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
             if !valid {
                 return Err(format!("Invalid merkle proof"));
             }
+            let e_c = proof_multi.extra_data.to_vec();
+            let extra = &e_c[..36];
+            let check = e_c[36..40].to_vec();
+            let h = BlakeTwo256::hash(extra);
+            let h = h[..4].to_vec();
+            if check != h {
+                return Err(format!("Multi proof: pow check extra data failed: {:?}", proof_multi.extra_data.clone()));
+            }
 
             //diff validate
             let source = (proof_multi.merkle_root.clone(), proof_multi.nonce, proof_multi.extra_data.clone());
