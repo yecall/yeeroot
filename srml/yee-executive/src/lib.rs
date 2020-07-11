@@ -374,6 +374,7 @@ impl<
 			// Technically a bad signature could also imply an out-of-date account index, but
 			// that's more of an edge case.
 			Err(primitives::BAD_SIGNATURE) => return TransactionValidity::Invalid(ApplyError::BadSignature as i8),
+			Err(primitives::UNACCEPTABLE_SENDER) => return TransactionValidity::Invalid(ApplyError::UnacceptableSender as i8),
 			Err(_) => return TransactionValidity::Invalid(UNKNOWN_ERROR),
 		};
 

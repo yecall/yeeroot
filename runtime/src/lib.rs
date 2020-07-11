@@ -13,7 +13,7 @@ use primitives::bytes;
 use primitives::{ed25519, sr25519, OpaqueMetadata};
 use runtime_primitives::{
 	ApplyResult, transaction_validity::TransactionValidity, generic, create_runtime_str,
-	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, DigestFor, StaticLookup, Verify}
+	traits::{self, NumberFor, BlakeTwo256, Block as BlockT, DigestFor, StaticLookup, Verify, As}
 };
 use finality_tracker;
 use crfg::fg_primitives::{self, ScheduledChange};
@@ -21,6 +21,7 @@ use client::{
 	block_builder::api::{CheckInherentsResult, InherentData, self as block_builder_api},
 	runtime_api, impl_runtime_apis
 };
+use sharding_primitives::ShardingInfo;
 use version::RuntimeVersion;
 #[cfg(feature = "std")]
 use version::NativeVersion;
@@ -265,7 +266,7 @@ construct_runtime!(
 );
 
 /// The type used as a helper for interpreting the sender of transactions.
-type Context = system::ChainContext<Runtime>;
+type Context = ChainContext<Runtime>;
 /// The address format for describing accounts.
 type Address = <Indices as StaticLookup>::Source;
 /// Block header type as expected by this runtime.
@@ -422,5 +423,50 @@ impl_runtime_apis! {
 		fn get_scale_out_observe_blocks() -> NumberFor<Block> {
 			Sharding::scale_out_observe_blocks()
 		}
+	}
+}
+
+
+pub struct ChainContext<T>(::rstd::marker::PhantomData<T>);
+impl<T> Default for ChainContext<T> {
+	fn default() -> Self {
+		ChainContext(::rstd::marker::PhantomData)
+	}
+}
+
+impl<T: system::Trait> traits::Lookup for ChainContext<T> {
+	type Source = <T::Lookup as StaticLookup>::Source;
+	type Target = <T::Lookup as StaticLookup>::Target;
+	fn lookup(&self, s: Self::Source) -> rstd::result::Result<Self::Target, &'static str> {
+		<T::Lookup as StaticLookup>::lookup(s)
+	}
+}
+
+impl<T: system::Trait> traits::CurrentHeight for ChainContext<T> {
+	type BlockNumber = T::BlockNumber;
+	fn current_height(&self) -> Self::BlockNumber {
+		<system::Module<T>>::block_number()
+	}
+}
+
+impl<T: system::Trait> traits::BlockNumberToHash for ChainContext<T> {
+	type BlockNumber = T::BlockNumber;
+	type Hash = T::Hash;
+	fn block_number_to_hash(&self, n: Self::BlockNumber) -> Option<Self::Hash> {
+		Some(<system::Module<T>>::block_hash(n))
+	}
+}
+
+impl<T: system::Trait + sharding::Trait + sudo::Trait> traits::CheckSender for ChainContext<T> {
+	type Sender = <T as system::Trait>::AccountId;
+	fn check_sender(&self, sender: &Self::Sender) -> bool {
+		/// check shard
+		let (shard_num, shard_count) : (Option<u16>, u16) =
+			(<sharding::Module<T>>::get_curr_shard().map(As::as_).map(|x|x as u16), <sharding::Module<T>>::get_shard_count().as_() as u16);
+		let sender_shard_num = sharding_primitives::utils::shard_num_for(sender, shard_count);
+		if sender_shard_num.is_some() && sender_shard_num == shard_num {
+			return true;
+		}
+		false
 	}
 }
