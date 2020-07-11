@@ -204,7 +204,7 @@ fn testnet_template_genesis(
 			authorities: vec![],
 		}),
 		sudo: Some(SudoConfig {
-			key: endowed_accounts[0].clone(),
+			keys: endowed_accounts,
 		}),
 	}
 }

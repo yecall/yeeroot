@@ -127,7 +127,9 @@
 use sr_std::prelude::*;
 use sr_primitives::traits::StaticLookup;
 use srml_support::{StorageValue, Parameter, Dispatchable, decl_module, decl_event, decl_storage, ensure};
+use srml_support::storage::unhashed::StorageVec;
 use system::ensure_signed;
+use parity_codec as codec;
 
 pub trait Trait: system::Trait {
 	/// The overarching event type.
@@ -135,6 +137,15 @@ pub trait Trait: system::Trait {
 
 	/// A sudo-able call.
 	type Proposal: Parameter + Dispatchable<Origin=Self::Origin>;
+}
+
+pub const SUDO_KEY_PREFIX: &[u8] = b":sudo:key:";
+pub const SUDO_KEY_COUNT: &[u8] = b":sudo:key:len";
+
+struct SudoKeyStorageVec<S: codec::Codec + Default>(sr_std::marker::PhantomData<S>);
+impl<S: codec::Codec + Default> StorageVec for SudoKeyStorageVec<S> {
+	type Item = S;
+	const PREFIX: &'static [u8] = SUDO_KEY_PREFIX;
 }
 
 decl_module! {
@@ -148,7 +159,11 @@ decl_module! {
 		fn sudo(origin, proposal: Box<T::Proposal>) {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let sender = ensure_signed(origin)?;
-			ensure!(sender == Self::key(), "only the current sudo key can sudo");
+
+			let keys = <SudoKeyStorageVec<T::AccountId>>::items();
+			let contains = keys.iter().find(|x|x == &&sender).is_some();
+
+			ensure!(contains, "only the current sudo key can sudo");
 
 			let ok = proposal.dispatch(system::RawOrigin::Root.into()).is_ok();
 			Self::deposit_event(RawEvent::Sudid(ok));
@@ -157,14 +172,19 @@ decl_module! {
 		/// Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo key.
 		///
 		/// The dispatch origin for this call must be _Signed_.
-		fn set_key(origin, new: <T::Lookup as StaticLookup>::Source) {
+		fn set_keys(origin, new: Vec<<T::Lookup as StaticLookup>::Source>) {
 			// This is a public call, so we ensure that the origin is some signed account.
 			let sender = ensure_signed(origin)?;
-			ensure!(sender == Self::key(), "only the current sudo key can change the sudo key");
-			let new = T::Lookup::lookup(new)?;
 
-			Self::deposit_event(RawEvent::KeyChanged(Self::key()));
-			<Key<T>>::put(new);
+			let keys = <SudoKeyStorageVec<T::AccountId>>::items();
+			let contains = keys.iter().find(|x|x == &&sender).is_some();
+
+			ensure!(contains, "only the current sudo key can change the sudo key");
+
+			let new_keys = new.into_iter().map(|x|T::Lookup::lookup(x)).collect::<Result<Vec<_>,_>>()?;
+
+			Self::deposit_event(RawEvent::KeyChanged(new_keys.clone()));
+			<SudoKeyStorageVec<T::AccountId>>::set_items(new_keys);
 		}
 	}
 }
@@ -174,13 +194,30 @@ decl_event!(
 		/// A sudo just took place.
 		Sudid(bool),
 		/// The sudoer just switched identity; the old key is supplied.
-		KeyChanged(AccountId),
+		KeyChanged(Vec<AccountId>),
 	}
 );
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Sudo {
-		/// The `AccountId` of the sudo key.
-		Key get(key) config(): T::AccountId;
+	}
+	add_extra_genesis {
+		config(keys): Vec<T::AccountId>;
+
+		build(|storage: &mut sr_primitives::StorageOverlay, _: &mut sr_primitives::ChildrenStorageOverlay, config: &GenesisConfig<T>| {
+			use codec::{Encode, KeyedVec};
+
+			let key_count = config.keys.len() as u32;
+			config.keys.iter().enumerate().for_each(|(i, v)| {
+				storage.insert((i as u32).to_keyed_vec(
+					SUDO_KEY_PREFIX),
+					v.encode()
+				);
+			});
+			storage.insert(
+				SUDO_KEY_COUNT.to_vec(),
+				key_count.encode(),
+			);
+		});
 	}
 }
