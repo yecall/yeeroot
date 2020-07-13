@@ -164,13 +164,15 @@ where
 		F: Fn(&H, &H) -> Result<bool, E>,
 		E:  std::error::Error,
 	{
-		for change in self.pending_forced_changes.iter() {
-			if change.canon_hash == pending.canon_hash ||
-				is_descendent_of(&change.canon_hash, &pending.canon_hash)?
-			{
-				return Err(fork_tree::Error::UnfinalizedAncestor);
-			}
-		}
+		// for change in self.pending_forced_changes.iter() {
+		// 	println!("change_num: {:?}, pending_num: {:?}", change.canon_height, pending.canon_height);
+		// 	if change.canon_hash == pending.canon_hash ||
+		// 		is_descendent_of(&change.canon_hash, &pending.canon_hash)?
+		// 	{
+		// 		return Err(fork_tree::Error::UnfinalizedAncestor);
+		// 	}
+		// }
+		self.pending_forced_changes.clear();
 
 		// ordered first by effective number and then by signal-block number.
 		let key = (pending.effective_number(), pending.canon_height.clone());
@@ -258,7 +260,7 @@ where
 			.filter(|c| c.effective_number() == best_number)
 		{
 			// check if the given best block is in the same branch as the block that signaled the change.
-			if is_descendent_of(&change.canon_hash, &best_hash)? {
+			if &change.canon_hash == &best_hash || is_descendent_of(&change.canon_hash, &best_hash)? {
 				// apply this change: make the set canonical
 				info!(target: "finality", "Applying authority set change forced at block #{:?}",
 					  change.canon_height);

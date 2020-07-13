@@ -839,6 +839,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	let voter_work = future::loop_fn(initial_state, move |params| {
 		let (env, set_state, voter_commands_rx) = params;
 		debug!(target: "afg", "{}: Starting new voter, set ID {}, new set: {:?}", config.name(), env.set_id, env.voters);
+		debug!(target: "afg", "{}: set_state: {:?}", config.name(), set_state);
 		telemetry!(CONSENSUS_DEBUG; "afg.starting_new_voter";
 			"name" => ?config.name(), "set_id" => ?env.set_id
 		);
