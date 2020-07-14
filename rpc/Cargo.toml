@@ -32,3 +32,5 @@ parity-codec = "3.5"
 yee-serde-hex = { package = "yee-serde-hex", path = "serde-hex" }
 yee-foreign-relay = { path = "../foreign/relay" }
 yee-primitives = { path = "../core/primitives" }
+crfg = { package = "yee-crfg", path = "../core/crfg" }
+grandpa = { package = "finality-grandpa", version = "0.6.0", path = "../core/finality-grandpa", features = ["derive-codec"] }
