@@ -45,7 +45,7 @@ pub const PENDING_CHANGE_CALL: &str = "crfg_pending_change";
 /// WASM function call to get current CRFG authorities.
 pub const AUTHORITIES_CALL: &str = "crfg_authorities";
 
-pub const MAX_AUTHORITIES_SIZE: u64 = 6;
+pub const MAX_AUTHORITIES_SIZE: u64 = 13;
 pub const BLOCK_FINAL_LATENCY: u64 = 6;
 
 /// Well-known storage keys for CRFG.
