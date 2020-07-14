@@ -5490,6 +5490,7 @@ name = "yee-rpc"
 version = "0.1.0"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "finality-grandpa 0.6.0",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-derive 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5512,6 +5513,7 @@ dependencies = [
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-consensus-pow 0.1.0",
  "yee-consensus-pow-primitives 0.1.0",
+ "yee-crfg 0.4.0",
  "yee-foreign-relay 0.4.0",
  "yee-primitives 0.5.0",
  "yee-runtime 1.0.0",

@@ -27,7 +27,7 @@ use std::option::Option;
 use std::default::Default;
 use substrate_rpc_services::{self, apis::system::SystemInfo};
 use runtime_primitives::{
-    BuildStorage, traits::{Block as BlockT, Header as HeaderT, ProvideRuntimeApi}, generic::BlockId
+    BuildStorage, traits::{Block as BlockT, Header as HeaderT, ProvideRuntimeApi, NumberFor}, generic::BlockId
 };
 use client::{self, Client, runtime_api};
 use network::{self, OnDemand};
@@ -43,34 +43,39 @@ use parity_codec::{Decode, Encode, Codec};
 use serde::de::Unexpected::Other;
 use futures::sync::mpsc;
 use yee_primitives::RecommitRelay;
+use crfg::CrfgState;
 
 pub struct FullRpcHandlerConstructor;
 
 pub type LightRpcHandlerConstructor = DefaultRpcHandlerConstructor;
 
-pub trait ProvideJobManager<Hash, J> {
+pub trait ProvideRpcExtra<Hash, Number, J> {
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>;
 
-    fn recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>;
+    fn provide_recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>;
+
+    fn provide_crfg_state(&self) -> Arc<RwLock<Option<CrfgState<Hash, Number>>>>;
 }
 
 #[derive(Clone)]
-pub struct FullRpcExtra<Hash, J> {
+pub struct FullRpcExtra<Hash, Number, J> {
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>,
     recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
+    crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
 }
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
     ComponentClient<C>: ProvideRuntimeApi,
     <ComponentClient<C> as ProvideRuntimeApi>::Api: runtime_api::Metadata<ComponentBlock<C>>,
-    <C::Factory as ServiceFactory>::Configuration: ProvideJobManager<<<C::Factory as ServiceFactory>::Block as BlockT>::Hash, DefaultJob<Block, <Pair as PairT>::Public>>,
+    <C::Factory as ServiceFactory>::Configuration: ProvideRpcExtra<<<C::Factory as ServiceFactory>::Block as BlockT>::Hash, NumberFor<<C::Factory as ServiceFactory>::Block>, DefaultJob<Block, <Pair as PairT>::Public>>,
 {
-    type RpcExtra = FullRpcExtra<<<C::Factory as ServiceFactory>::Block as BlockT>::Hash, DefaultJob<Block, <Pair as PairT>::Public>>;
+    type RpcExtra = FullRpcExtra<<<C::Factory as ServiceFactory>::Block as BlockT>::Hash, NumberFor<<C::Factory as ServiceFactory>::Block>, DefaultJob<Block, <Pair as PairT>::Public>>;
 
     fn build_rpc_extra(config: &FactoryFullConfiguration<C::Factory>) -> Self::RpcExtra{
         FullRpcExtra{
             job_manager: config.custom.provide_job_manager(),
-            recommit_relay_sender: config.custom.recommit_relay_sender(),
+            recommit_relay_sender: config.custom.provide_recommit_relay_sender(),
+            crfg_state: config.custom.provide_crfg_state(),
         }
     }
 
@@ -104,7 +109,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
         let mining = Mining::new(extra.job_manager);
         io.extend_with(mining.to_delegate());
 
-        let misc = Misc::new(extra.recommit_relay_sender.clone());
+        let misc = Misc::new(extra.recommit_relay_sender.clone(), extra.crfg_state.clone());
         io.extend_with(misc.to_delegate());
 
         io

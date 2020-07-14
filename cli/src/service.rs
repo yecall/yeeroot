@@ -35,7 +35,7 @@ use {
 };
 use substrate_cli::{TriggerExit};
 use sharding_primitives::ScaleOut;
-use runtime_primitives::traits::{Header, Block as BlockT};
+use runtime_primitives::traits::{Header, Block as BlockT, NumberFor};
 use futures::sync::mpsc;
 use yee_primitives::RecommitRelay;
 
@@ -47,12 +47,14 @@ use restarter::{start_restarter};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
-use yee_rpc::ProvideJobManager;
+use yee_rpc::ProvideRpcExtra;
 
 use crfg;
 use yee_primitives::Hrp;
 use crate::{CliTriggerExit, CliSignal};
 use yee_context::{Context};
+use crfg::CrfgState;
+use yee_runtime::BlockNumber;
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -85,6 +87,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>,
+    pub crfg_state: Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
     pub mine: bool,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub hrp: Hrp,
@@ -105,6 +108,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
             recommit_relay_sender: Arc::new(None),
+            crfg_state: Arc::new(RwLock::new(None)),
             mine: Default::default(),
             foreign_chains: Arc::new(RwLock::new(None)),
             hrp: Default::default(),
@@ -134,6 +138,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             bootnodes_router_conf: None,
             job_manager: Arc::new(RwLock::new(None)),
             recommit_relay_sender: Arc::new(None),
+            crfg_state: Arc::new(RwLock::new(None)),
             foreign_chains: Arc::new(RwLock::new(None)),
         }
     }
@@ -153,16 +158,21 @@ impl<F> ForeignChainConfig for NodeConfig<F> where F: substrate_service::Service
     }
 }
 
-impl<F> ProvideJobManager<H256, DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where
+impl<F> ProvideRpcExtra<<F::Block as BlockT>::Hash, NumberFor<F::Block>, DefaultJob<Block, <Pair as PairT>::Public>> for NodeConfig<F> where
     F: substrate_service::ServiceFactory,
 {
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>{
         self.job_manager.clone()
     }
 
-    fn recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<H256>>>> {
+    fn provide_recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>> {
         self.recommit_relay_sender.clone()
     }
+
+    fn provide_crfg_state(&self) -> Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>> {
+        self.crfg_state.clone()
+    }
+
 }
 
 struct NetworkWrapper<F, EH> {
@@ -304,6 +314,7 @@ construct_service_factory! {
                     crfg::NetworkBridge::new(service.network()),
                     service.config.custom.inherent_data_providers.clone(),
                     service.on_exit(),
+                    service.config.custom.crfg_state.clone(),
                 )?);
 
                 // pow

@@ -62,6 +62,7 @@ mod testing;
 use std::collections::HashMap;
 use std::fmt;
 use std::hash::Hash;
+pub use round::State;
 
 /// A prevote for a block and its ancestors.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -302,9 +303,9 @@ impl VoterInfo {
 /// A voter set, with accompanying indices.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VoterSet<Id: Hash + Eq> {
-	weights: HashMap<Id, VoterInfo>,
-	voters: Vec<(Id, u64)>,
-	threshold: u64,
+	pub weights: HashMap<Id, VoterInfo>,
+	pub voters: Vec<(Id, u64)>,
+	pub threshold: u64,
 }
 
 impl<Id: Hash + Eq> VoterSet<Id> {

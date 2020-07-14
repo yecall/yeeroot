@@ -104,13 +104,15 @@ mod service_integration;
 #[cfg(feature="service-integration")]
 pub use service_integration::{LinkHalfForService, BlockImportForService};
 
-use aux_schema::{PersistentData, VoterSetState};
+use aux_schema::PersistentData;
+pub use aux_schema::VoterSetState;
 use environment::Environment;
 pub use finality_proof::{prove_finality, check_finality_proof};
 use import::CrfgBlockImport;
 use until_imported::UntilCommitBlocksImported;
 
 use ed25519::{Public as AuthorityId, Signature as AuthoritySignature};
+use parking_lot::RwLock;
 
 #[cfg(test)]
 mod tests;
@@ -793,6 +795,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	network: N,
 	inherent_data_providers: InherentDataProviders,
 	on_exit: impl Future<Item=(),Error=()> + Send + 'static,
+	crfg_state: Arc<RwLock<Option<CrfgState<Block::Hash, NumberFor<Block>>>>>,
 ) -> ::client::error::Result<impl Future<Item=(),Error=()> + Send + 'static> where
 	Block::Hash: Ord,
 	B: Backend<Block, Blake2Hasher> + 'static,
@@ -843,6 +846,17 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		telemetry!(CONSENSUS_DEBUG; "afg.starting_new_voter";
 			"name" => ?config.name(), "set_id" => ?env.set_id
 		);
+
+		{
+			let mut state = crfg_state.write();
+			*state = Some(CrfgState {
+				config: config.clone(),
+				set_id: env.set_id,
+				voters: env.voters.clone(),
+				set_status: set_state.clone(),
+			});
+		}
+
 		let voters = authority_set.clone().current_authorities();
 		let local_key = match config.local_key.as_ref()
 			.filter(|pair| voters.contains_key(&pair.public().into())) {
@@ -1011,4 +1025,12 @@ pub fn register_crfg_inherent_data_provider(
 
 pub fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
 	consensus_common::ErrorKind::InherentData(err.into()).into()
+}
+
+#[derive(Clone)]
+pub struct CrfgState<H, N> {
+	pub config: Config,
+	pub set_id: u64,
+	pub voters: Arc<VoterSet<AuthorityId>>,
+	pub set_status: VoterSetState<H, N>,
 }
