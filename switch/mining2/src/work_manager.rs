@@ -42,7 +42,7 @@ use yee_sharding::{GENERATED_MODULE_LOG_PREFIX, GENERATED_SHARDING_PREFIX};
 use yee_consensus_pow_primitives::PowTarget;
 use yee_consensus_pow::{MiningHash, MiningAlgorithm, ExtraData, OriginalMerkleProof, CompactMerkleProof};
 use merkle_light::merkle::MerkleTree;
-use runtime_primitives::traits::Hash as HashT;
+use runtime_primitives::traits::{BlakeTwo256, Hash as HashT};
 use std::iter::FromIterator;
 use std::ops::Add;
 use crate::error;
@@ -231,10 +231,16 @@ impl<Number, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashing> where
 
 		let merkle_tree: MerkleTree<MiningHash<Hashing>, MiningAlgorithm<Hashing>> =
 			MerkleTree::from_iter(item_list);
-
+		let extra = [0u8; 36];
+		let extra = &extra[..];
+		let h = BlakeTwo256::hash(extra);
+		let mut e_d = [0u8; 40];
+		for i in 0..4 {
+			e_d[i + 36] = h[i];
+		}
 		let work = Work {
 			merkle_root: merkle_tree.root(),
-			extra_data: Default::default(),
+			extra_data: ExtraData::from(e_d),
 			target: max_target,
 			shard_count,
 			shard_block_number,

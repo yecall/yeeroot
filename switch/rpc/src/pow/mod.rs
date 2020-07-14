@@ -136,7 +136,7 @@ impl<WM> Pow<WM> where
     <WM::Hashing as HashT>::Output: Decode + Encode,
 {
     fn decode_submit_work(&self, input: Vec<u8>) -> Option<SubmitJob<<WM::Hashing as HashT>::Output>> {
-        if input.len() < 80 {
+        if input.len() < 76 {
             return None;
         }
         let bytes = input.as_slice();
@@ -155,8 +155,14 @@ impl<WM> Pow<WM> where
             Err(_e) => return None
         };
 
+        let check = BlakeTwo256::hash(&bytes[40..76]);
+        let check = &check[..4];
+
         let mut extra_data = [0u8; 40];
-        extra_data.copy_from_slice(&bytes[40..80]);
+        extra_data.copy_from_slice(&bytes[40..76]);
+        for i in 0..4 {
+            extra_data[i + 36] = check[i];
+        }
         let extra_data = ExtraData::from(extra_data);
 
         let source = (merkle_root.clone(), nonce, extra_data.clone());
