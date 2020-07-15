@@ -41,6 +41,8 @@ pub enum Alternative {
     POCTestnet,
 	/// Witch prebuilt runtime.
 	TestNet,
+	/// Main net!!!
+	MainNet,
 }
 
 fn account_key(s: &str) -> AccountId {
@@ -71,6 +73,10 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 		get_session_key_from_seed(seed)
 	)
 }
+
+pub const BOOTNODES_ROUTER:[&str;1] = [	// todo
+	"http://128.1.38.53:6666",
+];
 
 fn account_addr(s: &str) -> AccountId {
 
@@ -124,6 +130,17 @@ impl Alternative {
 				None,
 				None,
 			),
+			Alternative::MainNet => ChainSpec::from_genesis(
+				"MainNet",
+				"mainnet",
+				|| mainnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect(),
+								   yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect()),
+				vec![],
+				None,
+				None,
+				None,
+				None,
+			),
 		})
 	}
 
@@ -135,6 +152,55 @@ impl Alternative {
             "" => Some(Alternative::TestNet),
 			_ => None,
 		}
+	}
+}
+
+fn mainnet_genesis(endowed_accounts: Vec<AccountId>, sudo_accounts: Vec<AccountId>) -> GenesisConfig {
+	let code = WASM_CODE.to_vec();
+	let block_reward_latency = MAX_AUTHORITIES_SIZE + BLOCK_FINAL_LATENCY + 1;
+
+	GenesisConfig {
+		consensus: Some(ConsensusConfig {
+			code,
+			authorities: vec![],
+		}),
+		system: None,
+		timestamp: Some(TimestampConfig {
+			minimum_period: 0,
+		}),
+		pow: Some(PowConfig {
+			genesis_pow_target: primitives::U256::from(0x0000ffff) << 224,
+			pow_target_adj: 60_u64.into(),
+			target_block_time: 30_u64.into(),
+			block_reward: 25_600_000_000,
+			block_reward_latency: block_reward_latency.into(),
+		}),
+		indices: Some(IndicesConfig {
+			ids: endowed_accounts.clone(),
+		}),
+		balances: Some(BalancesConfig {
+			transaction_base_fee: 10_000_000 ,
+			transaction_byte_fee: 100_000,
+			existential_deposit: 500,
+			transfer_fee: 0,
+			creation_fee: 0,
+			balances: endowed_accounts.iter().cloned().map(|k|(k, 0)).collect(),
+			vesting: vec![],
+		}),
+		assets: Some(AssetsConfig {
+			_genesis_phantom_data: PhantomData,
+			next_asset_id: 100,
+		}),
+		sharding: Some(ShardingConfig {
+			genesis_sharding_count: 4,
+			scale_out_observe_blocks: 1,
+		}),
+		crfg: Some(CrfgConfig {
+			authorities: vec![],
+		}),
+		sudo: Some(SudoConfig {
+			keys: sudo_accounts,
+		}),
 	}
 }
 
