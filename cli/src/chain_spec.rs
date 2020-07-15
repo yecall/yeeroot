@@ -74,8 +74,19 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 	)
 }
 
-pub const BOOTNODES_ROUTER:[&str;1] = [	// todo
+pub const BOOTNODES_ROUTER: [&str; 1] = [    // todo
 	"http://128.1.38.53:6666",
+];
+
+pub const ENDOWED_ACCOUNTS: [&str; 1] = [    // todo
+	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl",
+];
+
+pub const SUDO_ACCOUNTS: [&str; 4] = [    // todo
+	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl",
+	"yee15zphhp8wmtupkf3j8uz5y6eeamkmknfgs6rj0hsyt6m8ntpvndvsmz3h3w",
+	"yee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94qgr9w77",
+	"yee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd",
 ];
 
 fn account_addr(s: &str) -> AccountId {
@@ -87,8 +98,6 @@ fn account_addr(s: &str) -> AccountId {
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
 	pub(crate) fn load(self) -> Result<ChainSpec, String> {
-
-
 		Ok(match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
@@ -133,8 +142,8 @@ impl Alternative {
 			Alternative::MainNet => ChainSpec::from_genesis(
 				"MainNet",
 				"mainnet",
-				|| mainnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect(),
-								   yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect()),
+				|| mainnet_genesis(ENDOWED_ACCOUNTS.iter().map(|&x| account_addr(x)).collect(),
+								   SUDO_ACCOUNTS.iter().map(|&x| account_addr(x)).collect()),
 				vec![],
 				None,
 				None,
