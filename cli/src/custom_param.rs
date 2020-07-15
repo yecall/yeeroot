@@ -195,10 +195,9 @@ fn parse_coinbase(input: String) -> error::Result<(AccountId, Hrp)> {
     Ok((coinbase, hrp))
 }
 
-fn get_hrp(chain_spec_id: &str) -> Hrp{
-
-    match chain_spec_id{
-        "main" => Hrp::MAINNET,
+fn get_hrp(chain_spec_id: &str) -> Hrp {
+    match chain_spec_id {
+        "mainnet" => Hrp::MAINNET,
         _ => Hrp::TESTNET,
     }
 }
