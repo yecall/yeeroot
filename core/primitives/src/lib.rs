@@ -30,7 +30,7 @@ pub enum Hrp {
 impl Default for Hrp{
 
 	fn default() -> Self{
-		Hrp::TESTNET
+		Hrp::MAINNET
 	}
 }
 
