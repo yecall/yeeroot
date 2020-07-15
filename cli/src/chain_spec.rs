@@ -78,8 +78,8 @@ pub const BOOTNODES_ROUTER: [&str; 1] = [    // todo
 	"http://128.1.38.53:6666",
 ];
 
-pub const ENDOWED_ACCOUNTS: [&str; 1] = [    // todo
-	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl",
+pub const ENDOWED_ACCOUNTS: [(&str, u128); 1] = [    // todo
+	("yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl", 1_00000000_00000000u128),	// 100 million
 ];
 
 pub const SUDO_ACCOUNTS: [&str; 4] = [    // todo
@@ -142,7 +142,7 @@ impl Alternative {
 			Alternative::MainNet => ChainSpec::from_genesis(
 				"MainNet",
 				"mainnet",
-				|| mainnet_genesis(ENDOWED_ACCOUNTS.iter().map(|&x| account_addr(x)).collect(),
+				|| mainnet_genesis(ENDOWED_ACCOUNTS.iter().map(|&(x, value)| (account_addr(x), value)).collect(),
 								   SUDO_ACCOUNTS.iter().map(|&x| account_addr(x)).collect()),
 				vec![],
 				None,
@@ -165,7 +165,7 @@ impl Alternative {
 	}
 }
 
-fn mainnet_genesis(endowed_accounts: Vec<AccountId>, sudo_accounts: Vec<AccountId>) -> GenesisConfig {
+fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<AccountId>) -> GenesisConfig {
 	let code = WASM_CODE.to_vec();
 	let block_reward_latency = MAX_AUTHORITIES_SIZE + BLOCK_FINAL_LATENCY + 1;
 
@@ -186,7 +186,7 @@ fn mainnet_genesis(endowed_accounts: Vec<AccountId>, sudo_accounts: Vec<AccountI
 			block_reward_latency: block_reward_latency.into(),
 		}),
 		indices: Some(IndicesConfig {
-			ids: endowed_accounts.clone(),
+			ids: endowed_accounts.iter().cloned().map(|item| item.0).collect(),
 		}),
 		balances: Some(BalancesConfig {
 			transaction_base_fee: 10_000_000 ,
@@ -194,7 +194,7 @@ fn mainnet_genesis(endowed_accounts: Vec<AccountId>, sudo_accounts: Vec<AccountI
 			existential_deposit: 500,
 			transfer_fee: 0,
 			creation_fee: 0,
-			balances: endowed_accounts.iter().cloned().map(|k|(k, 0)).collect(),
+			balances: endowed_accounts.iter().cloned().map(|(k, v)|(k, v)).collect(),
 			vesting: vec![],
 		}),
 		assets: Some(AssetsConfig {
