@@ -41,6 +41,8 @@ pub enum Alternative {
     POCTestnet,
 	/// Witch prebuilt runtime.
 	TestNet,
+	/// Main net!!!
+	MainNet,
 }
 
 fn account_key(s: &str) -> AccountId {
@@ -72,6 +74,21 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 	)
 }
 
+pub const BOOTNODES_ROUTER: [&str; 1] = [    // todo
+	"http://128.1.38.53:6666",
+];
+
+pub const ENDOWED_ACCOUNTS: [(&str, u128); 1] = [    // todo
+	("yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl", 1_00000000_00000000u128),	// 100 million
+];
+
+pub const SUDO_ACCOUNTS: [&str; 4] = [    // todo
+	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl",
+	"yee15zphhp8wmtupkf3j8uz5y6eeamkmknfgs6rj0hsyt6m8ntpvndvsmz3h3w",
+	"yee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94qgr9w77",
+	"yee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd",
+];
+
 fn account_addr(s: &str) -> AccountId {
 
 	AccountId::from_address(&Address(s.to_string()))
@@ -81,8 +98,6 @@ fn account_addr(s: &str) -> AccountId {
 impl Alternative {
 	/// Get an actual chain config from one of the alternatives.
 	pub(crate) fn load(self) -> Result<ChainSpec, String> {
-
-
 		Ok(match self {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
@@ -124,6 +139,17 @@ impl Alternative {
 				None,
 				None,
 			),
+			Alternative::MainNet => ChainSpec::from_genesis(
+				"MainNet",
+				"mainnet",
+				|| mainnet_genesis(ENDOWED_ACCOUNTS.iter().map(|&(x, value)| (account_addr(x), value)).collect(),
+								   SUDO_ACCOUNTS.iter().map(|&x| account_addr(x)).collect()),
+				vec![],
+				None,
+				None,
+				None,
+				None,
+			),
 		})
 	}
 
@@ -132,9 +158,59 @@ impl Alternative {
 			"dev" => Some(Alternative::Development),
             "local" => Some(Alternative::LocalTestnet),
             "poc" => Some(Alternative::POCTestnet),
-            "" => Some(Alternative::TestNet),
+			"test" => Some(Alternative::TestNet),
+            "" => Some(Alternative::MainNet),
 			_ => None,
 		}
+	}
+}
+
+fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<AccountId>) -> GenesisConfig {
+	let code = WASM_CODE.to_vec();
+	let block_reward_latency = MAX_AUTHORITIES_SIZE + BLOCK_FINAL_LATENCY + 1;
+
+	GenesisConfig {
+		consensus: Some(ConsensusConfig {
+			code,
+			authorities: vec![],
+		}),
+		system: None,
+		timestamp: Some(TimestampConfig {
+			minimum_period: 0,
+		}),
+		pow: Some(PowConfig {
+			genesis_pow_target: primitives::U256::from(0x0000ffff) << 224,
+			pow_target_adj: 60_u64.into(),
+			target_block_time: 30_u64.into(),
+			block_reward: 25_600_000_000,
+			block_reward_latency: block_reward_latency.into(),
+		}),
+		indices: Some(IndicesConfig {
+			ids: endowed_accounts.iter().cloned().map(|item| item.0).collect(),
+		}),
+		balances: Some(BalancesConfig {
+			transaction_base_fee: 10_000_000 ,
+			transaction_byte_fee: 100_000,
+			existential_deposit: 500,
+			transfer_fee: 0,
+			creation_fee: 0,
+			balances: endowed_accounts.iter().cloned().map(|(k, v)|(k, v)).collect(),
+			vesting: vec![],
+		}),
+		assets: Some(AssetsConfig {
+			_genesis_phantom_data: PhantomData,
+			next_asset_id: 100,
+		}),
+		sharding: Some(ShardingConfig {
+			genesis_sharding_count: 4,
+			scale_out_observe_blocks: 1,
+		}),
+		crfg: Some(CrfgConfig {
+			authorities: vec![],
+		}),
+		sudo: Some(SudoConfig {
+			keys: sudo_accounts,
+		}),
 	}
 }
 

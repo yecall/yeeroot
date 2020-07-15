@@ -125,27 +125,31 @@ where
         config.custom.coinbase = coinbase;
     }
 
-    let bootnodes_routers = custom_args.bootnodes_routers.clone();
-
-    if bootnodes_routers.len() > 0{
-
-        match get_bootnodes_router_conf(&bootnodes_routers){
-            Ok(bootnodes_router_conf) => {
-
-                match get_native_bootnodes(&bootnodes_router_conf, config.custom.shard_num){
-                    Ok(bootnodes) => {
-                        config.network.boot_nodes = bootnodes;
-                    },
-                    Err(_e) => {
-                        warn!("Failed to get bootnodes: {:?}", bootnodes_routers);
-                    }
-                }
-
-                config.custom.bootnodes_router_conf = Some(bootnodes_router_conf);
-            },
-            Err(_) => {
-                warn!("Failed to get bootnodes router conf: {:?}", bootnodes_routers);
+    let mut bootnodes_routers = custom_args.bootnodes_routers.clone();
+    if bootnodes_routers.len() == 0 {
+        match config.custom.hrp {
+            Hrp::MAINNET => {
+                bootnodes_routers = crate::chain_spec::BOOTNODES_ROUTER.iter().map(|item| item.to_string()).collect();
             }
+            _ => {}
+        }
+    }
+
+    match get_bootnodes_router_conf(&bootnodes_routers) {
+        Ok(bootnodes_router_conf) => {
+            match get_native_bootnodes(&bootnodes_router_conf, config.custom.shard_num) {
+                Ok(bootnodes) => {
+                    config.network.boot_nodes = bootnodes;
+                }
+                Err(_e) => {
+                    warn!("Failed to get bootnodes: {:?}", bootnodes_routers);
+                }
+            }
+
+            config.custom.bootnodes_router_conf = Some(bootnodes_router_conf);
+        }
+        Err(_) => {
+            warn!("Failed to get bootnodes router conf: {:?}", bootnodes_routers);
         }
     }
 
@@ -168,13 +172,11 @@ where
     Ok(())
 }
 
-fn get_bootnodes_router_conf(bootnodes_routers :&Vec<String>) -> error::Result<BootnodesRouterConf>{
-
-    yee_bootnodes_router::client::call(|mut client|{
-        let result = client.bootnodes().call().map_err(|e|format!("{:?}", e))?;
+fn get_bootnodes_router_conf(bootnodes_routers: &Vec<String>) -> error::Result<BootnodesRouterConf> {
+    yee_bootnodes_router::client::call(|mut client| {
+        let result = client.bootnodes().call().map_err(|e| format!("{:?}", e))?;
         Ok(result)
-    }, bootnodes_routers).map_err(|e|format!("{:?}", e).into())
-
+    }, bootnodes_routers).map_err(|e| format!("{:?}", e).into())
 }
 
 fn get_native_bootnodes(bootnodes_router_conf: &BootnodesRouterConf, shard_num: u16) -> error::Result<Vec<String>>{
