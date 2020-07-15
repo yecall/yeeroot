@@ -158,7 +158,8 @@ impl Alternative {
 			"dev" => Some(Alternative::Development),
             "local" => Some(Alternative::LocalTestnet),
             "poc" => Some(Alternative::POCTestnet),
-            "" => Some(Alternative::TestNet),
+			"test" => Some(Alternative::TestNet),
+            "" => Some(Alternative::MainNet),
 			_ => None,
 		}
 	}
