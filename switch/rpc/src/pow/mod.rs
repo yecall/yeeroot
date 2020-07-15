@@ -159,7 +159,10 @@ impl<WM> Pow<WM> where
         let check = &check[..4];
 
         let mut extra_data = [0u8; 40];
-        extra_data.copy_from_slice(&bytes[40..76]);
+        for i in 0..36 {
+            extra_data[i] = bytes[40 + i];
+        }
+        // extra_data.copy_from_slice(&bytes[40..76]);
         for i in 0..4 {
             extra_data[i + 36] = check[i];
         }
