@@ -79,14 +79,14 @@ pub const BOOTNODES_ROUTER: [&str; 1] = [    // todo
 ];
 
 pub const ENDOWED_ACCOUNTS: [(&str, u128); 1] = [    // todo
-	("yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl", 1_00000000_00000000u128),	// 100 million
+	("yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqmtaf9v", 1_00000000_00000000u128),	// 100 million
 ];
 
 pub const SUDO_ACCOUNTS: [&str; 4] = [    // todo
-	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqkv6lyl",
-	"yee15zphhp8wmtupkf3j8uz5y6eeamkmknfgs6rj0hsyt6m8ntpvndvsmz3h3w",
-	"yee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94qgr9w77",
-	"yee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd",
+	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqmtaf9v",
+	"yee15zphhp8wmtupkf3j8uz5y6eeamkmknfgs6rj0hsyt6m8ntpvndvsk9kpsa",
+	"yee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94q9yzcld",
+	"yee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fadse0ng97",
 ];
 
 fn account_addr(s: &str) -> AccountId {
