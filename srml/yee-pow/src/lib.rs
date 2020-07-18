@@ -317,6 +317,11 @@ impl<T: Trait> ProvideInherent for Module<T> {
             _ => return Ok(())
         };
 
+        //TODO: check slash reason
+        if d.reward_condition != RewardCondition::Normal {
+            return Err(RuntimeString::from("allow normal reward condition only").into());
+        }
+
         let shard = data.get_data(&sharding::INHERENT_IDENTIFIER)
             .and_then(|r| r.ok_or_else(|| "Sharding inherent data not found".into()));
         let shard: sharding::InherentType = match shard {
