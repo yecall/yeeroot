@@ -300,7 +300,7 @@ construct_service_factory! {
 	                worker_key.clone().unwrap().public()
 	            )?;
 
-                info!("Running crfg session as Authority {}", local_key.clone().unwrap().public());
+                info!("Running crfg session as Authority {:?}", local_key.clone().unwrap().public());
                 executor.spawn(crfg::run_crfg(
                     crfg::Config {
                         local_key,
@@ -319,7 +319,7 @@ construct_service_factory! {
 
                 // pow
                 if let Some(ref key) = worker_key {
-                    info!("Using authority key {}", key.public());
+                    info!("Using authority key {:?}", key.public());
                     let proposer = Arc::new(ProposerFactory {
                         client: service.client(),
                         transaction_pool: service.transaction_pool(),
