@@ -86,7 +86,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub foreign_port: Option<u16>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
-    pub recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>,
+    pub recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>>,
     pub crfg_state: Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
     pub mine: bool,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
@@ -107,7 +107,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             foreign_port: Default::default(),
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
-            recommit_relay_sender: Arc::new(None),
+            recommit_relay_sender: Arc::new(RwLock::new(None)),
             crfg_state: Arc::new(RwLock::new(None)),
             mine: Default::default(),
             foreign_chains: Arc::new(RwLock::new(None)),
@@ -137,7 +137,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             inherent_data_providers: Default::default(),
             bootnodes_router_conf: None,
             job_manager: Arc::new(RwLock::new(None)),
-            recommit_relay_sender: Arc::new(None),
+            recommit_relay_sender: Arc::new(RwLock::new(None)),
             crfg_state: Arc::new(RwLock::new(None)),
             foreign_chains: Arc::new(RwLock::new(None)),
         }
@@ -165,7 +165,7 @@ impl<F> ProvideRpcExtra<<F::Block as BlockT>::Hash, NumberFor<F::Block>, Default
         self.job_manager.clone()
     }
 
-    fn provide_recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>> {
+    fn provide_recommit_relay_sender(&self) -> Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>> {
         self.recommit_relay_sender.clone()
     }
 
@@ -262,8 +262,11 @@ construct_service_factory! {
                 {
                     let mut config_foreign_chains = service.config.custom.foreign_chains.write();
                     *config_foreign_chains = Some(foreign_chain);
+
+                    let mut recommit_relay_sender = service.config.custom.recommit_relay_sender.write();
+                    *recommit_relay_sender = Some(sender);
                 }
-                service.config.custom.recommit_relay_sender = Arc::new(Some(sender));
+
 
                 // relay
                 yee_relay::start_relay_transfer::<Self, _, _>(

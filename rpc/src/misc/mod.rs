@@ -24,13 +24,13 @@ pub trait MiscApi<Hash, Number> {
 }
 
 pub struct Misc<Hash, Number> {
-	recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
+	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
 	crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
 }
 
 impl<Hash, Number> Misc<Hash, Number> {
 	pub fn new(
-		recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
+		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
 		crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
 	) -> Self {
 		Self {
@@ -49,9 +49,12 @@ impl<Hash, Number> MiscApi<Hash, Number> for Misc<Hash, Number> where
 			hash,
 			index,
         };
-		let sender = self.recommit_relay_sender.as_ref();
-		sender.as_ref().unwrap().unbounded_send(recommit_param);
-		Ok(())
+		if let Some(sender) =  self.recommit_relay_sender.write().as_ref() {
+			sender.unbounded_send(recommit_param);
+			Ok(())
+		} else {
+			Err(errors::Error::from(errors::ErrorKind::RecommitFailed).into())
+		}
 	}
 
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>> {
