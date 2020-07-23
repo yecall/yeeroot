@@ -20,7 +20,7 @@ use {
 		Future, IntoFuture,
 		future,
 	},
-	log::warn,
+	log::{warn, debug},
 	std::{
 		fmt::Debug,
 		marker::PhantomData,
@@ -68,6 +68,7 @@ use foreign_chain::{ForeignChain, ForeignChainConfig};
 use yee_sr_primitives::{RelayParams, OriginExtrinsic};
 use yee_merkle::MultiLayerProof;
 use yee_runtime::AccountId;
+use chashmap::CHashMap;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -120,7 +121,7 @@ pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I, F> where
 	block_import: Arc<I>,
 	shard_extra: ShardExtra<AccountId>,
 	context: Context<B>,
-	filter_extrinsic: Arc<FilterExtrinsic<B::Extrinsic, F, AccountId>>,
+	foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
 	phantom: PhantomData<B>,
 }
 
@@ -156,7 +157,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
 			block_import,
 			shard_extra: shard_extra.clone(),
 			context,
-			filter_extrinsic: Arc::new(FilterExtrinsic::<_, _, AccountId>::new(shard_extra, foreign_chains)),
+			foreign_chains,
 			phantom: PhantomData,
 		}
 	}
@@ -185,9 +186,10 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
 
 	fn get_job(&self) -> Box<dyn Future<Item=Self::Job, Error=consensus_common::Error> + Send> {
 		let get_data = || {
+			let filter_extrinsic = Arc::new(FilterExtrinsic::<_, _, AccountId>::new(self.shard_extra.clone(), self.foreign_chains.clone()));
 			let chain_head = self.client.best_block_header()
 				.map_err(to_common_error)?;
-			let proposer = self.env.init(&chain_head, &vec![], Some(self.filter_extrinsic.clone()))
+			let proposer = self.env.init(&chain_head, &vec![], Some(filter_extrinsic))
 				.map_err(to_common_error)?;
 			let inherent_data = self.inherent_data_providers.create_inherent_data()
 				.map_err(to_common_error)?;
@@ -289,6 +291,7 @@ struct FilterExtrinsic<EX, F, AccountId>  where
 	shard_extra: ShardExtra<AccountId>,
 	foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
 	phantom_data: PhantomData<(EX, AccountId)>,
+	cached_proof: CHashMap<<F::Block as Block>::Hash, MultiLayerProof>,
 }
 
 impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
@@ -303,25 +306,39 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 		let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
 		if let Some(rt) = RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
 			let hash = rt.hash();
-			let id = generic::BlockId::hash(rt.block_hash());
-			let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
-				Some(v) => v,
-				None => return false
-			};
-			let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
-				.expect("Internal error. Get shard num failed.");
-			if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
-				if let Some(lc) = foreign_chains.get_shard_component(fs) {
-					if let Ok(Some(proof)) = lc.client().proof(&id) {
-						if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
-							if proof.contains(cs, hash) {
-								return true
+
+			let block_hash = rt.block_hash();
+
+			let contains = if let Some(proof ) = self.cached_proof.get(&block_hash) {
+				let contains = proof.contains(cs, hash);
+				debug!("Filter extrinsic check proof (in cache): hash: {}, block_hash: {}, contains: {}", hash, block_hash, contains);
+				contains
+			} else{
+				let id = generic::BlockId::hash(block_hash);
+				let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
+					Some(v) => v,
+					None => return false,
+				};
+				let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
+					.expect("Internal error. Get shard num failed.");
+
+				let mut contains = false;
+				if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
+					if let Some(lc) = foreign_chains.get_shard_component(fs) {
+						if let Ok(Some(proof)) = lc.client().proof(&id) {
+							if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
+								contains = proof.contains(cs, hash);
+								self.cached_proof.insert(block_hash, proof);
 							}
 						}
 					}
 				}
-			}
-			return false;
+				debug!("Filter extrinsic check proof (fetch): hash: {}, block_hash: {}, contains: {}", hash, block_hash, contains);
+				contains
+
+			};
+
+			return contains
 		}
 
 		return true
@@ -339,6 +356,7 @@ impl<EX, F, AccountId> FilterExtrinsic<EX, F, AccountId> where
 			shard_extra,
 			foreign_chains,
 			phantom_data: PhantomData,
+			cached_proof: CHashMap::with_capacity(32),
 		}
 	}
 }
