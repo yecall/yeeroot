@@ -61,11 +61,13 @@ use yee_sharding_primitives::utils::shard_num_for;
 use merkle_light::proof::Proof as MLProof;
 use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
-use log::{warn, error};
+use log::{warn, error, debug};
 use parking_lot::RwLock;
 use primitives::H256;
 use yee_context::Context;
 use yee_sr_primitives::{RelayParams, OriginExtrinsic};
+use std::collections::{HashMap, hash_map::Entry};
+use yee_runtime::Hash;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -207,30 +209,51 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             Some(info) => info,
             None => { return Err("Can't get shard info in header".to_string()); }
         };
+
+        let mut cached_proof = HashMap::<<F::Block as Block>::Hash, MultiLayerProof>::with_capacity(32);
+
         for tx in exs {
             let bs = tx.encode();
             let (tc, cs) = (self.shard_extra.shard_count, self.shard_extra.shard_num);
             if let Some(rt) = RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
                 let hash = rt.hash();
-                let id = generic::BlockId::hash(rt.block_hash());
-                let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
-                    Some(v) => v,
-                    None => return Err("Decode origin extrinsic failed".to_string())
-                };
-                let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
-                    .expect("Internal error. Get shard num failed.");
-                if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
-                    if let Some(lc) = foreign_chains.get_shard_component(fs) {
-                        if let Ok(Some(proof)) = lc.client().proof(&id) {
-                            if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
-                                if proof.contains(cs, hash) {
-                                    continue;
+
+                let block_hash = rt.block_hash();
+
+                let contains = match cached_proof.entry(block_hash) {
+                    Entry::Occupied(entry) => {
+                        let proof = entry.get();
+                        let contains = proof.contains(cs, hash);
+                        debug!("Check proof (in cache): hash: {}, block_hash: {}, contains: {}", hash, block_hash, contains);
+                        contains
+                    },
+                    Entry::Vacant(entry) => {
+                        let id = generic::BlockId::hash(block_hash);
+                        let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()){
+                            Some(v) => v,
+                            None => return Err("Decode origin extrinsic failed".to_string())
+                        };
+                        let fs = yee_sharding_primitives::utils::shard_num_for(&origin.from(), tc as u16)
+                            .expect("Internal error. Get shard num failed.");
+
+                        let mut contains = false;
+                        if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
+                            if let Some(lc) = foreign_chains.get_shard_component(fs) {
+                                if let Ok(Some(proof)) = lc.client().proof(&id) {
+                                    if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
+                                        contains = proof.contains(cs, hash);
+                                        entry.insert(proof);
+                                    }
                                 }
                             }
                         }
+                        debug!("Check proof (fetch): hash: {}, block_hash: {}, contains: {}", hash, block_hash, contains);
+                        contains
                     }
+                };
+                if !contains {
+                    return Err("relay extrinsic not in proof".to_string())
                 }
-                return Err("relay extrinsic not in proof".to_string())
             }
         }
         Ok(())
