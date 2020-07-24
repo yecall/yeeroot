@@ -185,7 +185,6 @@ pub fn start_relay_transfer<F, C, A>(
         let api = client_recommit.runtime_api();
         let tc = api.get_shard_count(&block_id).expect("can't get shard count");    // total count
         if let Ok(Some(cs)) = api.get_curr_shard(&block_id) {
-            let ec = tx.encode();
             process_relay_extrinsic(ec, &header, hash, recommit_network.clone(), tc as u16, cs as u16);
         }
         Ok(())
