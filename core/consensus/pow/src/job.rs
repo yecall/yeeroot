@@ -325,8 +325,11 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
 				let mut contains = false;
 				if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
 					if let Some(lc) = foreign_chains.get_shard_component(fs) {
+						debug!("Filter extrinsic check proof (in cache): Got light: {}", fs);
 						if let Ok(Some(proof)) = lc.client().proof(&id) {
+							debug!("Filter extrinsic check proof (in cache): Got proof bytes: {}", id);
 							if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()){
+								debug!("Filter extrinsic check proof (in cache): Got proof object");
 								contains = proof.contains(cs, hash);
 								self.cached_proof.insert(block_hash, proof);
 							}
