@@ -34,9 +34,9 @@ pub struct Misc<Hash, Number, P: PoolChainApi> {
 	pool: Arc<Pool<P>>,
 }
 
-impl<Hash, Number, P: PoolChainApi> Misc<Hash, Number, P> {
+impl<Hash, Number> Misc<Hash, Number> {
 	pub fn new(
-		recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
+		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
 		crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
 		pool: Arc<Pool<P>>,
 	) -> Self {
@@ -58,9 +58,12 @@ impl<Hash, Number, P> MiscApi<Hash, Number> for Misc<Hash, Number, P> where
 			hash,
 			index,
         };
-		let sender = self.recommit_relay_sender.as_ref();
-		sender.as_ref().unwrap().unbounded_send(recommit_param);
-		Ok(())
+		if let Some(sender) =  self.recommit_relay_sender.write().as_ref() {
+			sender.unbounded_send(recommit_param);
+			Ok(())
+		} else {
+			Err(errors::Error::from(errors::ErrorKind::RecommitFailed).into())
+		}
 	}
 
 	fn waiting_extrinsics(&self) -> errors::Result<Vec<Bytes>> {
