@@ -13,36 +13,45 @@ use futures::sync::mpsc;
 use parking_lot::RwLock;
 use crfg::CrfgState;
 use std::time::Duration;
+use substrate_primitives::Bytes;
+use transaction_pool::txpool::{Pool, ChainApi as PoolChainApi};
 
 #[rpc]
 pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "author_recommitRelay")]
 	fn recommit_relay_extrinsic(&self, hash: Hash, index: usize) -> errors::Result<()>;
 
+	#[rpc(name = "author_waitingExtrinsics")]
+	fn waiting_extrinsics(&self) -> errors::Result<Vec<Bytes>>;
+
 	#[rpc(name = "crfg_state")]
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>>;
 }
 
-pub struct Misc<Hash, Number> {
+pub struct Misc<Hash, Number, P: PoolChainApi> {
 	recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
 	crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
+	pool: Arc<Pool<P>>,
 }
 
-impl<Hash, Number> Misc<Hash, Number> {
+impl<Hash, Number, P: PoolChainApi> Misc<Hash, Number, P> {
 	pub fn new(
 		recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
 		crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
+		pool: Arc<Pool<P>>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
 			crfg_state,
+			pool,
 		}
 	}
 }
 
-impl<Hash, Number> MiscApi<Hash, Number> for Misc<Hash, Number> where
+impl<Hash, Number, P> MiscApi<Hash, Number> for Misc<Hash, Number, P> where
 	Hash: Send + Clone + Sync + 'static,
 	Number: Send + Clone + Sync + 'static,
+	P: PoolChainApi + Sync + Send + 'static,
 {
 	fn recommit_relay_extrinsic(&self, hash: Hash, index: usize) -> errors::Result<()> {
 		let recommit_param = RecommitRelay {
@@ -52,6 +61,10 @@ impl<Hash, Number> MiscApi<Hash, Number> for Misc<Hash, Number> where
 		let sender = self.recommit_relay_sender.as_ref();
 		sender.as_ref().unwrap().unbounded_send(recommit_param);
 		Ok(())
+	}
+
+	fn waiting_extrinsics(&self) -> errors::Result<Vec<Bytes>> {
+		Ok(self.pool.futures().map(|tx| tx.data.encode().into()).collect())
 	}
 
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>> {

@@ -109,7 +109,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
         let mining = Mining::new(extra.job_manager);
         io.extend_with(mining.to_delegate());
 
-        let misc = Misc::new(extra.recommit_relay_sender.clone(), extra.crfg_state.clone());
+        let misc = Misc::new(extra.recommit_relay_sender.clone(), extra.crfg_state.clone(), transaction_pool.clone());
         io.extend_with(misc.to_delegate());
 
         io
