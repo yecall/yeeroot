@@ -29,12 +29,12 @@ pub trait MiscApi<Hash, Number> {
 }
 
 pub struct Misc<Hash, Number, P: PoolChainApi> {
-	recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
+	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
 	crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
 	pool: Arc<Pool<P>>,
 }
 
-impl<Hash, Number> Misc<Hash, Number> {
+impl<Hash, Number, P: PoolChainApi> Misc<Hash, Number, P> {
 	pub fn new(
 		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
 		crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
