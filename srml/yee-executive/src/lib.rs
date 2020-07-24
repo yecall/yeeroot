@@ -63,7 +63,7 @@ mod internal {
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
 	/// Actually execute all transitioning for `block`.
-	fn execute_block(block: Block, extra: Option<Vec<u8>>);
+	fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8>;
 }
 
 pub struct Executive<System, Block, Context, Payment, AllModules>(
@@ -82,8 +82,8 @@ impl<
 	<<Block::Extrinsic as Checkable<Context>>::Checked as Applyable>::Call: Dispatchable,
 	<<<Block::Extrinsic as Checkable<Context>>::Checked as Applyable>::Call as Dispatchable>::Origin: From<Option<System::AccountId>>
 {
-	fn execute_block(block: Block, extra: Option<Vec<u8>>) {
-		Executive::<System, Block, Context, Payment, AllModules>::execute_block(block, extra);
+	fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8> {
+		Executive::<System, Block, Context, Payment, AllModules>::execute_block(block, extra)
 	}
 }
 
@@ -126,7 +126,7 @@ impl<
 	}
 
 	/// Actually execute all transitioning for `block`.
-	pub fn execute_block(block: Block, extra: Option<Vec<u8>>) {
+	pub fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8> {
 		Self::initialize_block(block.header());
 
         // any initial checks
@@ -153,6 +153,7 @@ impl<
 
 		// any final checks
 		Self::final_checks(&header);
+		vec![1u8,2u8,3u8]
 	}
 
 	/// Execute given extrinsics and take care of post-extrinsics book-keeping
