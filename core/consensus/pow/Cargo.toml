@@ -12,13 +12,13 @@ parking_lot = "0.7.1"
 tokio = "0.1"
 pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
 yee-srml-pow = { path = "../../../srml/yee-pow" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae"}
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
-srml-timestamp = { git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
 yee-sharding = { package = "yee-sharding", path = "../../sharding" }
