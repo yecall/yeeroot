@@ -140,20 +140,21 @@ impl<
 			None => (None, None),
 		};
 
-		match (shard_item, pow_seal_item){
+		let proof = match (shard_item, pow_seal_item){
 			(Some(shard_item), Some(pow_seal_item)) => {
 				// println!("execute_extrinsics_with_book_keeping_with_proof: {:x}, {}, {}", pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
-				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
+				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count)
 			},
 			_ => {
 				// println!("execute_extrinsics_with_book_keeping");
 				Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+				vec![]
 			}
-		}
+		};
 
 		// any final checks
 		Self::final_checks(&header);
-		vec![1u8,2u8,3u8]
+		proof
 	}
 
 	/// Execute given extrinsics and take care of post-extrinsics book-keeping
@@ -166,7 +167,7 @@ impl<
 	}
 
     /// Execute given extrinsics and take care of post-extrinsics book-keeping
-    fn execute_extrinsics_with_book_keeping_with_proof(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, proof: H256, cur_shard: u16, shard_count: u16) {
+    fn execute_extrinsics_with_book_keeping_with_proof(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, proof: H256, cur_shard: u16, shard_count: u16) -> Vec<u8> {
         // let mut exe_result = vec![];
         // let mut hashs = vec![];
         let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
@@ -212,12 +213,12 @@ impl<
         }
         let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
         let layer2_root = layer2_tree.root();
-		// println!("{:?} vs {:?}", layer2_root.as_bytes(), proof.as_bytes());
         assert_eq!(layer2_root.as_bytes(), proof.as_bytes(), "proof root not match");
-
-        // post-extrinsics book-keeping.
         <system::Module<System>>::note_finished_extrinsics();
         <AllModules as OnFinalize<System::BlockNumber>>::on_finalize(block_number);
+
+		let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles);
+		multi_proof.into_bytes()
     }
 
 	/// Finalize the block - it is up the caller to ensure that all header fields are valid
