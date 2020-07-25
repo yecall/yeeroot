@@ -142,11 +142,9 @@ impl<
 
 		let proof = match (shard_item, pow_seal_item){
 			(Some(shard_item), Some(pow_seal_item)) => {
-				runtime_io::print("execute_extrinsics_with_book_keeping_with_proof");
 				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count)
 			},
 			_ => {
-				runtime_io::print("execute_extrinsics_with_book_keeping");
 				Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
 				vec![]
 			}

@@ -218,7 +218,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
             let work_proof = WorkProof::Unknown;
             // generate proof
             let (relay_proof, proof) = gen_extrinsic_proof::<B>(&header, &body, exe_result);
-            println!("height: {:?}, proof's len={:?}", header_num, proof.len());
+            debug!("height: {:?}, proof's len={:?}", header_num, proof.len());
             let pow_seal = PowSeal {
                 authority_id,
                 pow_target,
