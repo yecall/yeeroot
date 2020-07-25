@@ -31,7 +31,7 @@ use crate::protocol::{self, Protocol, FromNetworkMsg, ProtocolMsg};
 use crate::config::Params;
 use crossbeam_channel::{self as channel, Receiver, Sender, TryRecvError};
 use crate::error::Error;
-use runtime_primitives::{traits::{Block as BlockT, NumberFor, Header}, ConsensusEngineId};
+use runtime_primitives::{traits::{Block as BlockT, NumberFor, Header, Digest, DigestItemFor, As}, ConsensusEngineId, generic::BlockId};
 use crate::{IdentifySpecialization, identify_specialization::ForeignIdentifySpecialization};
 
 use tokio::prelude::task::AtomicTask;
@@ -52,6 +52,9 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
+
+	/// Get chain info.
+	fn chain_info(&self) -> HashMap<u16, Option<(NumberFor<B>, NumberFor<B>)>>;
 
 	// Get client info.
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>;
@@ -216,7 +219,11 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Servic
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B, H> for Service<B, I, H> {
+impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B, H> for Service<B, I, H>
+where
+	B: BlockT + 'static,
+	DigestItemFor<B>: finality_tracker::FinalityTrackerDigestItem,
+{
 
 	fn on_relay_extrinsics(&self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>){
 		self.on_relay_extrinsics(shard_num, extrinsics);
@@ -231,6 +238,40 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B,
 	fn network_state(&self) -> NetworkState {
 
 		self.network.lock().state()
+	}
+
+	fn chain_info(&self) -> HashMap<u16, Option<(NumberFor<B>, NumberFor<B>)>> {
+
+		let get_chain_info = | client : &Arc<dyn substrate_network::chain::Client<B>> | -> Result<(NumberFor<B>, NumberFor<B>), ()> {
+			let info = client.info().map_err(|_|())?;
+			let best_number = info.chain.best_number;
+			let id = BlockId::number(best_number);
+			let header = client.header(&id).map_err(|_|())?.ok_or(())?;
+			let finalized_number = header.digest().logs().iter().rev()
+				.filter_map(finality_tracker::FinalityTrackerDigestItem::as_finality_tracker).next().ok_or(())?;
+			let finalized_number = <NumberFor<B> as As<u64>>::sa(finalized_number);
+			Ok((best_number, finalized_number))
+		};
+
+		let get_native_chain_info = |client: &Arc<dyn Client<B>>| -> Result<(NumberFor<B>, NumberFor<B>), ()> {
+			let chain = client.info().map_err(|_|())?;
+			let chain = chain.chain;
+			Ok((chain.best_number, chain.finalized_number))
+		};
+
+		let mut list =  self.vnetwork_holder.chain_list.read().iter()
+			.map(|(shard_num, client)|{
+				let chain_info = get_chain_info(client).ok();
+				(*shard_num, chain_info)
+			}).collect::<Vec<_>>();
+
+		list.push({
+			let chain_info = get_native_chain_info(&self.chain).ok();
+			(self.shard_num, chain_info)
+		});
+
+		let map = list.into_iter().collect::<HashMap<_, _>>();
+		map
 	}
 
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>{
