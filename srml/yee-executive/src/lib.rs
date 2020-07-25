@@ -142,11 +142,11 @@ impl<
 
 		let proof = match (shard_item, pow_seal_item){
 			(Some(shard_item), Some(pow_seal_item)) => {
-				// println!("execute_extrinsics_with_book_keeping_with_proof: {:x}, {}, {}", pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
+				runtime_io::print("execute_extrinsics_with_book_keeping_with_proof");
 				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count)
 			},
 			_ => {
-				// println!("execute_extrinsics_with_book_keeping");
+				runtime_io::print("execute_extrinsics_with_book_keeping");
 				Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
 				vec![]
 			}
@@ -218,7 +218,9 @@ impl<
         <AllModules as OnFinalize<System::BlockNumber>>::on_finalize(block_number);
 
 		let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles);
-		multi_proof.into_bytes()
+		let bytes = multi_proof.into_bytes();
+		// runtime_io::print(format!("height: {}, proof's len: {:?}", block_number, bytes.len()).as_str());
+		bytes
     }
 
 	/// Finalize the block - it is up the caller to ensure that all header fields are valid
