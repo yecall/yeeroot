@@ -13,14 +13,14 @@ futures = "0.1.17"
 linked_hash_set = "0.1.3"
 network-libp2p = { package = "yee-foreign-network-libp2p", path = "../network-libp2p" }
 vnetwork = { package = "yee-foreign-vnetwork", path = "vnetwork" }
-peerset = { package = "substrate-peerset", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-consensus = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-substrate_service = { package = "substrate-service", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-substrate_network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
-substrate_transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "46b45ca391d0e681e9aff3553fa6d3618bf53ab5" }
+peerset = { package = "substrate-peerset", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+consensus = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+substrate_service = { package = "substrate-service", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+substrate_network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
+substrate_transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "8fd547f7a1d107ebe20a24e8689afc602036f5ae" }
 tokio = "0.1.11"
 bitflags = "1.0"
 parity-codec = { version = "3.2", features = ["derive"] }
