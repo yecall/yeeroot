@@ -131,7 +131,7 @@ impl<B, AuthorityId> MiningApi<B::Hash, <B::Header as Header>::Number, Authority
 
     fn submit_job(&self, job_result: JobResult<B::Hash>) -> BoxFuture<B::Hash>{
 
-        log::info!("job_result: {:?}", job_result);
+        log::debug!("job_result: {:?}", job_result);
 
         let job_manager = match self.job_manager.read().as_ref() {
             Some(j) => j.to_owned(),

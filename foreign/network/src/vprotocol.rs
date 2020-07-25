@@ -414,8 +414,14 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             if let Ok(ml) = tree {
                 if let Some(pf) = ml.gen_proof(shard_num) {
                     return Some(pf.into_bytes());
+                } else {
+                    debug!("get proof: {}", Colour::Red.bold().paint("ml.gen_proof is none"));
                 }
+            } else {
+                debug!("get proof: {}", Colour::Red.bold().paint("tree is error"));
             }
+        } else {
+            debug!("get proof: {}", Colour::Red.bold().paint("total_proof is none"));
         }
         None
     }

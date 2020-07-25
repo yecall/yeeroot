@@ -296,7 +296,7 @@ impl_runtime_apis! {
 			VERSION
 		}
 
-		fn execute_block(block: Block, extra: Option<Vec<u8>>) {
+		fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8> {
 			Executive::execute_block(block, extra)
 		}
 

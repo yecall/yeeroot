@@ -63,6 +63,7 @@ srml-crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg" }
 foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 yee-context = { package = "yee-context", path = "../core/context" }
+finality-tracker = { package = "finality-tracker", path = "../core/finality-tracker" }
 
 [features]
 custom-wasm-code = []

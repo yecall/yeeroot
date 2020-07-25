@@ -36,6 +36,7 @@ use substrate_client::{ClientInfo};
 use ansi_term::Colour;
 use substrate_service::{Components, ComponentClient, ComponentExHash};
 use substrate_client::runtime_api::BlockT;
+use runtime_primitives::traits::{NumberFor, DigestItemFor};
 
 const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -151,6 +152,7 @@ pub struct Params {
 pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
     -> error::Result<Arc<network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
     C: Components,
+    DigestItemFor<<C::Factory as ServiceFactory>::Block>: finality_tracker::FinalityTrackerDigestItem,
 {
     let peer_id = get_peer_id(&param.node_key_pair);
 
@@ -206,14 +208,32 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
 
         let network_state = service.network_state();
         let client_info = service.client_info();
+        let chain_info = service.chain_info();
 
-        info!(target: "foreign", "{}", get_status(&network_state, &client_info, shard_count));
+        let status = get_status::<<C::Factory as ServiceFactory>::Block>(&network_state, &chain_info, shard_count);
+
+        let status = status.into_iter().enumerate().map(|(i, status)| {
+            format!("{} (peers: {}, best: {}, finalized: {}) ",
+                     Colour::Green.bold().paint(&format!("Shard#{}", i)),
+                     status.peer_count,
+                     status.best_number.map(|x|format!("{}", x)).unwrap_or("-".to_string()),
+                     status.finalized_number.map(|x|format!("{}", x)).unwrap_or("-".to_string()),
+            )
+        }).collect::<String>();
+
+        info!(target: "foreign", "{}", status);
         Ok(())
     }).map_err(|e| warn!("Foreign network error: {:?}", e));
 
     executor.spawn(task);
 
     Ok(service_clone)
+}
+
+pub struct ForeignStatus<Number> {
+    pub peer_count: u32,
+    pub best_number: Option<Number>,
+    pub finalized_number: Option<Number>,
 }
 
 fn get_foreign_boot_nodes(bootnodes_router_conf: &Option<BootnodesRouterConf>) -> HashMap<u16, Vec<String>> {
@@ -231,7 +251,7 @@ fn get_peer_id(node_key_pair: &Keypair) -> String {
     peer_id.to_base58()
 }
 
-fn get_status<B: BlockT>(network_state: &NetworkState, client_info: &HashMap<u16, Option<ClientInfo<B>>>, shard_count: u16) -> String {
+fn get_status<B: BlockT>(network_state: &NetworkState, chain_info: &HashMap<u16, Option<(NumberFor<B>, NumberFor<B>)>>, shard_count: u16) -> Vec<ForeignStatus<NumberFor<B>>> {
     let mut result: HashMap<u16, u32> = HashMap::new();
     for (_peer_id, peer) in &network_state.connected_peers {
         match peer.shard_num {
@@ -242,29 +262,22 @@ fn get_status<B: BlockT>(network_state: &NetworkState, client_info: &HashMap<u16
             None => {}
         }
     }
-    let mut status = String::new();
+    let mut list = vec![];
     for i in 0..shard_count {
         let peer_count = match result.get(&i) {
             Some(count) => *count,
             None => 0u32,
         };
-        let best_number = match client_info.get(&i){
-            Some(info) => match info{
-                Some(info) => format!("{}", info.chain.best_number),
-                None => "-".to_string(),
-            },
-            None => "-".to_string(),
+        let info = chain_info.get(&i).unwrap_or(&None);
+        let best_number = info.as_ref().map(|info|info.0.clone());
+        let finalized_number = info.as_ref().map(|info|info.1.clone());
+        let foreign_status = ForeignStatus {
+            peer_count,
+            best_number,
+            finalized_number,
         };
-        status.push_str(&format!("{} (peers: {}, best: {}) ",
-                                 Colour::Green.bold().paint(&format!("Shard#{}", i)),
-                                 peer_count,
-                                 best_number,
-        ));
+        list.push(foreign_status);
     }
 
-    //remove last blank char
-    if shard_count > 0 {
-        status.remove(status.len() - 1);
-    }
-    status
+    list
 }

@@ -63,7 +63,7 @@ mod internal {
 /// Something that can be used to execute a block.
 pub trait ExecuteBlock<Block: BlockT> {
 	/// Actually execute all transitioning for `block`.
-	fn execute_block(block: Block, extra: Option<Vec<u8>>);
+	fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8>;
 }
 
 pub struct Executive<System, Block, Context, Payment, AllModules>(
@@ -82,8 +82,8 @@ impl<
 	<<Block::Extrinsic as Checkable<Context>>::Checked as Applyable>::Call: Dispatchable,
 	<<<Block::Extrinsic as Checkable<Context>>::Checked as Applyable>::Call as Dispatchable>::Origin: From<Option<System::AccountId>>
 {
-	fn execute_block(block: Block, extra: Option<Vec<u8>>) {
-		Executive::<System, Block, Context, Payment, AllModules>::execute_block(block, extra);
+	fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8> {
+		Executive::<System, Block, Context, Payment, AllModules>::execute_block(block, extra)
 	}
 }
 
@@ -126,7 +126,7 @@ impl<
 	}
 
 	/// Actually execute all transitioning for `block`.
-	pub fn execute_block(block: Block, extra: Option<Vec<u8>>) {
+	pub fn execute_block(block: Block, extra: Option<Vec<u8>>) -> Vec<u8> {
 		Self::initialize_block(block.header());
 
         // any initial checks
@@ -140,19 +140,19 @@ impl<
 			None => (None, None),
 		};
 
-		match (shard_item, pow_seal_item){
+		let proof = match (shard_item, pow_seal_item){
 			(Some(shard_item), Some(pow_seal_item)) => {
-				// println!("execute_extrinsics_with_book_keeping_with_proof: {:x}, {}, {}", pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
-				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count);
+				Self::execute_extrinsics_with_book_keeping_with_proof(extrinsics, *header.number(), pow_seal_item.relay_proof, shard_item.shard_num, shard_item.shard_count)
 			},
 			_ => {
-				// println!("execute_extrinsics_with_book_keeping");
 				Self::execute_extrinsics_with_book_keeping(extrinsics, *header.number());
+				vec![]
 			}
-		}
+		};
 
 		// any final checks
 		Self::final_checks(&header);
+		proof
 	}
 
 	/// Execute given extrinsics and take care of post-extrinsics book-keeping
@@ -165,7 +165,7 @@ impl<
 	}
 
     /// Execute given extrinsics and take care of post-extrinsics book-keeping
-    fn execute_extrinsics_with_book_keeping_with_proof(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, proof: H256, cur_shard: u16, shard_count: u16) {
+    fn execute_extrinsics_with_book_keeping_with_proof(extrinsics: Vec<Block::Extrinsic>, block_number: NumberFor<Block>, proof: H256, cur_shard: u16, shard_count: u16) -> Vec<u8> {
         // let mut exe_result = vec![];
         // let mut hashs = vec![];
         let mut extrinsic_shard: HashMap<u16, Vec<H256>> = HashMap::new();
@@ -211,12 +211,14 @@ impl<
         }
         let layer2_tree = MerkleTree::<ProofHash<BlakeTwo256>, ProofAlgorithm<BlakeTwo256>>::new(layer2_leaves);
         let layer2_root = layer2_tree.root();
-		// println!("{:?} vs {:?}", layer2_root.as_bytes(), proof.as_bytes());
         assert_eq!(layer2_root.as_bytes(), proof.as_bytes(), "proof root not match");
-
-        // post-extrinsics book-keeping.
         <system::Module<System>>::note_finished_extrinsics();
         <AllModules as OnFinalize<System::BlockNumber>>::on_finalize(block_number);
+
+		let multi_proof = MultiLayerProof::new_with_layer2(layer2_tree, layer1_merkles);
+		let bytes = multi_proof.into_bytes();
+		// runtime_io::print(format!("height: {}, proof's len: {:?}", block_number, bytes.len()).as_str());
+		bytes
     }
 
 	/// Finalize the block - it is up the caller to ensure that all header fields are valid

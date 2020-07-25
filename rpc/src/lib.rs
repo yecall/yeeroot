@@ -52,7 +52,7 @@ pub type LightRpcHandlerConstructor = DefaultRpcHandlerConstructor;
 pub trait ProvideRpcExtra<Hash, Number, J> {
     fn provide_job_manager(&self) -> Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>;
 
-    fn provide_recommit_relay_sender(&self) -> Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>;
+    fn provide_recommit_relay_sender(&self) -> Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>;
 
     fn provide_crfg_state(&self) -> Arc<RwLock<Option<CrfgState<Hash, Number>>>>;
 }
@@ -60,7 +60,7 @@ pub trait ProvideRpcExtra<Hash, Number, J> {
 #[derive(Clone)]
 pub struct FullRpcExtra<Hash, Number, J> {
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>,
-    recommit_relay_sender: Arc<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>,
+    recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
     crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
 }
 
@@ -109,7 +109,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
         let mining = Mining::new(extra.job_manager);
         io.extend_with(mining.to_delegate());
 
-        let misc = Misc::new(extra.recommit_relay_sender.clone(), extra.crfg_state.clone());
+        let misc = Misc::new(extra.recommit_relay_sender.clone(), extra.crfg_state.clone(), transaction_pool.clone());
         io.extend_with(misc.to_delegate());
 
         io

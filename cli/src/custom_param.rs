@@ -90,7 +90,7 @@ where
     <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 {
 
-    let InitialInfo{context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, custom_args.shard_num)?;
+    let InitialInfo{genesis_hash, context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, custom_args.shard_num)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 
@@ -206,6 +206,7 @@ fn get_hrp(chain_spec_id: &str) -> Hrp {
 pub struct InitialInfo<Block> where
     Block: BlockT,
 {
+    pub genesis_hash: Block::Hash,
     pub context: Context<Block>,
     pub shard_num: u16,
     pub shard_count: u16,
@@ -226,9 +227,12 @@ where
     let initial_info = match config.roles {
         Roles::LIGHT => {
             let (client, _) = LightComponents::<F>::build_client(config, executor)?;
+
+            let genesis_hash = client.block_hash(Zero::zero())?.ok_or("no genesis block")?;
             let context = get_context_from_client::<F, _>(config, client.clone())?;
             let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, arg_shard_num, client, &context)?;
             Ok(InitialInfo{
+                genesis_hash,
                 context,
                 shard_num,
                 shard_count,
@@ -237,9 +241,12 @@ where
         },
         _ => {
             let (client, _) = FullComponents::<F>::build_client(config, executor)?;
+
+            let genesis_hash = client.block_hash(Zero::zero())?.ok_or("no genesis block")?;
             let context = get_context_from_client::<F, _>(config, client.clone())?;
             let (shard_num, shard_count, scale_out) = get_shard_info_from_client::<F, _>(config, arg_shard_num, client, &context)?;
             Ok(InitialInfo{
+                genesis_hash,
                 context,
                 shard_num,
                 shard_count,
