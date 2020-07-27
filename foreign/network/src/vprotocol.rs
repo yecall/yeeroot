@@ -27,7 +27,7 @@ use crate::chain::Client;
 use crate::error;
 use network_libp2p::{PeerId, Severity};
 use runtime_primitives::{generic::BlockId, ConsensusEngineId, Proof, traits::BlakeTwo256};
-use log::{trace, debug, info};
+use log::{trace, debug, info, warn};
 use std::{cmp, num::NonZeroUsize, thread, time};
 use std::collections::{BTreeMap, HashMap};
 use substrate_network::{SyncStatus, OnDemandService};
@@ -370,10 +370,9 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let proof = self.protocol_context_data.read().peers.get(&peer).map(|p| {
                 self.get_proof_by_shard_num(hash, p.info.shard_num)
             }).unwrap_or(None);
-            if proof.is_some() {
-                debug!("receive {}: number:{}, proof.len():{}", Colour::White.bold().paint("Proof"), number, proof.clone().unwrap().len());
-            } else {
-                info!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("No Proof"), number);
+            if proof.is_none() {
+                warn!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("But No Proof Found"), number);
+                break;
             }
             let block_data = message::generic::BlockData {
                 hash,
@@ -396,12 +395,14 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 }
             }
         }
-        let response = message::generic::BlockResponse {
-            id: request.id,
-            blocks,
-        };
-        trace!(target: "sync-foreign", "VProtocol: Sending BlockResponse with {} blocks", response.blocks.len());
-        self.send_message(peer, GenericMessage::BlockResponse(response))
+        if blocks.len() > 0 {
+            let response = message::generic::BlockResponse {
+                id: request.id,
+                blocks,
+            };
+            trace!(target: "sync-foreign", "VProtocol: Sending BlockResponse with {} blocks", response.blocks.len());
+            self.send_message(peer, GenericMessage::BlockResponse(response))
+        }
     }
 
     /// Get proof by shard num.
