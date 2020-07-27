@@ -74,12 +74,19 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 	)
 }
 
-pub const BOOTNODES_ROUTER: [&str; 1] = [    // todo
-	"http://128.1.38.53:6666",
+pub const BOOTNODES_ROUTER: [&str; 8] = [
+	"http://54.92.12.49:6666",
+	"http://106.75.164.126:6666",
+	"http://106.75.139.215:6666",
+	"http://106.75.126.55:6666",
+	"http://106.75.36.3:6666",
+	"http://23.91.98.161:6666",
+	"http://118.193.34.63:6666",
+	"http://107.150.124.16:6666",
 ];
 
 pub const ENDOWED_ACCOUNTS: [(&str, u128); 1] = [
-	("yee1m278egdx0fh7tgk8xsk67enjsvl6fqm9ehvjspj27v9dghr7x57qr5l44f", 70_5027_5000_00000000u128),
+	("yee1m278egdx0fh7tgk8xsk67enjsvl6fqm9ehvjspj27v9dghr7x57qr5l44f", 7_050_275_000_00000000u128),
 ];
 
 pub const SUDO_ACCOUNTS: [&str; 4] = [
