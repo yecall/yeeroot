@@ -179,7 +179,7 @@ fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<
 			minimum_period: 0,
 		}),
 		pow: Some(PowConfig {
-			genesis_pow_target: primitives::U256::from(0x0000ffff) << 224,
+			genesis_pow_target: primitives::U256::from(0x000000ffff) << 216,
 			pow_target_adj: 60_u64.into(),
 			target_block_time: 30_u64.into(),
 			block_reward: 25_600_000_000,
