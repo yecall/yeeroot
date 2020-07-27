@@ -15,25 +15,28 @@
 // You should have received a copy of the GNU General Public License
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
-use substrate_network::message::{self, BlockRequest as BlockRequestMessage, Message};
-use substrate_network::message::generic::{Message as GenericMessage, ConsensusMessage};
-use runtime_primitives::traits::{As, Block as BlockT, Header as HeaderT, NumberFor, Zero};
-use substrate_network::config::{ProtocolConfig, Roles};
-use std::sync::Arc;
-use crate::service::{NetworkChan, ExHashT};
-use crate::NetworkMsg;
-use crate::util::LruHashSet;
-use crate::chain::Client;
-use crate::error;
-use network_libp2p::{PeerId, Severity};
-use runtime_primitives::{generic::BlockId, ConsensusEngineId, Proof, traits::BlakeTwo256};
-use log::{trace, debug, info};
 use std::{cmp, num::NonZeroUsize, thread, time};
 use std::collections::{BTreeMap, HashMap};
-use substrate_network::{SyncStatus, OnDemandService};
-use parking_lot::RwLock;
-use merkle_light::merkle::MerkleTree;
+use std::sync::Arc;
+
 use ansi_term::Colour;
+use log::{debug, info, trace, warn};
+use merkle_light::merkle::MerkleTree;
+use parking_lot::RwLock;
+use runtime_primitives::{ConsensusEngineId, generic::BlockId, Proof, traits::BlakeTwo256};
+use runtime_primitives::traits::{As, Block as BlockT, Header as HeaderT, NumberFor, Zero};
+use substrate_network::{OnDemandService, SyncStatus};
+use substrate_network::config::{ProtocolConfig, Roles};
+use substrate_network::message::{self, BlockRequest as BlockRequestMessage, Message};
+use substrate_network::message::generic::{ConsensusMessage, Message as GenericMessage};
+
+use network_libp2p::{PeerId, Severity};
+
+use crate::chain::Client;
+use crate::error;
+use crate::NetworkMsg;
+use crate::service::{ExHashT, NetworkChan};
+use crate::util::LruHashSet;
 
 const REQUEST_TIMEOUT_SEC: u64 = 40;
 /// Interval at which we perform time based maintenance
@@ -370,10 +373,9 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let proof = self.protocol_context_data.read().peers.get(&peer).map(|p| {
                 self.get_proof_by_shard_num(hash, p.info.shard_num)
             }).unwrap_or(None);
-            if proof.is_some() {
-                debug!("receive {}: number:{}, proof.len():{}", Colour::White.bold().paint("Proof"), number, proof.clone().unwrap().len());
-            } else {
-                info!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("No Proof"), number);
+            if proof.is_none() {
+                warn!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("But No Proof Found"), number);
+                break;
             }
             let block_data = message::generic::BlockData {
                 hash,
