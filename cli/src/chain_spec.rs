@@ -74,19 +74,26 @@ pub fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, Author
 	)
 }
 
-pub const BOOTNODES_ROUTER: [&str; 1] = [    // todo
-	"http://128.1.38.53:6666",
+pub const BOOTNODES_ROUTER: [&str; 8] = [
+	"http://54.92.12.49:6666",
+	"http://106.75.164.126:6666",
+	"http://106.75.139.215:6666",
+	"http://106.75.126.55:6666",
+	"http://106.75.36.3:6666",
+	"http://23.91.98.161:6666",
+	"http://118.193.34.63:6666",
+	"http://107.150.124.16:6666",
 ];
 
-pub const ENDOWED_ACCOUNTS: [(&str, u128); 1] = [    // todo
-	("yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqmtaf9v", 1_00000000_00000000u128),	// 100 million
+pub const ENDOWED_ACCOUNTS: [(&str, u128); 1] = [
+	("yee1m278egdx0fh7tgk8xsk67enjsvl6fqm9ehvjspj27v9dghr7x57qr5l44f", 7_050_275_000_00000000u128),
 ];
 
-pub const SUDO_ACCOUNTS: [&str; 4] = [    // todo
-	"yee1jfakj2rvqym79lmxcmjkraep6tn296deyspd9mkh467u4xgqt3cqmtaf9v",
-	"yee15zphhp8wmtupkf3j8uz5y6eeamkmknfgs6rj0hsyt6m8ntpvndvsk9kpsa",
-	"yee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94q9yzcld",
-	"yee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fadse0ng97",
+pub const SUDO_ACCOUNTS: [&str; 4] = [
+	"yee19q7k8j0hy2rnjtx080zhepdpfzccqp9pwsywz48tclnwse0pdekqgaqw8k",
+	"yee1aezky23mll3jhg3gh8l9vkaw9c0mnkxxd29ye27u7anms7rxl52strps30",
+	"yee1ns6j0ynkxy2mwc340mf4wlpm72cqqwngh85x94p0ea3tnaq27s3qapctsx",
+	"yee136vpzc2ptth3ms2gf29826twhy4tyjzdt7ly0ugm23nnaa7ungpsqrrl88",
 ];
 
 fn account_addr(s: &str) -> AccountId {
@@ -179,7 +186,7 @@ fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<
 			minimum_period: 0,
 		}),
 		pow: Some(PowConfig {
-			genesis_pow_target: primitives::U256::from(0x0000ffff) << 224,
+			genesis_pow_target: primitives::U256::from(0x000000ffff) << 216,
 			pow_target_adj: 60_u64.into(),
 			target_block_time: 30_u64.into(),
 			block_reward: 25_600_000_000,
