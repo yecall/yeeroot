@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::hash::Hasher;
+use std::hash::{Hasher, Hash};
 use parity_codec::{Encode, Decode};
 use jsonrpc_derive::rpc;
 use jsonrpc_core::BoxFuture;
@@ -13,8 +13,11 @@ use futures::sync::mpsc;
 use parking_lot::RwLock;
 use crfg::CrfgState;
 use std::time::Duration;
-use substrate_primitives::Bytes;
+use substrate_primitives::{Bytes, H256};
 use transaction_pool::txpool::{Pool, ChainApi as PoolChainApi};
+use yee_foreign_network::{SyncProvider, NetworkState};
+use runtime_primitives::traits::{Block as BlockT, NumberFor};
+use std::fmt::Debug;
 
 #[rpc]
 pub trait MiscApi<Hash, Number> {
@@ -24,36 +27,47 @@ pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "author_waitingExtrinsics")]
 	fn waiting_extrinsics(&self) -> errors::Result<Vec<Bytes>>;
 
+	#[rpc(name = "system_foreignNetworkState")]
+	fn foreign_network_state(&self) -> errors::Result<NetworkState>;
+
 	#[rpc(name = "crfg_state")]
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>>;
+
 }
 
-pub struct Misc<Hash, Number, P: PoolChainApi> {
-	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
-	crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
+pub struct Misc<P: PoolChainApi, B: BlockT, H> {
+	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
+	crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
 	pool: Arc<Pool<P>>,
+	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 }
 
-impl<Hash, Number, P: PoolChainApi> Misc<Hash, Number, P> {
+impl<P: PoolChainApi, B, H> Misc<P, B, H>
+where
+	P: PoolChainApi,
+	B: BlockT,
+{
 	pub fn new(
-		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<Hash>>>>>,
-		crfg_state: Arc<RwLock<Option<CrfgState<Hash, Number>>>>,
+		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
+		crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
 		pool: Arc<Pool<P>>,
+		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
 			crfg_state,
 			pool,
+			foreign_network,
 		}
 	}
 }
 
-impl<Hash, Number, P> MiscApi<Hash, Number> for Misc<Hash, Number, P> where
-	Hash: Send + Clone + Sync + 'static,
-	Number: Send + Clone + Sync + 'static,
+impl<P, B, H> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H> where
+	B: BlockT + Send + Clone + Sync + 'static,
 	P: PoolChainApi + Sync + Send + 'static,
+	H: Eq + Hash + Debug + Clone + Sync + Send + 'static,
 {
-	fn recommit_relay_extrinsic(&self, hash: Hash, index: usize) -> errors::Result<()> {
+	fn recommit_relay_extrinsic(&self, hash: B::Hash, index: usize) -> errors::Result<()> {
 		let recommit_param = RecommitRelay {
 			hash,
 			index,
@@ -70,7 +84,13 @@ impl<Hash, Number, P> MiscApi<Hash, Number> for Misc<Hash, Number, P> where
 		Ok(self.pool.futures().map(|tx| tx.data.encode().into()).collect())
 	}
 
-	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>> {
+	fn foreign_network_state(&self) -> errors::Result<NetworkState> {
+		let foreign_network = self.foreign_network.read();
+		let foreign_network = foreign_network.as_ref().ok_or(errors::Error::from(errors::ErrorKind::NotReady))?;
+		Ok(foreign_network.network_state())
+	}
+
+	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<B::Hash, NumberFor<B>>>> {
 		let state = self.crfg_state.read().as_ref().cloned().map(|x|x.into());
 		Ok(state)
 	}

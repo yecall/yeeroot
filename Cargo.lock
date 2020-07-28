@@ -5535,6 +5535,7 @@ dependencies = [
  "yee-consensus-pow 0.1.0",
  "yee-consensus-pow-primitives 0.1.0",
  "yee-crfg 0.4.0",
+ "yee-foreign-network 0.4.0",
  "yee-foreign-relay 0.4.0",
  "yee-primitives 0.5.0",
  "yee-runtime 1.0.0",
