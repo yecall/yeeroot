@@ -48,6 +48,8 @@ pub struct Params {
     pub shard_num: u16,
     pub shard_count: u16,
     pub foreign_port: Option<u16>,
+    pub foreign_out_peers: u32,
+    pub foreign_in_peers: u32,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
@@ -163,6 +165,8 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
     info!("  shard num: {}", param.shard_num);
     info!("  shard count: {}", param.shard_count);
     info!("  foreign port: {:?}", param.foreign_port);
+    info!("  foreign in peers: {:?}", param.foreign_in_peers);
+    info!("  foreign out peers: {:?}", param.foreign_out_peers);
     info!("  bootnodes router conf: {:?}", param.bootnodes_router_conf);
 
     let port = match param.foreign_port {
@@ -180,6 +184,8 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
             .chain(iter::once(Protocol::Tcp(port)))
             .collect()
     ];
+    network_config.in_peers = param.foreign_in_peers;
+    network_config.out_peers = param.foreign_out_peers;
     network_config.foreign_boot_nodes = get_foreign_boot_nodes(&param.bootnodes_router_conf);
 
     let config = ProtocolConfig{

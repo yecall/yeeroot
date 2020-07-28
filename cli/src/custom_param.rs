@@ -65,6 +65,14 @@ pub struct YeeCliConfig {
     #[structopt(long = "foreign-port", value_name = "PORT")]
     pub foreign_port: Option<u16>,
 
+    /// Specify the number of outgoing connections we're trying to maintain
+    #[structopt(long = "foreign-out-peers", value_name = "FOREIGN_OUT_PEERS", default_value = "200")]
+    pub foreign_out_peers: u32,
+
+    /// Specify the maximum number of incoming connections we're accepting
+    #[structopt(long = "foreign-in-peers", value_name = "FOREIGN_IN_PEERS", default_value = "100")]
+    pub foreign_in_peers: u32,
+
     /// Whether use dev params or not
     #[structopt(long = "dev-params")]
     pub dev_params: bool,
@@ -154,6 +162,8 @@ where
     }
 
     config.custom.foreign_port = custom_args.foreign_port;
+    config.custom.foreign_out_peers = custom_args.foreign_out_peers;
+    config.custom.foreign_in_peers = custom_args.foreign_in_peers;
     config.custom.mine = custom_args.mine;
     config.custom.context = Some(context);
 
