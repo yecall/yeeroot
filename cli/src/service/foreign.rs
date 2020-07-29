@@ -17,7 +17,7 @@
 
 use substrate_service::{ServiceFactory, TaskExecutor, Arc, FactoryBlock};
 use log::{info, warn};
-use yee_foreign_network as network;
+use yee_foreign_network;
 use yee_foreign_network::identity::Keypair;
 use yee_foreign_network::identify_specialization::ForeignIdentifySpecialization;
 use yee_foreign_network::config::{Params as NetworkParams, NetworkConfiguration, ProtocolConfig};
@@ -37,6 +37,11 @@ use ansi_term::Colour;
 use substrate_service::{Components, ComponentClient, ComponentExHash};
 use substrate_client::runtime_api::BlockT;
 use runtime_primitives::traits::{NumberFor, DigestItemFor};
+use crate::custom_param::{NodeKeyParams, NodeKeyType};
+use std::path::{Path, PathBuf};
+use network::NodeKeyConfig;
+use primitives::H256;
+use std::str::FromStr;
 
 const DEFAULT_FOREIGN_PORT: u16 = 30334;
 const DEFAULT_PROTOCOL_ID: &str = "sup";
@@ -44,12 +49,13 @@ const DEFAULT_PROTOCOL_ID: &str = "sup";
 pub struct Params {
     pub client_version: String,
     pub protocol_version: String,
-    pub node_key_pair: Keypair,
     pub shard_num: u16,
     pub shard_count: u16,
     pub foreign_port: Option<u16>,
     pub foreign_out_peers: u32,
     pub foreign_in_peers: u32,
+    pub foreign_node_key_params: NodeKeyParams,
+    pub net_config_path: Option<String>,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
 }
 
@@ -84,7 +90,7 @@ pub struct Params {
 ///
 /// pub fn start_foreign_demo(
 ///     param: DemoParams,
-///     foreign_network: Arc<network::SyncProvider<Block, H256>>,
+///     foreign_network: Arc<yee_foreign_network::SyncProvider<Block, H256>>,
 ///     executor: &TaskExecutor,
 /// )
 ///     -> error::Result<()>
@@ -152,11 +158,13 @@ pub struct Params {
 /// }
 /// ```
 pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
-    -> error::Result<Arc<network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
+    -> error::Result<Arc<yee_foreign_network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
     C: Components,
     DigestItemFor<<C::Factory as ServiceFactory>::Block>: finality_tracker::FinalityTrackerDigestItem,
 {
-    let peer_id = get_peer_id(&param.node_key_pair);
+    let node_key = node_key_config(param.foreign_node_key_params, &param.net_config_path)?;
+    let node_key_pair = node_key.into_keypair()?;
+    let peer_id = get_peer_id(&node_key_pair);
 
     info!("Start foreign network: ");
     info!("  client version: {}", param.client_version);
@@ -177,7 +185,7 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
     let mut network_config = NetworkConfiguration::default();
     network_config.shard_num = param.shard_num;
     network_config.shard_count = param.shard_count;
-    network_config.node_key_pair = param.node_key_pair;
+    network_config.node_key_pair = node_key_pair;
     network_config.client_version = param.client_version;
     network_config.listen_addresses = vec![
         iter::once(Protocol::Ip4(Ipv4Addr::new(0, 0, 0, 0)))
@@ -199,9 +207,9 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
         identify_specialization: ForeignIdentifySpecialization::new(param.protocol_version.to_string(), param.shard_num),
     };
 
-    let protocol_id = network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
+    let protocol_id = yee_foreign_network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    let (service, _network_chan) = network::Service::<<C::Factory as ServiceFactory>::Block, _, ComponentExHash<C>>::new(
+    let (service, _network_chan) = yee_foreign_network::Service::<<C::Factory as ServiceFactory>::Block, _, ComponentExHash<C>>::new(
         network_params,
         protocol_id,
     ).map_err(|e| format!("{:?}", e))?;
@@ -287,3 +295,64 @@ fn get_status<B: BlockT>(network_state: &NetworkState, chain_info: &HashMap<u16,
 
     list
 }
+
+const NODE_KEY_SECP256K1_FILE: &str = "foreign_secret";
+
+const NODE_KEY_ED25519_FILE: &str = "foreign_secret_ed25519";
+
+fn node_key_config<P>(params: NodeKeyParams, net_config_dir: &Option<P>)
+                      -> error::Result<NodeKeyConfig>
+    where
+        P: AsRef<Path>
+{
+    match params.node_key_type {
+        NodeKeyType::Secp256k1 =>
+            params.node_key.as_ref().map(parse_secp256k1_secret).unwrap_or_else(||
+                Ok(params.node_key_file
+                    .or_else(|| net_config_file(net_config_dir, NODE_KEY_SECP256K1_FILE))
+                    .map(network::Secret::File)
+                    .unwrap_or(network::Secret::New)))
+                .map(NodeKeyConfig::Secp256k1),
+
+        NodeKeyType::Ed25519 =>
+            params.node_key.as_ref().map(parse_ed25519_secret).unwrap_or_else(||
+                Ok(params.node_key_file
+                    .or_else(|| net_config_file(net_config_dir, NODE_KEY_ED25519_FILE))
+                    .map(network::Secret::File)
+                    .unwrap_or(network::Secret::New)))
+                .map(NodeKeyConfig::Ed25519)
+    }
+}
+
+fn net_config_file<P>(net_config_dir: &Option<P>, name: &str) -> Option<PathBuf>
+    where
+        P: AsRef<Path>
+{
+    net_config_dir.as_ref().map(|d| d.as_ref().join(name))
+}
+
+/// Create an error caused by an invalid node key argument.
+fn invalid_node_key(e: impl std::fmt::Display) -> error::Error {
+    input_err(format!("Invalid node key: {}", e))
+}
+
+fn input_err<T: Into<String>>(msg: T) -> error::Error {
+    error::ErrorKind::Input(msg.into()).into()
+}
+
+/// Parse a Secp256k1 secret key from a hex string into a `network::Secret`.
+fn parse_secp256k1_secret(hex: &String) -> error::Result<network::Secp256k1Secret> {
+    H256::from_str(hex).map_err(invalid_node_key).and_then(|bytes|
+        network::identity::secp256k1::SecretKey::from_bytes(bytes)
+            .map(network::Secret::Input)
+            .map_err(invalid_node_key))
+}
+
+/// Parse a Ed25519 secret key from a hex string into a `network::Secret`.
+fn parse_ed25519_secret(hex: &String) -> error::Result<network::Ed25519Secret> {
+    H256::from_str(&hex).map_err(invalid_node_key).and_then(|bytes|
+        network::identity::ed25519::SecretKey::from_bytes(bytes)
+            .map(network::Secret::Input)
+            .map_err(invalid_node_key))
+}
+

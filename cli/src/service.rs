@@ -56,6 +56,7 @@ use yee_context::{Context};
 use crfg::CrfgState;
 use yee_runtime::BlockNumber;
 use yee_foreign_network::SyncProvider;
+use crate::custom_param::NodeKeyParams;
 
 pub const IMPL_NAME : &str = "yee-node";
 pub const NATIVE_PROTOCOL_VERSION : &str = "/yee/1.0.0";
@@ -87,6 +88,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub foreign_port: Option<u16>,
     pub foreign_out_peers: u32,
     pub foreign_in_peers: u32,
+    pub foreign_node_key_params: NodeKeyParams,
     pub bootnodes_router_conf: Option<BootnodesRouterConf>,
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>>,
@@ -111,6 +113,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             foreign_port: Default::default(),
             foreign_out_peers: Default::default(),
             foreign_in_peers: Default::default(),
+            foreign_node_key_params: Default::default(),
             bootnodes_router_conf: Default::default(),
             job_manager: Arc::new(RwLock::new(None)),
             recommit_relay_sender: Arc::new(RwLock::new(None)),
@@ -136,6 +139,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             foreign_port: self.foreign_port,
             foreign_out_peers: self.foreign_out_peers,
             foreign_in_peers: self.foreign_in_peers,
+            foreign_node_key_params: self.foreign_node_key_params.clone(),
             mine: self.mine,
             hrp: self.hrp.clone(),
             scale_out: self.scale_out.clone(),
@@ -258,12 +262,13 @@ construct_service_factory! {
                 let foreign_network_param = foreign::Params{
                     client_version: service.config.network.client_version.clone(),
                     protocol_version : FOREIGN_PROTOCOL_VERSION.to_string(),
-                    node_key_pair: service.config.network.node_key.clone().into_keypair().unwrap(),
                     shard_num: service.config.custom.shard_num,
                     shard_count: service.config.custom.shard_count,
                     foreign_port: service.config.custom.foreign_port,
                     foreign_out_peers: service.config.custom.foreign_out_peers,
                     foreign_in_peers:  service.config.custom.foreign_in_peers,
+                    foreign_node_key_params: service.config.custom.foreign_node_key_params.clone(),
+                    net_config_path: service.config.network.net_config_path.clone(),
                     bootnodes_router_conf: service.config.custom.bootnodes_router_conf.clone(),
                 };
                 let foreign_network = start_foreign_network::<FullComponents<Self>>(foreign_network_param, service.client(), &executor).map_err(|e| format!("{:?}", e))?;
