@@ -19,6 +19,7 @@ use {
     structopt::StructOpt,
     substrate_cli::{impl_augment_clap},
 };
+use structopt::clap::{_clap_count_exprs, arg_enum};
 use log::{info, warn};
 use substrate_service::{
     FactoryFullConfiguration, ServiceFactory, config::Roles, FactoryBlock,
@@ -46,6 +47,7 @@ use inherents::{
 use std::sync::Arc;
 use yee_context::Context;
 use yee_pow_primitives::YeePOWApi;
+use std::path::PathBuf;
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -73,6 +75,10 @@ pub struct YeeCliConfig {
     #[structopt(long = "foreign-in-peers", value_name = "FOREIGN_IN_PEERS", default_value = "100")]
     pub foreign_in_peers: u32,
 
+    #[allow(missing_docs)]
+    #[structopt(flatten)]
+    pub foreign_node_key_params: NodeKeyParams,
+
     /// Whether use dev params or not
     #[structopt(long = "dev-params")]
     pub dev_params: bool,
@@ -84,6 +90,40 @@ pub struct YeeCliConfig {
     /// Whether mine
     #[structopt(long = "mine")]
     pub mine: bool,
+}
+
+#[derive(Debug, StructOpt, Clone, Default)]
+pub struct NodeKeyParams {
+    #[structopt(long = "foreign-node-key", value_name = "KEY")]
+    pub node_key: Option<String>,
+
+    #[structopt(
+    long = "foreign-node-key-type",
+    value_name = "TYPE",
+    raw(
+    possible_values = "&NodeKeyType::variants()",
+    case_insensitive = "true",
+    default_value = r#""Secp256k1""#
+    )
+    )]
+    pub node_key_type: NodeKeyType,
+
+    #[structopt(long = "foreign-node-key-file", value_name = "FILE")]
+    pub node_key_file: Option<PathBuf>
+}
+
+arg_enum! {
+	#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+	pub enum NodeKeyType {
+		Secp256k1,
+		Ed25519
+	}
+}
+
+impl Default for NodeKeyType{
+    fn default() -> Self{
+        NodeKeyType::Secp256k1
+    }
 }
 
 impl_augment_clap!(YeeCliConfig);
