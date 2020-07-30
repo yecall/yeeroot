@@ -51,6 +51,8 @@ use futures::future;
 use jsonrpc_core::BoxFuture;
 use yee_runtime::BlockNumber;
 use futures::future::{Loop, Either};
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
 // const EXTRA_DATA: &str = "yee-switch";
 const RAW_WORK_LIFE: Duration = Duration::from_secs(60);
@@ -340,7 +342,11 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 
 		let mut tasks = Vec::new();
 
-		for actual_shard_num in 0..shard_count {
+		let mut shard_num_list = (0..shard_count).collect::<Vec<_>>();
+		let mut rng = thread_rng();
+		shard_num_list.shuffle(&mut rng);
+
+		for actual_shard_num in shard_num_list {
 			if let Some((config_shard_num, job)) = shard_jobs.get(&actual_shard_num) {
 				let job_target = job.digest_item.pow_target;
 

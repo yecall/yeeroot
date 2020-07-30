@@ -115,6 +115,8 @@ decl_storage! {
         /// Storage for total fee for current block
         pub CurrentPowInfo get(current_pow_info): Option<PowInfo<T::AccountId>>;
 
+        /// Chain id
+        pub ChainId get(chain_id) config(): Vec<u8>;
     }
 }
 

@@ -305,18 +305,18 @@ fn node_key_config<P>(params: NodeKeyParams, net_config_dir: &Option<P>)
     where
         P: AsRef<Path>
 {
-    match params.node_key_type {
+    match params.foreign_node_key_type {
         NodeKeyType::Secp256k1 =>
-            params.node_key.as_ref().map(parse_secp256k1_secret).unwrap_or_else(||
-                Ok(params.node_key_file
+            params.foreign_node_key.as_ref().map(parse_secp256k1_secret).unwrap_or_else(||
+                Ok(params.foreign_node_key_file
                     .or_else(|| net_config_file(net_config_dir, NODE_KEY_SECP256K1_FILE))
                     .map(network::Secret::File)
                     .unwrap_or(network::Secret::New)))
                 .map(NodeKeyConfig::Secp256k1),
 
         NodeKeyType::Ed25519 =>
-            params.node_key.as_ref().map(parse_ed25519_secret).unwrap_or_else(||
-                Ok(params.node_key_file
+            params.foreign_node_key.as_ref().map(parse_ed25519_secret).unwrap_or_else(||
+                Ok(params.foreign_node_key_file
                     .or_else(|| net_config_file(net_config_dir, NODE_KEY_ED25519_FILE))
                     .map(network::Secret::File)
                     .unwrap_or(network::Secret::New)))
