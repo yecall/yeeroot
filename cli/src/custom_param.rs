@@ -95,7 +95,7 @@ pub struct YeeCliConfig {
 #[derive(Debug, StructOpt, Clone, Default)]
 pub struct NodeKeyParams {
     #[structopt(long = "foreign-node-key", value_name = "KEY")]
-    pub node_key: Option<String>,
+    pub foreign_node_key: Option<String>,
 
     #[structopt(
     long = "foreign-node-key-type",
@@ -106,10 +106,10 @@ pub struct NodeKeyParams {
     default_value = r#""Secp256k1""#
     )
     )]
-    pub node_key_type: NodeKeyType,
+    pub foreign_node_key_type: NodeKeyType,
 
     #[structopt(long = "foreign-node-key-file", value_name = "FILE")]
-    pub node_key_file: Option<PathBuf>
+    pub foreign_node_key_file: Option<PathBuf>
 }
 
 arg_enum! {

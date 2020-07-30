@@ -96,6 +96,8 @@ pub const SUDO_ACCOUNTS: [&str; 4] = [
 	"yee136vpzc2ptth3ms2gf29826twhy4tyjzdt7ly0ugm23nnaa7ungpsqrrl88",
 ];
 
+pub const CHAIN_ID: &'static [u8] = b"mainnet_20200730";
+
 fn account_addr(s: &str) -> AccountId {
 
 	AccountId::from_address(&Address(s.to_string()))
@@ -109,7 +111,7 @@ impl Alternative {
 			Alternative::Development => ChainSpec::from_genesis(
 				"Development",
 				"dev",
-				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
+				|| testnet_genesis("dev".as_bytes().to_vec(),yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -119,7 +121,7 @@ impl Alternative {
 			Alternative::LocalTestnet => ChainSpec::from_genesis(
 				"Local Testnet",
 				"local_testnet",
-				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
+				|| testnet_genesis("local_testnet".as_bytes().to_vec(), yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -129,7 +131,7 @@ impl Alternative {
             Alternative::POCTestnet => ChainSpec::from_genesis(
                 "POC Testnet",
                 "poc_testnet",
-                || poc_testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
+                || testnet_genesis("poc_testnet".as_bytes().to_vec(), yee_dev::SHARD_CONF.iter().map(|(_, x)| account_addr(x.0)).collect()),
                 vec![],
                 None,
                 None,
@@ -139,7 +141,7 @@ impl Alternative {
 			Alternative::TestNet => ChainSpec::from_genesis(
 				"TestNet",
 				"testnet",
-				|| testnet_genesis(yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect()),
+				|| testnet_genesis("testnet".as_bytes().to_vec(), yee_dev::SHARD_CONF.iter().map(|(_,x)| account_addr(x.0)).collect()),
 				vec![],
 				None,
 				None,
@@ -149,7 +151,7 @@ impl Alternative {
 			Alternative::MainNet => ChainSpec::from_genesis(
 				"MainNet",
 				"mainnet",
-				|| mainnet_genesis(ENDOWED_ACCOUNTS.iter().map(|&(x, value)| (account_addr(x), value)).collect(),
+				|| mainnet_genesis(CHAIN_ID.to_vec(), ENDOWED_ACCOUNTS.iter().map(|&(x, value)| (account_addr(x), value)).collect(),
 								   SUDO_ACCOUNTS.iter().map(|&x| account_addr(x)).collect()),
 				vec![],
 				None,
@@ -172,7 +174,7 @@ impl Alternative {
 	}
 }
 
-fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<AccountId>) -> GenesisConfig {
+fn mainnet_genesis(chain_id: Vec<u8>, endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<AccountId>) -> GenesisConfig {
 	let code = WASM_CODE.to_vec();
 	let block_reward_latency = MAX_AUTHORITIES_SIZE + BLOCK_FINAL_LATENCY + 1;
 
@@ -186,6 +188,7 @@ fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<
 			minimum_period: 0,
 		}),
 		pow: Some(PowConfig {
+			chain_id,
 			genesis_pow_target: primitives::U256::from(0x000000ffff) << 216,
 			pow_target_adj: 60_u64.into(),
 			target_block_time: 30_u64.into(),
@@ -221,25 +224,18 @@ fn mainnet_genesis(endowed_accounts: Vec<(AccountId, u128)>, sudo_accounts: Vec<
 	}
 }
 
-fn testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
+fn testnet_genesis(chain_id: Vec<u8>, endowed_accounts: Vec<AccountId>) -> GenesisConfig {
     let code = WASM_CODE.to_vec();
     testnet_template_genesis(
+		chain_id,
         endowed_accounts, code,
         primitives::U256::from(0x0000ffff) << 224,
         30,
     )
 }
 
-fn poc_testnet_genesis(endowed_accounts: Vec<AccountId>) -> GenesisConfig {
-    let code = WASM_CODE.to_vec();
-    testnet_template_genesis(
-        endowed_accounts, code,
-        primitives::U256::from(0x00003fff) << 224,
-        30,
-    )
-}
-
 fn testnet_template_genesis(
+	chain_id: Vec<u8>,
     endowed_accounts: Vec<AccountId>,
     code: Vec<u8>,
     genesis_pow_target: primitives::U256,
@@ -257,6 +253,7 @@ fn testnet_template_genesis(
 			minimum_period: 0, // 10 second block time.
 		}),
         pow: Some(PowConfig {
+			chain_id,
             genesis_pow_target,
             pow_target_adj: 60_u64.into(),
             target_block_time: target_block_time.into(),
