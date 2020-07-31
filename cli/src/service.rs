@@ -322,27 +322,31 @@ construct_service_factory! {
 
                 let worker_key = if local_next_key.is_some() { local_next_key.clone() } else { local_key.clone() };
 
-	            crfg::register_crfg_inherent_data_provider(
-                    &service.config.custom.inherent_data_providers.clone(),
-	                worker_key.clone().unwrap().public()
-	            )?;
+                // crfg
+                if let Some(ref key) = worker_key {
 
-                info!("Running crfg session as Authority {:?}", local_key.clone().unwrap().public());
-                executor.spawn(crfg::run_crfg(
-                    crfg::Config {
-                        local_key,
-                        local_next_key,
-                        // FIXME #1578 make this available through chainspec
-                        gossip_duration: Duration::from_millis(333),
-                        justification_period: 4096,
-                        name: Some(service.config.name.clone())
-                    },
-                    link_half,
-                    crfg::NetworkBridge::new(service.network()),
-                    service.config.custom.inherent_data_providers.clone(),
-                    service.on_exit(),
-                    service.config.custom.crfg_state.clone(),
-                )?);
+                    crfg::register_crfg_inherent_data_provider(
+                        &service.config.custom.inherent_data_providers.clone(),
+                        worker_key.clone().unwrap().public()
+                    )?;
+
+                    info!("Running crfg session as Authority {:?}", local_key.clone().unwrap().public());
+                    executor.spawn(crfg::run_crfg(
+                        crfg::Config {
+                            local_key,
+                            local_next_key,
+                            // FIXME #1578 make this available through chainspec
+                            gossip_duration: Duration::from_millis(333),
+                            justification_period: 4096,
+                            name: Some(service.config.name.clone())
+                        },
+                        link_half,
+                        crfg::NetworkBridge::new(service.network()),
+                        service.config.custom.inherent_data_providers.clone(),
+                        service.on_exit(),
+                        service.config.custom.crfg_state.clone(),
+                    )?);
+                }
 
                 // pow
                 if let Some(ref key) = worker_key {
