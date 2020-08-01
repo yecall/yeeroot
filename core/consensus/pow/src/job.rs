@@ -339,6 +339,7 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
                             _ => false
                         };
                         if !is_ok {
+                            info!("accept() failed. can't verify block hash");
                             return false
                         }
 
