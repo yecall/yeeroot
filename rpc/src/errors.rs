@@ -23,6 +23,7 @@ use consensus_common;
 error_chain! {
 	links {
 		Consensus(consensus_common::error::Error, consensus_common::error::ErrorKind) #[doc = "Consensus error"];
+		Client(client::error::Error, client::error::ErrorKind) #[doc = "Client error"];
 	}
 	errors {
 		/// Not implemented yet

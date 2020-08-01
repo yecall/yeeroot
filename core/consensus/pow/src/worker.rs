@@ -118,7 +118,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
     }
 
     fn on_start(&self) -> Result<(), consensus_common::Error> {
-        super::register_inherent_data_provider(&self.inherent_data_providers, self.shard_extra.coinbase.clone())
+        super::register_inherent_data_provider(&self.inherent_data_providers, self.shard_extra.coinbase.clone().expect("miner must have coinbase"))
     }
 
     fn on_job(&self) -> Self::OnJob {

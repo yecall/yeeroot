@@ -37,7 +37,7 @@ use substrate_cli::{TriggerExit};
 use sharding_primitives::ScaleOut;
 use runtime_primitives::traits::{Header, Block as BlockT, NumberFor};
 use futures::sync::mpsc;
-use yee_primitives::RecommitRelay;
+use yee_primitives::{RecommitRelay, Address, AddressCodec};
 
 mod foreign;
 use foreign::{start_foreign_network};
@@ -47,7 +47,7 @@ use restarter::{start_restarter};
 
 pub use substrate_executor::NativeExecutor;
 use yee_bootnodes_router::BootnodesRouterConf;
-use yee_rpc::ProvideRpcExtra;
+use yee_rpc::{ProvideRpcExtra, Config};
 
 use crfg;
 use yee_primitives::Hrp;
@@ -82,7 +82,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
     pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
     pub inherent_data_providers: InherentDataProviders,
-    pub coinbase: AccountId,
+    pub coinbase: Option<AccountId>,
     pub shard_num: u16,
     pub shard_count: u16,
     pub foreign_port: Option<u16>,
@@ -189,6 +189,15 @@ impl<F> ProvideRpcExtra<DefaultJob<Block, <Pair as PairT>::Public>, F::Block, Co
 
     fn provide_foreign_network(&self) -> Arc<RwLock<Option<Arc<dyn SyncProvider<F::Block, ComponentExHash<FullComponents<F>>>>>>> {
         self.foreign_network.clone()
+    }
+
+    fn provide_config(&self) -> Arc<Config> {
+        let hrp = self.hrp.clone();
+        let coinbase = self.coinbase.as_ref().map(|x|x.to_address(hrp.clone()).expect("qed").0);
+        let config = Config {
+            coinbase,
+        };
+        Arc::new(config)
     }
 
 }
@@ -322,27 +331,30 @@ construct_service_factory! {
 
                 let worker_key = if local_next_key.is_some() { local_next_key.clone() } else { local_key.clone() };
 
-	            crfg::register_crfg_inherent_data_provider(
-                    &service.config.custom.inherent_data_providers.clone(),
-	                worker_key.clone().unwrap().public()
-	            )?;
+                // crfg
+                if let Some(ref key) = worker_key {
+                    crfg::register_crfg_inherent_data_provider(
+                        &service.config.custom.inherent_data_providers.clone(),
+                        worker_key.clone().unwrap().public()
+                    )?;
 
-                info!("Running crfg session as Authority {:?}", local_key.clone().unwrap().public());
-                executor.spawn(crfg::run_crfg(
-                    crfg::Config {
-                        local_key,
-                        local_next_key,
-                        // FIXME #1578 make this available through chainspec
-                        gossip_duration: Duration::from_millis(333),
-                        justification_period: 4096,
-                        name: Some(service.config.name.clone())
-                    },
-                    link_half,
-                    crfg::NetworkBridge::new(service.network()),
-                    service.config.custom.inherent_data_providers.clone(),
-                    service.on_exit(),
-                    service.config.custom.crfg_state.clone(),
-                )?);
+                    info!("Running crfg session as Authority {:?}", local_key.clone().unwrap().public());
+                    executor.spawn(crfg::run_crfg(
+                        crfg::Config {
+                            local_key,
+                            local_next_key,
+                            // FIXME #1578 make this available through chainspec
+                            gossip_duration: Duration::from_millis(333),
+                            justification_period: 4096,
+                            name: Some(service.config.name.clone())
+                        },
+                        link_half,
+                        crfg::NetworkBridge::new(service.network()),
+                        service.config.custom.inherent_data_providers.clone(),
+                        service.on_exit(),
+                        service.config.custom.crfg_state.clone(),
+                    )?);
+                }
 
                 // pow
                 if let Some(ref key) = worker_key {

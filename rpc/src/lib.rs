@@ -42,9 +42,10 @@ use substrate_primitives::{ed25519::Pair, Pair as PairT};
 use parity_codec::{Decode, Encode, Codec};
 use serde::de::Unexpected::Other;
 use futures::sync::mpsc;
-use yee_primitives::RecommitRelay;
+use yee_primitives::{RecommitRelay, Hrp};
 use crfg::CrfgState;
 use yee_foreign_network::SyncProvider;
+use serde::Serialize;
 
 pub struct FullRpcHandlerConstructor;
 
@@ -60,6 +61,13 @@ where B: BlockT
     fn provide_crfg_state(&self) -> Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>;
 
     fn provide_foreign_network(&self) -> Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>;
+
+    fn provide_config(&self) -> Arc<Config>;
+}
+
+#[derive(Clone, Serialize)]
+pub struct Config {
+    pub coinbase: Option<String>,
 }
 
 #[derive(Clone)]
@@ -69,6 +77,7 @@ where B: BlockT {
     recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
     crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
     foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
+    config: Arc<Config>,
 }
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
@@ -92,6 +101,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             recommit_relay_sender: config.custom.provide_recommit_relay_sender(),
             crfg_state: config.custom.provide_crfg_state(),
             foreign_network: config.custom.provide_foreign_network(),
+            config: config.custom.provide_config(),
         }
     }
 
@@ -130,6 +140,8 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             extra.crfg_state.clone(),
             transaction_pool.clone(),
             extra.foreign_network.clone(),
+            client.clone(),
+            extra.config.clone(),
         );
         io.extend_with(misc.to_delegate());
 

@@ -29,7 +29,7 @@ use consensus::{CompatibleDigestItem, PowSeal};
 
 pub struct Params {
 	pub authority_id: Option<AuthorityId>,
-	pub coinbase: AccountId,
+	pub coinbase: Option<AccountId>,
 	pub shard_num: u16,
 	pub shard_count: u16,
 	pub scale_out: Option<ScaleOut>,
@@ -83,11 +83,14 @@ pub fn start_restarter<C>(param: Params, client: Arc<ComponentClient<C>>, execut
 
 			// if is self mined, will not stop or restart here, we need time to let the new block propagate
 			if !self_mined {
-				let coinbase_shard_num = shard_num_for(&coinbase, shard_count).expect("qed");
-				if target_shard_num != coinbase_shard_num {
-					info!("Stop service for coinbase shard num is not accordant");
-					trigger_exit.trigger_stop();
-					return Ok(());
+
+				if let Some(coinbase) = coinbase.as_ref(){
+					let coinbase_shard_num = shard_num_for(coinbase, shard_count).expect("qed");
+					if target_shard_num != coinbase_shard_num {
+						info!("Stop service for coinbase shard num is not accordant");
+						trigger_exit.trigger_stop();
+						return Ok(());
+					}
 				}
 
 				info!("Restart service for commiting scale out phase");

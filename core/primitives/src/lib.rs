@@ -53,7 +53,6 @@ impl<T: AsMut<[u8]> + AsRef<[u8]> + Default> AddressCodec for T {
 		let mut res = T::default();
 		res.as_mut().copy_from_slice(&buf);
 
-
 		let hrp : Hrp = hrp_str.into();
 
 		Ok((res, hrp))
