@@ -3,7 +3,7 @@ use std::hash::{Hasher, Hash};
 use parity_codec::{Encode, Decode};
 use jsonrpc_derive::rpc;
 use jsonrpc_core::BoxFuture;
-use crate::errors;
+use crate::{errors, Config};
 use jsonrpc_core::futures::future::{self, Future, IntoFuture};
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde_json::Value;
@@ -13,11 +13,13 @@ use futures::sync::mpsc;
 use parking_lot::RwLock;
 use crfg::CrfgState;
 use std::time::Duration;
-use substrate_primitives::{Bytes, H256};
+use substrate_primitives::{Bytes, H256, Blake2Hasher};
 use transaction_pool::txpool::{Pool, ChainApi as PoolChainApi};
 use yee_foreign_network::{SyncProvider, NetworkState};
 use runtime_primitives::traits::{Block as BlockT, NumberFor};
+use runtime_primitives::generic::BlockId;
 use std::fmt::Debug;
+use client::Client;
 
 #[rpc]
 pub trait MiscApi<Hash, Number> {
@@ -30,42 +32,67 @@ pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "system_foreignNetworkState")]
 	fn foreign_network_state(&self) -> errors::Result<NetworkState>;
 
+	#[rpc(name = "system_config")]
+	fn system_config(&self) -> errors::Result<Config>;
+
 	#[rpc(name = "crfg_state")]
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>>;
 
+	#[rpc(name = "chain_getRelayProof")]
+	fn get_relay_proof(&self, hash: Option<Hash>) -> errors::Result<Option<Bytes>>;
+
 }
 
-pub struct Misc<P: PoolChainApi, B: BlockT, H> {
+pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
 	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
 	crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
 	pool: Arc<Pool<P>>,
 	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
+	client: Arc<Client<Backend, E, B, RA>>,
+	config: Arc<Config>,
 }
 
-impl<P: PoolChainApi, B, H> Misc<P, B, H>
+impl<P: PoolChainApi, B, H, Backend, E, RA> Misc<P, B, H, Backend, E, RA>
 where
 	P: PoolChainApi,
-	B: BlockT,
+	B: BlockT<Hash=H256>,
+	Backend: client::backend::Backend<B, Blake2Hasher> + Send + Sync + 'static,
+	E: client::CallExecutor<B, Blake2Hasher> + Send + Sync + 'static,
+	RA: Send + Sync + 'static
 {
 	pub fn new(
 		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
 		crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
 		pool: Arc<Pool<P>>,
 		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
+		client: Arc<Client<Backend, E, B, RA>>,
+		config: Arc<Config>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
 			crfg_state,
 			pool,
 			foreign_network,
+			client,
+			config,
 		}
+	}
+
+	fn unwrap_or_best(&self, hash: Option<B::Hash>) -> errors::Result<B::Hash> {
+		Ok(match hash.into() {
+			None => self.client.info()?.chain.best_hash,
+			Some(hash) => hash,
+		})
 	}
 }
 
-impl<P, B, H> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H> where
-	B: BlockT + Send + Clone + Sync + 'static,
+impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, Backend, E, RA> where
+	B: BlockT<Hash=H256> + Send + Clone + Sync + 'static,
 	P: PoolChainApi + Sync + Send + 'static,
 	H: Eq + Hash + Debug + Clone + Sync + Send + 'static,
+	Backend: client::backend::Backend<B, Blake2Hasher> + Send + Sync + 'static,
+	E: client::CallExecutor<B, Blake2Hasher> + Send + Sync + 'static,
+	RA: Send + Sync + 'static
 {
 	fn recommit_relay_extrinsic(&self, hash: B::Hash, index: usize) -> errors::Result<()> {
 		let recommit_param = RecommitRelay {
@@ -90,9 +117,22 @@ impl<P, B, H> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H> where
 		Ok(foreign_network.network_state())
 	}
 
+	fn system_config(&self) -> errors::Result<Config> {
+
+		let config = (*self.config).clone();
+		Ok(config)
+	}
+
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<B::Hash, NumberFor<B>>>> {
 		let state = self.crfg_state.read().as_ref().cloned().map(|x|x.into());
 		Ok(state)
+	}
+
+	fn get_relay_proof(&self, hash: Option<B::Hash>) -> errors::Result<Option<Bytes>> {
+		let hash = self.unwrap_or_best(hash)?;
+		let proof = self.client.proof(&BlockId::Hash(hash))?;
+		let proof = proof.map(|x|Bytes(x));
+		Ok(proof)
 	}
 }
 

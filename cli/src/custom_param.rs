@@ -170,7 +170,7 @@ where
             }
         }
 
-        config.custom.coinbase = coinbase;
+        config.custom.coinbase = Some(coinbase);
     }
 
     let mut bootnodes_routers = custom_args.bootnodes_routers.clone();
@@ -208,7 +208,7 @@ where
     config.custom.context = Some(context);
 
     info!("Custom params: ");
-    info!("  coinbase: {}", config.custom.coinbase.to_address(config.custom.hrp.clone()).expect("qed"));
+    info!("  coinbase: {:?}", config.custom.coinbase.as_ref().map(|x|x.to_address(config.custom.hrp.clone()).expect("qed")));
     info!("  shard num: {}", config.custom.shard_num);
     info!("  shard count: {}", config.custom.shard_count);
     info!("  bootnodes: {:?}", config.network.boot_nodes);
