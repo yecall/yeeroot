@@ -333,7 +333,6 @@ construct_service_factory! {
 
                 // crfg
                 if let Some(ref key) = worker_key {
-
                     crfg::register_crfg_inherent_data_provider(
                         &service.config.custom.inherent_data_providers.clone(),
                         worker_key.clone().unwrap().public()
