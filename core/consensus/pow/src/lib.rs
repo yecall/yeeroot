@@ -45,7 +45,7 @@ use {
         },
         traits::{
             DigestItemFor,
-            Block,
+            Block, Header,
             ProvideRuntimeApi,
             NumberFor,
         },
@@ -116,6 +116,7 @@ pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Send+ Sync,
     FactoryFullConfiguration<F>: Clone,
+    <<<F as ServiceFactory>::Block as Block>::Header as Header>::Number: From<u64>,
 {
     let inner_job_manager = Arc::new(DefaultJobManager::new(
         client.clone(),
@@ -193,6 +194,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     AccountId: Codec + Send + Sync + Clone + Default + 'static,
     AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
+    <<<F as ServiceFactory>::Block as Block>::Header as Header>::Number: From<u64>,
 {
     register_inherent_data_provider(&inherent_data_providers, shard_extra.coinbase.clone())?;
 

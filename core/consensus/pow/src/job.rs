@@ -182,6 +182,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
           F: ServiceFactory + Send + Sync,
           <F as ServiceFactory>::Configuration: ForeignChainConfig + Send + Sync,
           FactoryFullConfiguration<F>: Clone,
+          <<<F as ServiceFactory>::Block as Block>::Header as Header>::Number: From<u64>,
 {
     type Job = DefaultJob<B, AuthorityId>;
 
@@ -299,6 +300,7 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: ForeignChainConfig + Send + Sync,
     FactoryFullConfiguration<F>: Clone,
+    <<<F as ServiceFactory>::Block as Block>::Header as Header>::Number: From<u64>,
 {
     fn accept(&self, extrinsic: &EX) -> bool {
         let bs = extrinsic.encode();
@@ -306,7 +308,7 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
         if let Some(rt) = RelayParams::<<F::Block as Block>::Hash>::decode(bs) {
             debug!("Filter: start filter");
             let hash = rt.hash();
-
+            let block_height = rt.number();
             let block_hash = rt.block_hash();
 
             let contains = if let Some(proof) = self.cached_proof.get(&block_hash) {
@@ -314,7 +316,6 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
                 debug!("Filter extrinsic check proof (in cache): hash: {}, block_hash: {}, contains: {}", hash, block_hash, contains);
                 contains
             } else {
-                let id = generic::BlockId::hash(block_hash);
                 let origin = match OriginExtrinsic::<AccountId, u128>::decode(rt.relay_type(), rt.origin()) {
                     Some(v) => v,
                     None => return false,
@@ -325,7 +326,24 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
                 let mut contains = false;
                 if let Some(foreign_chains) = self.foreign_chains.read().as_ref() {
                     if let Some(lc) = foreign_chains.get_shard_component(fs) {
+                        let id = generic::BlockId::number(block_height.into());
+                        let is_ok = match lc.client().header(&id) {
+                            Ok(Some(l_header)) => {
+                                let l_hash = l_header.hash();
+                                if l_hash == block_hash {
+                                    true
+                                } else {
+                                    false
+                                }
+                            },
+                            _ => false
+                        };
+                        if !is_ok {
+                            return false
+                        }
+
                         debug!("Filter extrinsic check proof (in cache): Got light: {}", fs);
+                        let id = generic::BlockId::hash(block_hash);
                         if let Ok(Some(proof)) = lc.client().proof(&id) {
                             debug!("Filter extrinsic check proof (in cache): Got proof bytes: {}", id);
                             if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()) {
