@@ -164,7 +164,7 @@ pub trait TriggerExit: Send + Sync{
 
 #[derive(Clone)]
 pub struct ShardExtra<AccountId> {
-    pub coinbase: AccountId,
+    pub coinbase: Option<AccountId>,
     pub shard_num: u16,
     pub shard_count: u16,
     pub scale_out: Option<ScaleOut>,
@@ -196,7 +196,9 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     substrate_service::config::Configuration<<F as ServiceFactory>::Configuration, <F as ServiceFactory>::Genesis> : Clone,
     <<<F as ServiceFactory>::Block as Block>::Header as Header>::Number: From<u64>,
 {
-    register_inherent_data_provider(&inherent_data_providers, shard_extra.coinbase.clone())?;
+    if let Some(coinbase) = &shard_extra.coinbase {
+        register_inherent_data_provider(&inherent_data_providers, coinbase.clone())?;
+    }
 
     let verifier = Arc::new(
         verifier::PowVerifier {

@@ -508,11 +508,13 @@ pub fn check_scale<B, AccountId>(
         };
 
         if shard_count != scale_shard_count {
-            let coinbase_shard_num = shard_num_for(&coinbase, scale_shard_count).expect("qed");
-            if target_shard_num != coinbase_shard_num {
-                warn!("Stop service for invalid arg coinbase");
-                trigger_exit.trigger_stop();
-                return Err(format!("Invalid arg coinbase"));
+            if let Some(coinbase) = coinbase.as_ref() {
+                let coinbase_shard_num = shard_num_for(coinbase, scale_shard_count).expect("qed");
+                if target_shard_num != coinbase_shard_num {
+                    warn!("Stop service for invalid arg coinbase");
+                    trigger_exit.trigger_stop();
+                    return Err(format!("Invalid arg coinbase"));
+                }
             }
 
             warn!("Restart service for invalid arg shard info");
