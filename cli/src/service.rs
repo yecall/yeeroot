@@ -370,7 +370,7 @@ construct_service_factory! {
                         force_authoring: service.config.force_authoring,
                         mine: service.config.custom.mine,
                         shard_extra: consensus::ShardExtra {
-                            coinbase: service.config.custom.coinbase.clone(),
+                            coinbase: service.config.custom.coinbase.clone().expect("qed"),
                             shard_num: service.config.custom.shard_num,
                             shard_count: service.config.custom.shard_count,
                             scale_out: service.config.custom.scale_out.clone(),
@@ -415,7 +415,7 @@ construct_service_factory! {
                         config.custom.inherent_data_providers.clone(),
                         config.custom.foreign_chains.clone(),
                         consensus::ShardExtra {
-                            coinbase: config.custom.coinbase.clone(),
+                            coinbase: config.custom.coinbase.clone().expect("qed"),
                             shard_num: config.custom.shard_num,
                             shard_count: config.custom.shard_count,
                             scale_out: config.custom.scale_out.clone(),
@@ -434,7 +434,7 @@ construct_service_factory! {
                         config.custom.inherent_data_providers.clone(),
                         Arc::new(RwLock::new(None)),
                         consensus::ShardExtra {
-                            coinbase: config.custom.coinbase.clone(),
+                            coinbase: config.custom.coinbase.clone().expect("qed"),
                             shard_num: config.custom.shard_num,
                             shard_count: config.custom.shard_count,
                             scale_out: config.custom.scale_out.clone(),
