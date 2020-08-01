@@ -165,8 +165,19 @@ impl<T: Trait> Module<T> {
 	/// relay transfer
 	pub fn relay_transfer(input: Vec<u8>) -> srml_support::dispatch::Result {
 		if let Some(tx) = OriginExtrinsic::<T::AccountId, T::Balance>::decode(RelayTypes::Assets, input) {
-			let asset_id = tx.asset_id().unwrap();
-			<Balances<T>>::mutate((tx.shard_code(), asset_id, tx.to()), |balance| *balance += tx.amount());
+			let asset_id =  match tx.asset_id(){
+				Some(asset_id) => asset_id,
+				None => return Err("invalid asset id"),
+			};
+
+			let to_account =(tx.shard_code(), asset_id, tx.to());
+			let to_balance = <Balances<T>>::get(&to_account);
+			let new_to_balance = match to_balance.checked_add(&tx.amount()) {
+				Some(b) => b,
+				None => return Err("destination balance too high to receive value"),
+			};
+			<Balances<T>>::insert(to_account, new_to_balance);
+
 			Self::deposit_event(RawEvent::Transferred(tx.shard_code(), asset_id, tx.from(), tx.to(), tx.amount()));
 			Ok(())
 		} else{
