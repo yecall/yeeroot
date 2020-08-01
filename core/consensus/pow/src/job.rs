@@ -339,16 +339,16 @@ impl<EX, F, AccountId> Filter<EX> for FilterExtrinsic<EX, F, AccountId> where
                             _ => false
                         };
                         if !is_ok {
-                            info!("accept() failed. can't verify block hash");
+                            info!("Filter extrinsic check proof (fetch): Origin block hash not match");
                             return false
                         }
 
-                        debug!("Filter extrinsic check proof (in cache): Got light: {}", fs);
+                        debug!("Filter extrinsic check proof (fetch): Got light: {}", fs);
                         let id = generic::BlockId::hash(block_hash);
                         if let Ok(Some(proof)) = lc.client().proof(&id) {
-                            debug!("Filter extrinsic check proof (in cache): Got proof bytes: {}", id);
+                            debug!("Filter extrinsic check proof (fetch): Got proof bytes: {}", id);
                             if let Ok(proof) = MultiLayerProof::from_bytes(proof.as_slice()) {
-                                debug!("Filter extrinsic check proof (in cache): Got proof object");
+                                debug!("Filter extrinsic check proof (fetch): Got proof object");
                                 contains = proof.contains(cs, hash);
                                 self.cached_proof.insert(block_hash, proof);
                             }
