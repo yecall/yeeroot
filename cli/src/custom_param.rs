@@ -207,6 +207,8 @@ where
     config.custom.mine = custom_args.mine;
     config.custom.context = Some(context);
 
+    config.network.enable_mdns = false;
+
     info!("Custom params: ");
     info!("  coinbase: {:?}", config.custom.coinbase.as_ref().map(|x|x.to_address(config.custom.hrp.clone()).expect("qed")));
     info!("  shard num: {}", config.custom.shard_num);
