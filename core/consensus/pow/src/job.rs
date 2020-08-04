@@ -233,7 +233,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
 
             let hash = header_with_pow_seal.hash();
 
-            info!("job {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
+            debug!("job {} @ {:?}, pow target: {:#x}", header_num, header_pre_hash, pow_target);
 
             Ok(DefaultJob {
                 hash,

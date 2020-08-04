@@ -846,6 +846,8 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 							let out_message = OutMessage::BestBlockInfoChanged(shard_num, BestBlockInfo {
 								best_number: chain_info.best_number,
 								best_hash: chain_info.best_hash,
+								finalized_hash: chain_info.finalized_hash,
+								finalized_number: chain_info.finalized_number,
 							});
 							debug!(target: "sync-foreign", "Send out message: {:?}", out_message);
 							out_message_sinks.lock().retain(|sink| sink.unbounded_send(out_message.clone()).is_ok());
