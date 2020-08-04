@@ -160,7 +160,6 @@ pub struct Params {
 pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
     -> error::Result<Arc<yee_foreign_network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
     C: Components,
-    DigestItemFor<<C::Factory as ServiceFactory>::Block>: finality_tracker::FinalityTrackerDigestItem,
 {
     let node_key = node_key_config(param.foreign_node_key_params, &param.net_config_path)?;
     let node_key_pair = node_key.into_keypair()?;
@@ -222,9 +221,8 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
 
         let network_state = service.network_state();
         let client_info = service.client_info();
-        let chain_info = service.chain_info();
 
-        let status = get_status::<<C::Factory as ServiceFactory>::Block>(&network_state, &chain_info, shard_count);
+        let status = get_status::<<C::Factory as ServiceFactory>::Block>(&network_state, &client_info, shard_count);
 
         let status = status.into_iter().enumerate().map(|(i, status)| {
             format!("{} (peers: {}, best: {}, finalized: {}) ",
@@ -265,7 +263,7 @@ fn get_peer_id(node_key_pair: &Keypair) -> String {
     peer_id.to_base58()
 }
 
-fn get_status<B: BlockT>(network_state: &NetworkState, chain_info: &HashMap<u16, Option<(NumberFor<B>, NumberFor<B>)>>, shard_count: u16) -> Vec<ForeignStatus<NumberFor<B>>> {
+fn get_status<B: BlockT>(network_state: &NetworkState, client_info: &HashMap<u16, Option<ClientInfo<B>>>, shard_count: u16) -> Vec<ForeignStatus<NumberFor<B>>> {
     let mut result: HashMap<u16, u32> = HashMap::new();
     for (_peer_id, peer) in &network_state.connected_peers {
         match peer.shard_num {
@@ -282,9 +280,10 @@ fn get_status<B: BlockT>(network_state: &NetworkState, chain_info: &HashMap<u16,
             Some(count) => *count,
             None => 0u32,
         };
-        let info = chain_info.get(&i).unwrap_or(&None);
-        let best_number = info.as_ref().map(|info|info.0.clone());
-        let finalized_number = info.as_ref().map(|info|info.1.clone());
+
+        let info = client_info.get(&i).unwrap_or(&None);
+        let best_number = info.as_ref().map(|info|info.chain.best_number);
+        let finalized_number = info.as_ref().map(|info|info.chain.finalized_number);
         let foreign_status = ForeignStatus {
             peer_count,
             best_number,

@@ -18,6 +18,7 @@ use inherents::InherentDataProviders;
 use network::{construct_simple_protocol};
 use substrate_executor::native_executor_instance;
 use substrate_service::construct_service_factory;
+use substrate_service::config::Roles;
 use {
     parking_lot::RwLock,
     consensus::{self, import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
@@ -262,8 +263,6 @@ construct_service_factory! {
             },
         AuthoritySetup = {
             |mut service: Self::FullService, executor: TaskExecutor, key: Option<Arc<Pair>>, next_key: Option<Arc<Pair>>| {
-                let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
-                    .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
                 let (sender, receiver): (mpsc::UnboundedSender<RecommitRelay<H256>>, mpsc::UnboundedReceiver<RecommitRelay<H256>>) = mpsc::unbounded();
 
                 // foreign network
@@ -322,27 +321,29 @@ construct_service_factory! {
                 };
                 start_restarter::<FullComponents<Self>>(restarter_param, service.client(), &executor);
 
-                // crfg
-                let (local_key, local_next_key) = if service.config.disable_grandpa {
-                    (None, None)
-                } else {
-                    (key.clone(), next_key.clone())
-                };
+                // validator
+                let validator = service.config.roles == Roles::AUTHORITY;
 
-                let worker_key = if local_next_key.is_some() { local_next_key.clone() } else { local_key.clone() };
+                if validator {
 
-                // crfg
-                if let Some(ref key) = worker_key {
+                    let worker_key = if next_key.is_some() { next_key.clone() } else { key.clone() };
+                    let worker_key = worker_key.expect("qed");
+
+                    info!("Running crfg session as Authority: {:?}, next: {:?}", key.as_ref().map(|x|x.public()), next_key.as_ref().map(|x|x.public()));
+
+                    // crfg
+                    let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
+                    .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
+
                     crfg::register_crfg_inherent_data_provider(
                         &service.config.custom.inherent_data_providers.clone(),
-                        worker_key.clone().unwrap().public()
+                        worker_key.clone().public()
                     )?;
 
-                    info!("Running crfg session as Authority {:?}", local_key.clone().unwrap().public());
                     executor.spawn(crfg::run_crfg(
                         crfg::Config {
-                            local_key,
-                            local_next_key,
+                            local_key: key,
+                            local_next_key: next_key,
                             // FIXME #1578 make this available through chainspec
                             gossip_duration: Duration::from_millis(333),
                             justification_period: 4096,
@@ -354,11 +355,8 @@ construct_service_factory! {
                         service.on_exit(),
                         service.config.custom.crfg_state.clone(),
                     )?);
-                }
 
-                // pow
-                if let Some(ref key) = worker_key {
-                    info!("Using authority key {:?}", key.public());
+                    // pow
                     let proposer = Arc::new(ProposerFactory {
                         client: service.client(),
                         transaction_pool: service.transaction_pool(),
@@ -380,7 +378,7 @@ construct_service_factory! {
                     };
 
                     executor.spawn(start_pow::<Self, Self::Block, _, _, _, _, _, _, _>(
-                        key.clone(),
+                        worker_key.clone(),
                         client.clone(),
                         block_import.clone(),
                         proposer,
@@ -400,13 +398,19 @@ construct_service_factory! {
             { |config, executor| <LightComponents<Factory>>::new(config, executor) },
         FullImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
+
+                    let validator = config.roles == Roles::AUTHORITY;
+
                     let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
-                        client.clone(), client.clone()
+                        client.clone(), client.clone(), validator
                     )?;
 
                     let block_import = Arc::new(block_import);
                     let justification_import = block_import.clone();
-                    config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
+
+                    if validator {
+                        config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
+                    }
 
                     import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
@@ -427,9 +431,16 @@ construct_service_factory! {
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
-                    import_queue::<Self, _, _, <Pair as PairT>::Public>(
-                        client.clone(),
-                        None,
+                    let (block_import, _) = crfg::block_import::<_, _, _, RuntimeApi, LightClient<Self>>(
+                        client.clone(), client.clone(), false
+                    )?;
+
+                    let block_import = Arc::new(block_import);
+                    let justification_import = block_import.clone();
+
+                    import_queue::<Self, _,  _, <Pair as PairT>::Public>(
+                        block_import,
+                        Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
                         Arc::new(RwLock::new(None)),
@@ -442,6 +453,22 @@ construct_service_factory! {
                         },
                         config.custom.context.clone().expect("qed"),
                     ).map_err(Into::into)
+
+                    // import_queue::<Self, _,  _, <Pair as PairT>::Public>(
+                    //     client.clone(),
+                    //     None,
+                    //     client,
+                    //     config.custom.inherent_data_providers.clone(),
+                    //     Arc::new(RwLock::new(None)),
+                    //     consensus::ShardExtra {
+                    //         coinbase: config.custom.coinbase.clone(),
+                    //         shard_num: config.custom.shard_num,
+                    //         shard_count: config.custom.shard_count,
+                    //         scale_out: config.custom.scale_out.clone(),
+                    //         trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
+                    //     },
+                    //     config.custom.context.clone().expect("qed"),
+                    // ).map_err(Into::into)
                 }
             },
         FullRpcHandlerConstructor = FullRpcHandlerConstructor,
