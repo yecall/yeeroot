@@ -97,5 +97,9 @@ pub mod generic {
 		pub best_hash: B::Hash,
 		/// Best block number.
 		pub best_number: <<B as BlockT>::Header as HeaderT>::Number,
+		/// The head of the finalized chain.
+		pub finalized_hash: B::Hash,
+		/// Last finalized block number.
+		pub finalized_number: <<B as BlockT>::Header as HeaderT>::Number,
 	}
 }

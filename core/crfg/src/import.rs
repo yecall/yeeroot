@@ -45,6 +45,8 @@ use crate::environment::{finalize_block, is_descendent_of};
 use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
+use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem};
+use runtime_primitives::traits::Digest;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
 
@@ -63,6 +65,7 @@ pub struct CrfgBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 	send_voter_commands: mpsc::UnboundedSender<VoterCommand<Block::Hash, NumberFor<Block>>>,
 	consensus_changes: SharedConsensusChanges<Block::Hash, NumberFor<Block>>,
 	api: Arc<PRA>,
+	validator: bool,
 }
 
 impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
@@ -166,6 +169,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
 	DigestFor<Block>: Encode,
 	DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
+	DigestItemFor<Block>: CrfgChangeDigestItem<NumberFor<Block>>,
+	DigestItemFor<Block>: CrfgForceChangeDigestItem<NumberFor<Block>>,
 	RA: Send + Sync,
 	PRA: ProvideRuntimeApi,
 	PRA::Api: CrfgApi<Block>,
@@ -199,10 +204,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		// check for forced change.
 		{
-			let maybe_change = api.crfg_forced_change(
-				&at,
-				digest,
-			);
+			let maybe_change : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgForceChangeDigestItem::as_force_change).next());
 
 			match maybe_change {
 				Err(e) => match api.has_api_with::<dyn CrfgApi<Block>, _>(&at, |v| v >= 2) {
@@ -234,10 +236,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		// check normal scheduled change.
 		{
-			let maybe_change = api.crfg_pending_change(
-				&at,
-				digest,
-			);
+			let maybe_change : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgChangeDigestItem::as_change).next());
 
 			match maybe_change {
 				Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
@@ -419,6 +418,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
 		DigestFor<Block>: Encode,
 		DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
+		DigestItemFor<Block>: CrfgChangeDigestItem<NumberFor<Block>>,
+		DigestItemFor<Block>: CrfgForceChangeDigestItem<NumberFor<Block>>,
 		RA: Send + Sync,
 		PRA: ProvideRuntimeApi,
 		PRA::Api: CrfgApi<Block>,
@@ -469,9 +470,11 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 
 		// Send the pause signal after import but BEFORE sending a `ChangeAuthorities` message.
 		if do_pause {
-			let _ = self.send_voter_commands.unbounded_send(
-				VoterCommand::Pause(format!("Forced change scheduled after inactivity"))
-			);
+			if self.validator {
+				let _ = self.send_voter_commands.unbounded_send(
+					VoterCommand::Pause(format!("Forced change scheduled after inactivity"))
+				);
+			}
 		}
 
 		let needs_justification = applied_changes.needs_justification();
@@ -489,7 +492,9 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				// they should import the block and discard the justification, and they will
 				// then request a justification from sync if it's necessary (which they should
 				// then be able to successfully validate).
-				let _ = self.send_voter_commands.unbounded_send(VoterCommand::ChangeAuthorities(new));
+				if self.validator {
+					let _ = self.send_voter_commands.unbounded_send(VoterCommand::ChangeAuthorities(new));
+				}
 
 				// we must clear all pending justifications requests, presumably they won't be
 				// finalized hence why this forced changes was triggered
@@ -568,6 +573,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		send_voter_commands: mpsc::UnboundedSender<VoterCommand<Block::Hash, NumberFor<Block>>>,
 		consensus_changes: SharedConsensusChanges<Block::Hash, NumberFor<Block>>,
 		api: Arc<PRA>,
+		validator: bool,
 	) -> CrfgBlockImport<B, E, Block, RA, PRA> {
 		CrfgBlockImport {
 			inner,
@@ -575,6 +581,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			send_voter_commands,
 			consensus_changes,
 			api,
+			validator,
 		}
 	}
 }
@@ -624,8 +631,10 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				info!(target: "afg", "Imported justification for block #{} that triggers \
 					command {}, signaling voter.", number, command);
 
-				if let Err(e) = self.send_voter_commands.unbounded_send(command) {
-					return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
+				if self.validator {
+					if let Err(e) = self.send_voter_commands.unbounded_send(command) {
+						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
+					}
 				}
 			},
 			Err(CommandOrError::Error(e)) => {

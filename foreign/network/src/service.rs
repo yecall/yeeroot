@@ -53,9 +53,6 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
 
-	/// Get chain info.
-	fn chain_info(&self) -> HashMap<u16, Option<(NumberFor<B>, NumberFor<B>)>>;
-
 	// Get client info.
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>;
 }
@@ -222,7 +219,6 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Servic
 impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B, H> for Service<B, I, H>
 where
 	B: BlockT + 'static,
-	DigestItemFor<B>: finality_tracker::FinalityTrackerDigestItem,
 {
 
 	fn on_relay_extrinsics(&self, shard_num: u16, extrinsics: Vec<(H, B::Extrinsic)>){
@@ -238,40 +234,6 @@ where
 	fn network_state(&self) -> NetworkState {
 
 		self.network.lock().state()
-	}
-
-	fn chain_info(&self) -> HashMap<u16, Option<(NumberFor<B>, NumberFor<B>)>> {
-
-		let get_chain_info = | client : &Arc<dyn substrate_network::chain::Client<B>> | -> Result<(NumberFor<B>, NumberFor<B>), ()> {
-			let info = client.info().map_err(|_|())?;
-			let best_number = info.chain.best_number;
-			let id = BlockId::number(best_number);
-			let header = client.header(&id).map_err(|_|())?.ok_or(())?;
-			let finalized_number = header.digest().logs().iter().rev()
-				.filter_map(finality_tracker::FinalityTrackerDigestItem::as_finality_tracker).next().ok_or(())?;
-			let finalized_number = <NumberFor<B> as As<u64>>::sa(finalized_number);
-			Ok((best_number, finalized_number))
-		};
-
-		let get_native_chain_info = |client: &Arc<dyn Client<B>>| -> Result<(NumberFor<B>, NumberFor<B>), ()> {
-			let chain = client.info().map_err(|_|())?;
-			let chain = chain.chain;
-			Ok((chain.best_number, chain.finalized_number))
-		};
-
-		let mut list =  self.vnetwork_holder.chain_list.read().iter()
-			.map(|(shard_num, client)|{
-				let chain_info = get_chain_info(client).ok();
-				(*shard_num, chain_info)
-			}).collect::<Vec<_>>();
-
-		list.push({
-			let chain_info = get_native_chain_info(&self.chain).ok();
-			(self.shard_num, chain_info)
-		});
-
-		let map = list.into_iter().collect::<HashMap<_, _>>();
-		map
 	}
 
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>{
@@ -846,6 +808,8 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 							let out_message = OutMessage::BestBlockInfoChanged(shard_num, BestBlockInfo {
 								best_number: chain_info.best_number,
 								best_hash: chain_info.best_hash,
+								finalized_hash: chain_info.finalized_hash,
+								finalized_number: chain_info.finalized_number,
 							});
 							debug!(target: "sync-foreign", "Send out message: {:?}", out_message);
 							out_message_sinks.lock().retain(|sink| sink.unbounded_send(out_message.clone()).is_ok());

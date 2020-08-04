@@ -20,6 +20,8 @@ use runtime_primitives::traits::{Block as BlockT, NumberFor};
 use runtime_primitives::generic::BlockId;
 use std::fmt::Debug;
 use client::Client;
+use crate::misc::types::ForeignStatus;
+use parity_codec::alloc::collections::HashMap;
 
 #[rpc]
 pub trait MiscApi<Hash, Number> {
@@ -31,6 +33,9 @@ pub trait MiscApi<Hash, Number> {
 
 	#[rpc(name = "system_foreignNetworkState")]
 	fn foreign_network_state(&self) -> errors::Result<NetworkState>;
+
+	#[rpc(name = "system_foreignStatus")]
+	fn foreign_status(&self) -> errors::Result<HashMap<u16, Option<ForeignStatus<Hash, Number>>>>;
 
 	#[rpc(name = "system_config")]
 	fn system_config(&self) -> errors::Result<Config>;
@@ -117,6 +122,26 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		Ok(foreign_network.network_state())
 	}
 
+	fn foreign_status(&self) -> errors::Result<HashMap<u16, Option<ForeignStatus<B::Hash, NumberFor<B>>>>> {
+		let foreign_network = self.foreign_network.read();
+		let foreign_network = foreign_network.as_ref().ok_or(errors::Error::from(errors::ErrorKind::NotReady))?;
+		let client_info = foreign_network.client_info();
+
+		let status = client_info.into_iter().map(|(k, v)|{
+			let status = v.map(|v|{
+				ForeignStatus {
+					best_number: v.chain.best_number,
+					best_hash: v.chain.best_hash,
+					finalized_number: v.chain.finalized_number,
+					finalized_hash: v.chain.finalized_hash,
+				}
+			});
+			(k, status)
+		}).collect::<HashMap<_, _>>();
+
+		Ok(status)
+	}
+
 	fn system_config(&self) -> errors::Result<Config> {
 
 		let config = (*self.config).clone();
@@ -190,6 +215,14 @@ mod types {
 		pub finalized: Option<(H, N)>,
 		pub estimate: Option<(H, N)>,
 		pub completable: bool,
+	}
+
+	#[derive(Serialize)]
+	pub struct ForeignStatus<H, N> {
+		pub best_number: N,
+		pub best_hash: H,
+		pub finalized_number: N,
+		pub finalized_hash: H,
 	}
 
 	impl<H, N> From<crfg::CrfgState<H, N>> for CrfgState<H, N> where

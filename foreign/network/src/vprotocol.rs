@@ -377,14 +377,14 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 warn!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("But No Proof Found"), number);
                 break;
             }
+            let justification = self.context_data.chain.justification(&BlockId::Hash(hash)).unwrap_or(None);
             let block_data = message::generic::BlockData {
                 hash,
                 header: if get_header { Some(header) } else { None },
                 body:  None,
-
                 receipt: None,
                 message_queue: None,
-                justification: None,
+                justification,
                 proof,
             };
             blocks.push(block_data);
