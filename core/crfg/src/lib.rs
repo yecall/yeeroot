@@ -659,7 +659,8 @@ pub struct LinkHalf<B, E, Block: BlockT<Hash=H256>, RA> {
 /// to it.
 pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	client: Arc<Client<B, E, Block, RA>>,
-	api: Arc<PRA>
+	api: Arc<PRA>,
+	validator: bool,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -696,6 +697,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			voter_commands_tx,
 			persistent_data.consensus_changes.clone(),
 			api,
+			validator,
 		),
 		LinkHalf {
 			client,
