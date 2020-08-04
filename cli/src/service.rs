@@ -443,7 +443,7 @@ construct_service_factory! {
                         Some(justification_import),
                         client,
                         config.custom.inherent_data_providers.clone(),
-                        config.custom.foreign_chains.clone(),
+                        Arc::new(RwLock::new(None)),
                         consensus::ShardExtra {
                             coinbase: config.custom.coinbase.clone(),
                             shard_num: config.custom.shard_num,
@@ -453,6 +453,22 @@ construct_service_factory! {
                         },
                         config.custom.context.clone().expect("qed"),
                     ).map_err(Into::into)
+
+                    // import_queue::<Self, _,  _, <Pair as PairT>::Public>(
+                    //     client.clone(),
+                    //     None,
+                    //     client,
+                    //     config.custom.inherent_data_providers.clone(),
+                    //     Arc::new(RwLock::new(None)),
+                    //     consensus::ShardExtra {
+                    //         coinbase: config.custom.coinbase.clone(),
+                    //         shard_num: config.custom.shard_num,
+                    //         shard_count: config.custom.shard_count,
+                    //         scale_out: config.custom.scale_out.clone(),
+                    //         trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
+                    //     },
+                    //     config.custom.context.clone().expect("qed"),
+                    // ).map_err(Into::into)
                 }
             },
         FullRpcHandlerConstructor = FullRpcHandlerConstructor,
