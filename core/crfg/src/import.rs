@@ -45,6 +45,8 @@ use crate::environment::{finalize_block, is_descendent_of};
 use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
+use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem};
+use runtime_primitives::traits::Digest;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
 
@@ -167,6 +169,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
 	DigestFor<Block>: Encode,
 	DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
+	DigestItemFor<Block>: CrfgChangeDigestItem<NumberFor<Block>>,
+	DigestItemFor<Block>: CrfgForceChangeDigestItem<NumberFor<Block>>,
 	RA: Send + Sync,
 	PRA: ProvideRuntimeApi,
 	PRA::Api: CrfgApi<Block>,
@@ -200,10 +204,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		// check for forced change.
 		{
-			let maybe_change = api.crfg_forced_change(
-				&at,
-				digest,
-			);
+			let maybe_change : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgForceChangeDigestItem::as_force_change).next());
 
 			match maybe_change {
 				Err(e) => match api.has_api_with::<dyn CrfgApi<Block>, _>(&at, |v| v >= 2) {
@@ -235,10 +236,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		// check normal scheduled change.
 		{
-			let maybe_change = api.crfg_pending_change(
-				&at,
-				digest,
-			);
+			let maybe_change : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgChangeDigestItem::as_change).next());
 
 			match maybe_change {
 				Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
@@ -420,6 +418,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		E: CallExecutor<Block, Blake2Hasher> + 'static + Clone + Send + Sync,
 		DigestFor<Block>: Encode,
 		DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
+		DigestItemFor<Block>: CrfgChangeDigestItem<NumberFor<Block>>,
+		DigestItemFor<Block>: CrfgForceChangeDigestItem<NumberFor<Block>>,
 		RA: Send + Sync,
 		PRA: ProvideRuntimeApi,
 		PRA::Api: CrfgApi<Block>,
