@@ -189,7 +189,7 @@ fn mainnet_genesis(chain_id: Vec<u8>, endowed_accounts: Vec<(AccountId, u128)>, 
 		}),
 		pow: Some(PowConfig {
 			chain_id,
-			genesis_pow_target: primitives::U256::from(0x000000ffff) << 216,
+			genesis_pow_target: primitives::U256::from(0x00000000ffff) << 208,
 			pow_target_adj: 60_u64.into(),
 			target_block_time: 30_u64.into(),
 			block_reward: 25_600_000_000,
