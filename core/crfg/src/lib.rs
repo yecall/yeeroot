@@ -98,6 +98,7 @@ mod finality_proof;
 mod import;
 mod justification;
 mod until_imported;
+mod digest;
 
 #[cfg(feature="service-integration")]
 mod service_integration;
