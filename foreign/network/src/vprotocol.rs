@@ -391,7 +391,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             match request.direction {
                 message::Direction::Ascending => id = BlockId::Number(number + As::sa(1)),
                 message::Direction::Descending => {
-                    if number == As::sa(0) {
+                    if number == As::sa(1) {
                         break;
                     }
                     id = BlockId::Hash(parent_hash)

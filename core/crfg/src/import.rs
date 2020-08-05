@@ -94,6 +94,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 				pending_change.effective_number() > chain_info.finalized_number &&
 				pending_change.effective_number() <= chain_info.best_number
 			{
+				/*
 				let effective_block_hash = self.inner.best_containing(
 					pending_change.canon_hash,
 					Some(pending_change.effective_number()),
@@ -105,7 +106,13 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 							link.request_justification(&header.hash(), *header.number());
 						}
 					}
-				}
+				}*/
+
+				// since the delay of crfg is always 0, effective_block_hash = pending_change.canon_hash
+				// the above code can be replaced with the following code
+				// to avoid using best_containing( which contains unimplemented for light client)
+				link.request_justification(&pending_change.canon_hash, pending_change.canon_height);
+
 			}
 		}
 	}
