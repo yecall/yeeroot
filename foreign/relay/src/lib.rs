@@ -23,7 +23,7 @@ use std::{
 use ansi_term::Colour;
 use futures::{Stream, sync::mpsc};
 use hash_db::Hasher;
-use log::{debug, error, info, warn};
+use log::{trace, debug, error, info, warn};
 use parity_codec::{Compact, Decode, Encode};
 use parking_lot::RwLock;
 use runtime_primitives::{
@@ -94,21 +94,23 @@ pub fn start_relay_transfer<F, C, A>(
     // let client_fe = client.clone();
     let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
-            let hash = notification.hash;
-            let block_id = BlockId::Hash(hash);
-            if let Ok(Some(header)) = client_notify.header(block_id) {
-                if let Ok(Some(body)) = client_notify.block_body(&block_id) {
-                    let api = client_notify.runtime_api();
-                    let tc = api.get_shard_count(&block_id).expect("can't get shard count");    // total count
-                    if let Ok(Some(cs)) = api.get_curr_shard(&block_id) {
-                        for tx in &body {
-                            let ec = tx.encode();
-                            process_relay_extrinsic(ec, &header, hash, foreign_network.clone(), tc as u16, cs as u16);
+            if notification.is_new_best {
+                trace!(target: "foreign", "receive import notification");
+                let hash = notification.hash;
+                let block_id = BlockId::Hash(hash);
+                if let Ok(Some(header)) = client_notify.header(block_id) {
+                    if let Ok(Some(body)) = client_notify.block_body(&block_id) {
+                        let api = client_notify.runtime_api();
+                        let tc = api.get_shard_count(&block_id).expect("can't get shard count");    // total count
+                        if let Ok(Some(cs)) = api.get_curr_shard(&block_id) {
+                            for tx in &body {
+                                let ec = tx.encode();
+                                process_relay_extrinsic(ec, &header, hash, foreign_network.clone(), tc as u16, cs as u16);
+                            }
                         }
                     }
                 }
             }
-
             Ok(())
         });
 
