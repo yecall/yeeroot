@@ -373,7 +373,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let proof = self.protocol_context_data.read().peers.get(&peer).map(|p| {
                 self.get_proof_by_shard_num(hash, p.info.shard_num)
             }).unwrap_or(None);
-            if proof.is_none() {
+            if number != Zero::zero() && proof.is_none() {
                 warn!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("But No Proof Found"), number);
                 break;
             }
