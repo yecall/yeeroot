@@ -49,6 +49,7 @@ use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem};
 use runtime_primitives::traits::Digest;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
+const MAX_JUSTIFICATION_REQUEST_ON_START: usize = 640;
 
 /// A block-import handler for CRFG.
 ///
@@ -89,6 +90,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 
 		// request justifications for all pending changes for which change blocks have already been imported
 		let authorities = self.authority_set.inner().read();
+		let mut count = 0;
 		for pending_change in authorities.pending_changes() {
 			if pending_change.delay_kind == DelayKind::Finalized &&
 				pending_change.effective_number() > chain_info.finalized_number &&
@@ -112,7 +114,12 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 				// the above code can be replaced with the following code
 				// to avoid using best_containing( which contains unimplemented for light client)
 				link.request_justification(&pending_change.canon_hash, pending_change.canon_height);
+				count += 1;
 
+				// to avoid request_justification message block finalizing
+				if count == MAX_JUSTIFICATION_REQUEST_ON_START {
+					break;
+				}
 			}
 		}
 	}

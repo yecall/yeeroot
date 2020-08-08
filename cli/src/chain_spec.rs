@@ -96,7 +96,7 @@ pub const SUDO_ACCOUNTS: [&str; 4] = [
 	"yee136vpzc2ptth3ms2gf29826twhy4tyjzdt7ly0ugm23nnaa7ungpsqrrl88",
 ];
 
-pub const CHAIN_ID: &'static [u8] = b"mainnet_20200805";
+pub const CHAIN_ID: &'static [u8] = b"mainnet_20200808";
 
 fn account_addr(s: &str) -> AccountId {
 
