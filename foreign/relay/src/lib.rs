@@ -23,7 +23,7 @@ use std::{
 use ansi_term::Colour;
 use futures::{Stream, sync::mpsc};
 use hash_db::Hasher;
-use log::{debug, error, info, warn};
+use log::{trace, debug, error, info, warn};
 use parity_codec::{Compact, Decode, Encode};
 use parking_lot::RwLock;
 use runtime_primitives::{
@@ -95,6 +95,7 @@ pub fn start_relay_transfer<F, C, A>(
     let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
             if notification.is_new_best {
+                trace!(target: "foreign", "receive import notification");
                 let hash = notification.hash;
                 let block_id = BlockId::Hash(hash);
                 if let Ok(Some(header)) = client_notify.header(block_id) {
