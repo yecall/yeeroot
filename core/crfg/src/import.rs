@@ -16,10 +16,10 @@
 
 use std::{sync::Arc, collections::HashMap};
 
-use log::{debug, trace, info};
+use log::{debug, trace, info, warn};
 use parity_codec::Encode;
 use futures::sync::mpsc;
-use parking_lot::RwLockWriteGuard;
+use parking_lot::{RwLockWriteGuard, RwLock};
 
 use client::{blockchain, CallExecutor, Client};
 use client::blockchain::HeaderBackend;
@@ -34,7 +34,7 @@ use runtime_primitives::Justification;
 use runtime_primitives::generic::BlockId;
 use runtime_primitives::traits::{
 	Block as BlockT, DigestFor, DigestItemFor, DigestItem,
-	Header as HeaderT, NumberFor, ProvideRuntimeApi,
+	Header as HeaderT, NumberFor, ProvideRuntimeApi, As
 };
 use substrate_primitives::{H256, ed25519, Blake2Hasher};
 
@@ -47,9 +47,12 @@ use crate::justification::CrfgJustification;
 use ed25519::Public as AuthorityId;
 use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem};
 use runtime_primitives::traits::Digest;
+use std::time;
+use std::cell::Cell;
+use fg_primitives::BLOCK_FINAL_LATENCY;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
-const MAX_JUSTIFICATION_REQUEST_ON_START: usize = 640;
+const FINALIZE_TIMEOUT: time::Duration = time::Duration::from_secs(30);
 
 /// A block-import handler for CRFG.
 ///
@@ -67,6 +70,7 @@ pub struct CrfgBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 	consensus_changes: SharedConsensusChanges<Block::Hash, NumberFor<Block>>,
 	api: Arc<PRA>,
 	validator: bool,
+	finalize_status: Arc<RwLock<Option<(NumberFor<Block>, time::Instant)>>>,
 }
 
 impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
@@ -90,7 +94,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 
 		// request justifications for all pending changes for which change blocks have already been imported
 		let authorities = self.authority_set.inner().read();
-		let mut count = 0;
 		for pending_change in authorities.pending_changes() {
 			if pending_change.delay_kind == DelayKind::Finalized &&
 				pending_change.effective_number() > chain_info.finalized_number &&
@@ -114,13 +117,48 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 				// the above code can be replaced with the following code
 				// to avoid using best_containing( which contains unimplemented for light client)
 				link.request_justification(&pending_change.canon_hash, pending_change.canon_height);
-				count += 1;
+			}
+		}
+	}
 
-				// to avoid request_justification message block finalizing
-				if count == MAX_JUSTIFICATION_REQUEST_ON_START {
-					break;
+	fn on_tick(&self, link: &(dyn ::consensus_common::import_queue::Link<Block>)) {
+		let info = match self.inner.info(){
+			Ok(info) => info,
+			Err(e) => {
+				warn!(target: "afg", "Justification import encounters error on tick: {:?}", e);
+				return;
+			}
+		};
+		let best_number = info.chain.best_number;
+		let finalized_number = info.chain.finalized_number;
+		let (status, updated) = match self.finalize_status.read().as_ref(){
+			Some((f, i)) => {
+				if f != &finalized_number {
+					((finalized_number, time::Instant::now()), true)
+				}else{
+					((f.clone(), i.clone()), false)
+				}
+			},
+			None => ((finalized_number, time::Instant::now()), true)
+		};
+		if updated {
+			*self.finalize_status.write() = Some(status);
+		}
+
+		if best_number - finalized_number > As::sa(BLOCK_FINAL_LATENCY + 1 ) && status.1.elapsed() > FINALIZE_TIMEOUT {
+			info!(target: "afg", "Finalize stalls, finalized_number: {} elapsed: {:?}", finalized_number, status.1.elapsed());
+
+			let authorities = self.authority_set.inner().read();
+			for pending_change in authorities.pending_changes() {
+				if pending_change.delay_kind == DelayKind::Finalized &&
+					pending_change.effective_number() > finalized_number &&
+					pending_change.effective_number() <= best_number
+				{
+					link.request_justification(&pending_change.canon_hash, pending_change.canon_height);
 				}
 			}
+			//clear status to avoid request justification too often
+			*self.finalize_status.write() = None;
 		}
 	}
 
@@ -596,6 +634,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			consensus_changes,
 			api,
 			validator,
+			finalize_status: Arc::new(RwLock::new(None)),
 		}
 	}
 }
@@ -642,7 +681,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		match result {
 			Err(CommandOrError::VoterCommand(command)) => {
-				info!(target: "afg", "Imported justification for block #{} that triggers \
+				debug!(target: "afg", "Imported justification for block #{} that triggers \
 					command {}, signaling voter.", number, command);
 
 				if self.validator {

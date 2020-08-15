@@ -430,7 +430,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 			},
 		};
 
-		debug!(target: "afg", "Finalizing blocks up to ({:?}, {})", number, hash);
+		info!(target: "afg", "Finalizing blocks up to ({:?}, {})", number, hash);
 
 		// ideally some handle to a synchronization oracle would be used
 		// to avoid unconditionally notifying.
@@ -447,9 +447,9 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 			let (new_id, set_ref) = authority_set.current();
 
 			if set_ref.len() > 16 {
-				info!("Applying CRFG set change to new set with {} authorities", set_ref.len());
+				debug!("Applying CRFG set change to new set with {} authorities", set_ref.len());
 			} else {
-				info!("Applying CRFG set change to new set {:?}", set_ref);
+				debug!("Applying CRFG set change to new set {:?}", set_ref);
 			}
 
 			telemetry!(CONSENSUS_INFO; "afg.generating_new_authority_set";

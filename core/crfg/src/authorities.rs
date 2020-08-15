@@ -328,7 +328,7 @@ where
 				self.pending_forced_changes.clear();
 
 				if let Some(change) = change {
-					info!(target: "finality", "Applying authority set change scheduled at block #{:?}",
+					debug!(target: "finality", "Applying authority set change scheduled at block #{:?}",
 						  change.canon_height);
 					telemetry!(CONSENSUS_INFO; "afg.applying_scheduled_authority_set_change";
 						"block" => ?change.canon_height
