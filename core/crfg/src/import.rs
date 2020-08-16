@@ -145,7 +145,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 			*self.finalize_status.write() = Some(status);
 		}
 
-		if best_number - finalized_number > As::sa(BLOCK_FINAL_LATENCY + 1 ) && status.1.elapsed() > FINALIZE_TIMEOUT {
+		if best_number - finalized_number > As::sa(BLOCK_FINAL_LATENCY + 2 ) && status.1.elapsed() > FINALIZE_TIMEOUT {
 			info!(target: "afg", "Finalize stalls, finalized_number: {} elapsed: {:?}", finalized_number, status.1.elapsed());
 
 			let authorities = self.authority_set.inner().read();
