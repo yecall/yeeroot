@@ -225,7 +225,6 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     pub fn on_peer_connected(&mut self, who: PeerId, debug_info: String) {
         trace!(target: "sync-foreign", "VProtocol: Connecting {}: {}", who, debug_info);
         self.handshaking_peers.insert(who.clone(), HandshakingPeer { timestamp: time::Instant::now() });
-        self.send_status(who);
     }
 
     /// Called by peer when it is disconnecting
@@ -438,7 +437,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     }
 
     /// Send Status message
-    fn send_status(&mut self, who: PeerId) {
+    pub fn send_status(&mut self, who: PeerId) {
         if let Ok(info) = self.context_data.chain.info() {
             let status = message::generic::Status {
                 version: CURRENT_VERSION,
@@ -449,6 +448,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 best_hash: info.chain.best_hash,
                 chain_status: Vec::new(),
             };
+            trace!(target: "sync-foreign", "VProtocol: Sending status to {}: gh: {}", who, info.chain.genesis_hash);
             self.send_message(who, GenericMessage::Status(status))
         }
     }
