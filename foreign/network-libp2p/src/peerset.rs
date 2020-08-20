@@ -209,4 +209,8 @@ impl ForeignPeerRouter {
     pub fn get_shard_num(&self, peer_id: &PeerId) -> Option<u16> {
         self.0.read().get(peer_id).cloned()
     }
+
+    pub fn update_shard_num(&self, peer_id: PeerId, shard_num: u16) {
+        self.0.write().insert(peer_id, shard_num);
+    }
 }

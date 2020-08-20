@@ -202,7 +202,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>,
     ) -> error::Result<Self> {
         let config = ProtocolConfig {
-            roles: Roles::LIGHT,
+            roles: Roles::FULL,
         };
         let info = chain.info()?;
         let peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>> = Arc::new(Default::default());
