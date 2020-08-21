@@ -253,7 +253,7 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 		self.handshaking_peers.insert(who.clone(), HandshakingPeer { timestamp: time::Instant::now() });
 		self.send_status(who.clone());
 
-		self.vprotocol.on_peer_connected(who, debug_info);
+		self.vprotocol.on_peer_connected(who.clone(), debug_info);
 	}
 
 	/// Called by peer when it is disconnecting
@@ -333,6 +333,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				known_extrinsics: LruHashSet::new(cache_limit),
 			};
 			self.context_data.write().peers.insert(who.clone(), peer);
+
+			self.vprotocol.send_status(who.clone());
 
 			debug!(target: "sync-foreign", "Connected {}", who);
 		}

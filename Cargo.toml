@@ -1,6 +1,6 @@
 [package]
 name = "yee"
-version = "1.0.1"
+version = "1.0.2"
 authors = ["YeeCo <contact@yeefoundation.com>"]
 build = "build.rs"
 edition = "2018"

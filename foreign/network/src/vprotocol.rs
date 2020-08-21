@@ -202,7 +202,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         protocol_context_data: Arc<RwLock<crate::protocol::ContextData<B, H>>>,
     ) -> error::Result<Self> {
         let config = ProtocolConfig {
-            roles: Roles::LIGHT,
+            roles: Roles::FULL,
         };
         let info = chain.info()?;
         let peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>> = Arc::new(Default::default());
@@ -225,7 +225,6 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     pub fn on_peer_connected(&mut self, who: PeerId, debug_info: String) {
         trace!(target: "sync-foreign", "VProtocol: Connecting {}: {}", who, debug_info);
         self.handshaking_peers.insert(who.clone(), HandshakingPeer { timestamp: time::Instant::now() });
-        self.send_status(who);
     }
 
     /// Called by peer when it is disconnecting
@@ -370,13 +369,27 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
             let number = header.number().clone();
             let hash = header.hash();
             let parent_hash = header.parent_hash().clone();
-            let proof = self.protocol_context_data.read().peers.get(&peer).map(|p| {
-                self.get_proof_by_shard_num(hash, p.info.shard_num)
-            }).unwrap_or(None);
-            if number != Zero::zero() && proof.is_none() {
-                warn!("Sync Block proof to other shard. {}. number:{}", Colour::White.bold().paint("But No Proof Found"), number);
-                break;
-            }
+
+            let proof = if number == Zero::zero() {
+                None
+            }else{
+                match self.protocol_context_data.read().peers.get(&peer) {
+                    Some(p) => {
+                        match self.get_proof_by_shard_num(hash, p.info.shard_num) {
+                            Ok(proof) => Some(proof),
+                            Err(e) => {
+                                warn!("Failed to get proof: hash: {}, number: {},shard_num: {} error: {:?}", hash, number, p.info.shard_num, e);
+                                break
+                            }
+                        }
+                    },
+                    None => {
+                        warn!("Failed to get peer in context data: {}", peer);
+                        break
+                    },
+                }
+            };
+
             let justification = self.context_data.chain.justification(&BlockId::Hash(hash)).unwrap_or(None);
             let block_data = message::generic::BlockData {
                 hash,
@@ -407,29 +420,24 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     }
 
     /// Get proof by shard num.
-    fn get_proof_by_shard_num(&self, hash: B::Hash, shard_num: u16) -> Option<Proof> {
+    fn get_proof_by_shard_num(&self, hash: B::Hash, shard_num: u16) -> error::Result<Proof> {
         let id = BlockId::Hash(hash);
-        let total_proof = self.context_data.chain.proof(&id).unwrap_or(None);
-        if let Some(proof) = total_proof {
-            let bytes = proof.as_slice();
-            let tree = yee_merkle::MultiLayerProof::from_bytes(bytes);
-            if let Ok(ml) = tree {
-                if let Some(pf) = ml.gen_proof(shard_num) {
-                    return Some(pf.into_bytes());
-                } else {
-                    debug!("get proof: {}", Colour::Red.bold().paint("ml.gen_proof is none"));
-                }
-            } else {
-                debug!("get proof: {}", Colour::Red.bold().paint("tree is error"));
-            }
-        } else {
-            debug!("get proof: {}", Colour::Red.bold().paint("total_proof is none"));
-        }
-        None
+
+        let total_proof = self.context_data.chain.proof(&id)
+            .map_err(|e| format!("get total proof error: {:?}", e))?;
+        let total_proof = total_proof.ok_or("none total proof")?;
+
+        let bytes = total_proof.as_slice();
+        let ml = yee_merkle::MultiLayerProof::from_bytes(bytes)
+            .map_err(|e| format!("build multi layer proof error: {:?}", e))?;
+
+        let pf = ml.gen_proof(shard_num).ok_or("none gen proof")?;
+        let pf = pf.into_bytes();
+        Ok(pf)
     }
 
     /// Send Status message
-    fn send_status(&mut self, who: PeerId) {
+    pub fn send_status(&mut self, who: PeerId) {
         if let Ok(info) = self.context_data.chain.info() {
             let status = message::generic::Status {
                 version: CURRENT_VERSION,
@@ -440,6 +448,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
                 best_hash: info.chain.best_hash,
                 chain_status: Vec::new(),
             };
+            trace!(target: "sync-foreign", "VProtocol: Sending status to {}: gh: {}", who, info.chain.genesis_hash);
             self.send_message(who, GenericMessage::Status(status))
         }
     }

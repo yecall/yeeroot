@@ -29,6 +29,7 @@ use {
         LightComponents, ServiceFactory,
     },
 };
+use substrate_service::Roles;
 
 pub trait ForeignChainConfig {
     fn get_shard_num(&self) -> u16;
@@ -66,6 +67,7 @@ impl<F> ForeignChain<F> where
             }
             info!("create foreign chain {}", i);
             let mut shard_config = config.to_owned();
+            shard_config.roles = Roles::LIGHT;
             shard_config.keystore_path = format!("{}-{}", config.keystore_path, i);
             shard_config.database_path = format!("{}-{}", config.database_path, i);
             shard_config.custom.set_shard_num(i);
