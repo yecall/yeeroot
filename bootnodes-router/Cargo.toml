@@ -7,7 +7,7 @@ edition = "2018"
 [dependencies]
 clap = "~2.32"
 structopt = "0.2"
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
 log = "0.4"
 app_dirs = "1.2"
 jsonrpc-core = "10.0.1"

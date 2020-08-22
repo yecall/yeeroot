@@ -6,13 +6,13 @@ edition = "2018"
 
 [dependencies]
 serde = { version = "1.0", optional = true }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-srml-support = { git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
+primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
+srml-support = { git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
 parity-codec = { version = "3.5", default-features = false, features = ["derive"] }
-srml-timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+srml-timestamp = { package = "srml-timestamp", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
 yee-srml-sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
 [features]

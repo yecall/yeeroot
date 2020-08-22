@@ -203,6 +203,7 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
     ) -> error::Result<Self> {
         let config = ProtocolConfig {
             roles: Roles::FULL,
+            max_leading_blocks: 0,
         };
         let info = chain.info()?;
         let peers: Arc<RwLock<HashMap<PeerId, ConnectedPeer<B>>>> = Arc::new(Default::default());
