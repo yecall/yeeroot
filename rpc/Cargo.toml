@@ -7,20 +7,20 @@ edition = "2018"
 [dependencies]
 futures = "0.1"
 error-chain = "0.12"
-substrate-rpc-services = { package = "substrate-rpc-servers", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
+substrate-rpc-services = { package = "substrate-rpc-servers", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 tokio = "0.1"
 pubsub = { package = "jsonrpc-pubsub", version = "10.0.1" }
 jsonrpc-derive = "10.0.2"
 jsonrpc-core = "10.0.1"
-substrate-rpc = { package = "substrate-rpc", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76"}
-basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
-substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "24b6e10cdd091029e29df68ac7fecfc62c6c7d76" }
+substrate-rpc = { package = "substrate-rpc", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
+basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 yee-runtime = { package = "yee-runtime", path = "../runtime" }
