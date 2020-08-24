@@ -88,6 +88,7 @@ use std::time::Duration;
 use ansi_term::Colour;
 
 pub use fg_primitives::ScheduledChange;
+use std::collections::HashMap;
 
 mod authorities;
 mod aux_schema;
@@ -662,6 +663,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	client: Arc<Client<B, E, Block, RA>>,
 	api: Arc<PRA>,
 	validator: bool,
+	import_until: Option<NumberFor<Block>>,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -699,6 +701,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			persistent_data.consensus_changes.clone(),
 			api,
 			validator,
+			import_until,
 		),
 		LinkHalf {
 			client,

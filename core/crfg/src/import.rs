@@ -71,6 +71,7 @@ pub struct CrfgBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 	api: Arc<PRA>,
 	validator: bool,
 	finalize_status: Arc<RwLock<Option<(NumberFor<Block>, time::Instant)>>>,
+	import_until: Option<NumberFor<Block>>,
 }
 
 impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
@@ -173,6 +174,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 	}
 }
 
+#[derive(Debug)]
 enum AppliedChanges<H, N> {
 	Standard(bool), // true if the change is ready to be applied (i.e. it's a root)
 	Forced(NewAuthoritySet<H, N>),
@@ -488,6 +490,12 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		debug!(target: "afg", "Import block, number: {}, hash: {}, origin: {:?}",
 			   number, hash, block.origin);
 
+		if let Some(import_until) = self.import_until {
+			if number > import_until {
+				return Err(ConsensusErrorKind::ClientImport("Exceed max block number".to_string()).into());
+			}
+		}
+
 		// early exit if block already in chain, otherwise the check for
 		// authority changes will error when trying to re-import a change block
 		match self.inner.backend().blockchain().status(BlockId::Hash(hash)) {
@@ -520,6 +528,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		};
 
 		let (applied_changes, do_pause) = pending_changes.defuse();
+
+		debug!(target: "afg", "Applied changes, number: {}, hash: {}, applied_changes: {:?}", number, hash, applied_changes);
 
 		// Send the pause signal after import but BEFORE sending a `ChangeAuthorities` message.
 		if do_pause {
@@ -566,6 +576,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		if !needs_justification && !enacts_consensus_change {
 			return Ok(ImportResult::Imported(imported_aux));
 		}
+
+		debug!(target: "afg", "Import justification, number: {}, hash: {}, has_justification: {}", number, hash, justification.is_some());
 
 		match justification {
 			Some(justification) => {
@@ -627,6 +639,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		consensus_changes: SharedConsensusChanges<Block::Hash, NumberFor<Block>>,
 		api: Arc<PRA>,
 		validator: bool,
+		import_until: Option<NumberFor<Block>>,
 	) -> CrfgBlockImport<B, E, Block, RA, PRA> {
 		CrfgBlockImport {
 			inner,
@@ -636,6 +649,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			api,
 			validator,
 			finalize_status: Arc::new(RwLock::new(None)),
+			import_until,
 		}
 	}
 }

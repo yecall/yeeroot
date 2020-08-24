@@ -447,9 +447,9 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 			let (new_id, set_ref) = authority_set.current();
 
 			if set_ref.len() > 16 {
-				debug!("Applying CRFG set change to new set with {} authorities", set_ref.len());
+				debug!(target: "afg", "Applying CRFG set change to new set with {} authorities", set_ref.len());
 			} else {
-				debug!("Applying CRFG set change to new set {:?}", set_ref);
+				debug!(target: "afg", "Applying CRFG set change to new set {:?}", set_ref);
 			}
 
 			telemetry!(CONSENSUS_INFO; "afg.generating_new_authority_set";
@@ -466,6 +466,8 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		} else {
 			None
 		};
+
+		debug!(target: "afg", "Finalize block, number: {}, hash: {}, changed: {}", number, hash, status.changed);
 
 		if status.changed {
 			let write_result = crate::aux_schema::update_authority_set(

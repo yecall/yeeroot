@@ -26,6 +26,7 @@ use grandpa::{Error as GrandpaError};
 use runtime_primitives::generic::BlockId;
 use runtime_primitives::traits::{NumberFor, Block as BlockT, Header as HeaderT};
 use substrate_primitives::{H256, ed25519, Blake2Hasher};
+use log::debug;
 
 use crate::{Commit, Error};
 use crate::communication;
@@ -128,6 +129,7 @@ impl<Block: BlockT<Hash=H256>> CrfgJustification<Block> {
 
 		let ancestry_chain = AncestryChain::<Block>::new(&self.votes_ancestries);
 
+		debug!(target: "afg", "Verify, set_id: {}, voters: {:?}", set_id, voters);
 		match grandpa::validate_commit(
 			&self.commit,
 			voters,

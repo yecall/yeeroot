@@ -39,6 +39,7 @@ use sharding_primitives::ScaleOut;
 use runtime_primitives::traits::{Header, Block as BlockT, NumberFor};
 use futures::sync::mpsc;
 use yee_primitives::{RecommitRelay, Address, AddressCodec};
+use std::collections::HashMap;
 
 mod foreign;
 use foreign::{start_foreign_network};
@@ -95,6 +96,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>>,
     pub crfg_state: Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
     pub mine: bool,
+    pub import_until: Option<HashMap<u16, NumberFor<F::Block>>>,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<F::Block, ComponentExHash<FullComponents<F>>>>>>>,
     pub hrp: Hrp,
@@ -120,6 +122,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             recommit_relay_sender: Arc::new(RwLock::new(None)),
             crfg_state: Arc::new(RwLock::new(None)),
             mine: Default::default(),
+            import_until: Default::default(),
             foreign_chains: Arc::new(RwLock::new(None)),
             foreign_network: Arc::new(RwLock::new(None)),
             hrp: Default::default(),
@@ -142,6 +145,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             foreign_in_peers: self.foreign_in_peers,
             foreign_node_key_params: self.foreign_node_key_params.clone(),
             mine: self.mine,
+            import_until: self.import_until.clone(),
             hrp: self.hrp.clone(),
             scale_out: self.scale_out.clone(),
             trigger_exit: self.trigger_exit.clone(),
@@ -400,9 +404,11 @@ construct_service_factory! {
             { |config: &mut FactoryFullConfiguration<Self> , client: Arc<FullClient<Self>>| {
 
                     let validator = config.roles == Roles::AUTHORITY;
+                    let shard_num = config.custom.shard_num;
+                    let import_until = config.custom.import_until.as_ref().and_then(|x| x.get(&shard_num).cloned());
 
                     let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
-                        client.clone(), client.clone(), validator
+                        client.clone(), client.clone(), validator, import_until,
                     )?;
 
                     let block_import = Arc::new(block_import);
@@ -412,6 +418,7 @@ construct_service_factory! {
                         config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
                     }
 
+                    info!("Start full import queue, shard_num: {}", config.custom.shard_num);
                     import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
@@ -431,13 +438,18 @@ construct_service_factory! {
             },
         LightImportQueue = PowImportQueue<Self::Block>
             { |config: &mut FactoryFullConfiguration<Self>, client: Arc<LightClient<Self>>| {
+
+                    let shard_num = config.custom.shard_num;
+                    let import_until = config.custom.import_until.as_ref().and_then(|x| x.get(&shard_num).cloned());
+
                     let (block_import, _) = crfg::block_import::<_, _, _, RuntimeApi, LightClient<Self>>(
-                        client.clone(), client.clone(), false
+                        client.clone(), client.clone(), false, import_until,
                     )?;
 
                     let block_import = Arc::new(block_import);
                     let justification_import = block_import.clone();
 
+                    info!("Start light import queue, shard_num: {}", config.custom.shard_num);
                     import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),

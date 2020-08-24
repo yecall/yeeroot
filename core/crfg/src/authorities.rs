@@ -164,15 +164,13 @@ where
 		F: Fn(&H, &H) -> Result<bool, E>,
 		E:  std::error::Error,
 	{
-		// for change in self.pending_forced_changes.iter() {
-		// 	println!("change_num: {:?}, pending_num: {:?}", change.canon_height, pending.canon_height);
-		// 	if change.canon_hash == pending.canon_hash ||
-		// 		is_descendent_of(&change.canon_hash, &pending.canon_hash)?
-		// 	{
-		// 		return Err(fork_tree::Error::UnfinalizedAncestor);
-		// 	}
-		// }
-		self.pending_forced_changes.clear();
+		for change in self.pending_forced_changes.iter() {
+			if change.canon_hash == pending.canon_hash ||
+				is_descendent_of(&change.canon_hash, &pending.canon_hash)?
+			{
+				return Err(fork_tree::Error::UnfinalizedAncestor);
+			}//
+		}
 
 		// ordered first by effective number and then by signal-block number.
 		let key = (pending.effective_number(), pending.canon_height.clone());

@@ -106,7 +106,8 @@ impl TestNetFactory for CrfgTestNet {
 	{
 		let (import, link) = block_import(
 			client,
-			Arc::new(self.test_config.clone())
+			Arc::new(self.test_config.clone()),
+			HashMap::new(),
 		).expect("Could not create block import for fresh peer.");
 		let shared_import = Arc::new(import);
 		(shared_import.clone(), Some(shared_import), Mutex::new(Some(link)))
