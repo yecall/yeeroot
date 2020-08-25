@@ -33,6 +33,7 @@ use crate::config::get_config;
 use crate::params::DEFAULT_RPC_PORT;
 use crate::params::DEFAULT_WS_PORT;
 use tokio::runtime::Runtime;
+use yee_mining2::work_manager::WorkManagerConfig;
 
 pub const TARGET: &str = "switch";
 
@@ -53,7 +54,11 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
     let (signal, exit) = exit_future::signal();
 
     let work_manger = if cmd.enable_work_manager || cmd.mine {
-        Some(yee_mining2::start_work_manager(&rpc_config)?)
+        let work_manager_config = WorkManagerConfig {
+            job_refresh_interval: cmd.job_refresh_interval,
+            job_cache_size: cmd.job_cache_size,
+        };
+        Some(yee_mining2::start_work_manager(rpc_config.clone(), work_manager_config)?)
     } else {
         None
     };

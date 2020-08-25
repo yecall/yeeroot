@@ -36,9 +36,13 @@ error_chain! {
 			description("shard not found"),
 			display("Shard not found"),
 		}
-		TargetNotAccpect {
+		TargetNotAccept {
 			description("target not accept"),
 			display("Target not accept"),
+		}
+		SubmitRepeated {
+			description("submit repeated"),
+			display("Submit repeated"),
 		}
 	}
 }

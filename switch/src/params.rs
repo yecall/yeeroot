@@ -53,8 +53,12 @@ pub struct SwitchCommandCmd {
     pub log: Option<String>,
 
     ///Specify miner poll interval
-    #[structopt(long = "job-refresh-interval ", value_name = "INTERVAL" ,default_value = "6000")]
+    #[structopt(long = "job-refresh-interval", value_name = "INTERVAL" ,default_value = "2000")]
     pub job_refresh_interval: u64,
+
+    ///Specify miner poll interval
+    #[structopt(long = "job-cache-size", default_value = "60")]
+    pub job_cache_size: u32,
 
     /// start miner
     #[structopt( long = "mine")]

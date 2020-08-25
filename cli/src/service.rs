@@ -97,6 +97,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub crfg_state: Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
     pub mine: bool,
     pub import_until: Option<HashMap<u16, NumberFor<F::Block>>>,
+    pub job_cache_size: Option<u32>,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<F::Block, ComponentExHash<FullComponents<F>>>>>>>,
     pub hrp: Hrp,
@@ -123,6 +124,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             crfg_state: Arc::new(RwLock::new(None)),
             mine: Default::default(),
             import_until: Default::default(),
+            job_cache_size: Default::default(),
             foreign_chains: Arc::new(RwLock::new(None)),
             foreign_network: Arc::new(RwLock::new(None)),
             hrp: Default::default(),
@@ -146,6 +148,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             foreign_node_key_params: self.foreign_node_key_params.clone(),
             mine: self.mine,
             import_until: self.import_until.clone(),
+            job_cache_size: self.job_cache_size,
             hrp: self.hrp.clone(),
             scale_out: self.scale_out.clone(),
             trigger_exit: self.trigger_exit.clone(),
@@ -199,8 +202,10 @@ impl<F> ProvideRpcExtra<DefaultJob<Block, <Pair as PairT>::Public>, F::Block, Co
     fn provide_config(&self) -> Arc<Config> {
         let hrp = self.hrp.clone();
         let coinbase = self.coinbase.as_ref().map(|x|x.to_address(hrp.clone()).expect("qed").0);
+        let job_cache_size = self.job_cache_size;
         let config = Config {
             coinbase,
+            job_cache_size,
         };
         Arc::new(config)
     }

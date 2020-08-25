@@ -33,7 +33,7 @@ use client::{self, Client, runtime_api};
 use network::{self, OnDemand};
 use transaction_pool::txpool::{self, Options as TransactionPoolOptions, Pool as TransactionPool};
 use std::marker::PhantomData;
-use crate::mining::{Mining, MiningApi};
+use crate::mining::{Mining, MiningApi, MiningConfig};
 use crate::misc::{MiscApi, Misc};
 use parking_lot::RwLock;
 use yee_consensus_pow::{JobManager, DefaultJob};
@@ -63,11 +63,13 @@ where B: BlockT
     fn provide_foreign_network(&self) -> Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>;
 
     fn provide_config(&self) -> Arc<Config>;
+
 }
 
 #[derive(Clone, Serialize)]
 pub struct Config {
     pub coinbase: Option<String>,
+    pub job_cache_size: Option<u32>,
 }
 
 #[derive(Clone)]
@@ -132,7 +134,11 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             system,
         );
 
-        let mining = Mining::new(extra.job_manager);
+        let mining_config = MiningConfig {
+            job_cache_size: extra.config.job_cache_size,
+        };
+
+        let mining = Mining::new(extra.job_manager, mining_config);
         io.extend_with(mining.to_delegate());
 
         let misc = Misc::new(

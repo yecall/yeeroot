@@ -21,12 +21,12 @@ mod worker;
 use yee_primitives::{Config, Shard};
 use runtime_primitives::traits::{BlakeTwo256, Hash as HashT};
 use std::sync::Arc;
-use crate::work_manager::{WorkManager, DefaultWorkManager};
+use crate::work_manager::{WorkManager, DefaultWorkManager, WorkManagerConfig};
 use yee_runtime::{BlockNumber, AuthorityId};
 use parity_codec::{Decode, Encode};
 use parking_lot::RwLock;
 
-pub fn start_work_manager(config: &Config) -> error::Result<Arc<RwLock<DefaultWorkManager<
+pub fn start_work_manager(config: Config, work_manager_config: WorkManagerConfig) -> error::Result<Arc<RwLock<DefaultWorkManager<
 	BlockNumber,
 	AuthorityId,
 	BlakeTwo256>>>> {
@@ -34,7 +34,7 @@ pub fn start_work_manager(config: &Config) -> error::Result<Arc<RwLock<DefaultWo
 	let mut work_manager = DefaultWorkManager::<
 		BlockNumber,
 		AuthorityId,
-		BlakeTwo256>::new(config.clone());
+		BlakeTwo256>::new(config, work_manager_config);
 
 	let work_manager = Arc::new(RwLock::new(work_manager));
 

@@ -96,6 +96,10 @@ pub struct YeeCliConfig {
     #[structopt(long = "import-until")]
     pub import_until: Option<String>,
 
+    /// Pow job cache size
+    #[structopt(long = "job-cache-size")]
+    pub job_cache_size: Option<u32>,
+
 }
 
 #[derive(Debug, StructOpt, Clone, Default)]
@@ -212,6 +216,7 @@ where
     config.custom.foreign_in_peers = custom_args.foreign_in_peers;
     config.custom.mine = custom_args.mine;
     config.custom.import_until = get_import_until::<F::Block>(&custom_args.import_until).ok();
+    config.custom.job_cache_size = custom_args.job_cache_size;
 
     config.custom.context = Some(context);
 
