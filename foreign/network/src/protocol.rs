@@ -38,6 +38,10 @@ use serde::export::PhantomData;
 use crate::config::{NetworkConfiguration, ProtocolConfig};
 use crate::vprotocol::VProtocol;
 
+const REQUEST_TIMEOUT_SEC: u64 = 40;
+/// Interval at which we perform time based maintenance
+const TICK_TIMEOUT: time::Duration = time::Duration::from_millis(1100);
+
 /// Current protocol version.
 pub(crate) const CURRENT_VERSION: u32 = 2;
 /// Lowest version we support
@@ -99,6 +103,7 @@ pub enum ProtocolMsg<B: BlockT, H: ExHashT> {
 	/// A block has been imported (sent by the client).
 	BlockImported(B::Hash, B::Header),
 	Stop,
+	Tick,
 	/// Synchronization request.
 	#[cfg(any(test, feature = "test-helpers"))]
 	Synchronize,
@@ -164,7 +169,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 					handshaking_peers: HashMap::new(),
 					vprotocol,
 				};
-				while protocol.run() {
+				let tick_timeout = channel::tick(TICK_TIMEOUT);
+				while protocol.run(&tick_timeout) {
 					// Running until all senders have been dropped...
 				}
 			})
@@ -173,7 +179,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 	}
 
 	fn run(
-		&mut self
+		&mut self,
+		tick_timeout: &Receiver<time::Instant>,
 	) -> bool {
 		let msg = select! {
 			recv(self.port) -> event => {
@@ -194,6 +201,9 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 					},
 				}
 			},
+			recv(tick_timeout) -> _ => {
+				Incoming::FromClient(ProtocolMsg::Tick)
+			},
 		};
 		self.handle_msg(msg)
 	}
@@ -211,6 +221,8 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 				self.on_relay_extrinsics(shard_num, extrinsics),
 			ProtocolMsg::BlockImported(hash, header) =>
 				self.on_block_imported(hash, &header),
+			ProtocolMsg::Tick =>
+				self.tick(),
 			ProtocolMsg::Stop => {
 				self.stop();
 				return false;
@@ -389,6 +401,27 @@ impl<B: BlockT, H: ExHashT> Protocol<B, H> {
 
 	fn stop(&mut self) {
 
+	}
+
+	fn tick(&mut self) {
+		self.maintain_peers();
+		self.vprotocol.tick();
+	}
+
+	fn maintain_peers(&mut self) {
+		let tick = time::Instant::now();
+		let mut aborting = Vec::new();
+		{
+			for (who, _) in self.handshaking_peers.iter().filter(|(_, handshaking)| (tick - handshaking.timestamp).as_secs() > REQUEST_TIMEOUT_SEC) {
+				trace!(target: "sync-foreign", "Handshake timeout {}", who);
+				aborting.push(who.clone());
+			}
+		}
+		for p in aborting {
+			let _ = self
+				.network_chan
+				.send(NetworkMsg::ReportPeer(p, Severity::Timeout));
+		}
 	}
 
 	fn send_message(&mut self, who: PeerId, message: Message<B>) {

@@ -454,6 +454,36 @@ impl<B: BlockT, H: ExHashT> VProtocol<B, H> {
         }
     }
 
+    pub fn tick(&mut self) {
+        self.maintain_peers();
+    }
+
+    fn maintain_peers(&mut self) {
+        let tick = time::Instant::now();
+        let mut aborting = Vec::new();
+        {
+            for (who, peer) in self.context_data.peers.iter() {
+                if peer.block_request.as_ref().map_or(false, |(t, _)| (tick - *t).as_secs() > REQUEST_TIMEOUT_SEC) {
+                    trace!(target: "sync-foreign", "VProtocol: Reqeust timeout {}", who);
+                    aborting.push(who.clone());
+                } else if peer.obsolete_requests.values().any(|t| (tick - *t).as_secs() > REQUEST_TIMEOUT_SEC) {
+                    trace!(target: "sync-foreign", "VProtocol: Obsolete timeout {}", who);
+                    aborting.push(who.clone());
+                }
+            }
+            for (who, _) in self.handshaking_peers.iter().filter(|(_, handshaking)| (tick - handshaking.timestamp).as_secs() > REQUEST_TIMEOUT_SEC) {
+                trace!(target: "sync-foreign", "VProtocol: Handshake timeout {}", who);
+                aborting.push(who.clone());
+            }
+        }
+
+        for p in aborting {
+            let _ = self
+                .network_chan
+                .send(NetworkMsg::ReportPeer(p, Severity::Timeout));
+        }
+    }
+
     fn send_message(&mut self, who: PeerId, message: Message<B>) {
         send_message::<B, H>(
             &mut self.context_data.peers,
