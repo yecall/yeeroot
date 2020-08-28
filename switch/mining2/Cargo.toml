@@ -27,3 +27,5 @@ yee-consensus-pow = { package = "yee-consensus-pow", path = "../../core/consensu
 merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
 runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
 yee-primitives = { package = "yee-primitives", path = "../../core/primitives" }
+lru = "0.6.0"
+chashmap = "2.2.2"

@@ -30,7 +30,7 @@ use substrate_service::{
 use substrate_client::ChainHead;
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero, Block as BlockT},
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero, Block as BlockT, NumberFor},
 };
 use crate::error;
 use crate::service::{NodeConfig, NativeExecutor};
@@ -48,6 +48,7 @@ use std::sync::Arc;
 use yee_context::Context;
 use yee_pow_primitives::YeePOWApi;
 use std::path::PathBuf;
+use std::collections::HashMap;
 
 #[derive(Clone, Debug, Default, StructOpt)]
 pub struct YeeCliConfig {
@@ -90,6 +91,15 @@ pub struct YeeCliConfig {
     /// Whether mine
     #[structopt(long = "mine")]
     pub mine: bool,
+
+    /// A json to specify until which block when importing for each shard
+    #[structopt(long = "import-until")]
+    pub import_until: Option<String>,
+
+    /// Pow job cache size
+    #[structopt(long = "job-cache-size")]
+    pub job_cache_size: Option<u32>,
+
 }
 
 #[derive(Debug, StructOpt, Clone, Default)]
@@ -205,6 +215,9 @@ where
     config.custom.foreign_out_peers = custom_args.foreign_out_peers;
     config.custom.foreign_in_peers = custom_args.foreign_in_peers;
     config.custom.mine = custom_args.mine;
+    config.custom.import_until = get_import_until::<F::Block>(&custom_args.import_until).ok();
+    config.custom.job_cache_size = custom_args.job_cache_size;
+
     config.custom.context = Some(context);
 
     config.network.enable_mdns = false;
@@ -217,11 +230,26 @@ where
     info!("  foreign port: {:?}", config.custom.foreign_port);
     info!("  bootnodes router conf: {:?}", config.custom.bootnodes_router_conf);
     info!("  mine: {:?}", config.custom.mine);
+    info!("  import_until: {:?}", config.custom.import_until);
 
     register_inherent_data_provider(&config.custom.inherent_data_providers, shard_num, shard_count, scale_out)
         .map_err(|e| format!("Inherent data error: {:?}", e))?;
 
     Ok(())
+}
+
+fn get_import_until<B: BlockT>(import_until: &Option<String>) -> error::Result<HashMap<u16, NumberFor<B>>> {
+
+    let import_until = match import_until.as_ref(){
+        Some(import_until) => import_until,
+        None => return Ok(HashMap::new()),
+    };
+
+    let map: HashMap<u16, NumberFor<B>> = serde_json::from_str(&import_until)
+        .map_err(|e| format!("Invalid import until: {:?}", e))?;
+
+    Ok(map)
+
 }
 
 fn get_bootnodes_router_conf(bootnodes_routers: &Vec<String>) -> error::Result<BootnodesRouterConf> {

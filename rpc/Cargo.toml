@@ -35,3 +35,4 @@ yee-primitives = { path = "../core/primitives" }
 yee-foreign-network = { package = "yee-foreign-network", path = "../foreign/network" }
 crfg = { package = "yee-crfg", path = "../core/crfg" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", path = "../core/finality-grandpa", features = ["derive-codec"] }
+lru = "0.6.0"

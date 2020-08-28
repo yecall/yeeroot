@@ -42,8 +42,10 @@ use self::primitives::{Job, WorkProof, ProofNonce, ProofMulti, JobResult};
 use std::fmt::Debug;
 use serde::de::DeserializeOwned;
 use yee_serde_hex::SerdeHex;
+use lru::LruCache;
+use log::debug;
 
-const JOB_LIFE: Duration = Duration::from_secs(300);
+const JOB_CACHE_SIZE: u32 = 60;
 
 #[rpc]
 pub trait MiningApi<Hash, Number, AuthorityId> where
@@ -58,55 +60,38 @@ pub trait MiningApi<Hash, Number, AuthorityId> where
     fn submit_job(&self, job_result: JobResult<Hash>) -> BoxFuture<Hash>;
 }
 
+pub struct MiningConfig {
+    pub job_cache_size: Option<u32>,
+}
+
 pub struct Mining<B, AuthorityId> where
     B: BlockT,
     AuthorityId: Decode + Encode + Clone,
 {
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, AuthorityId>>>>>>,
-    cache: Arc<RwLock<HashMap<B::Hash, (DefaultJob<B, AuthorityId>, Instant)>>>,
+    cache: Arc<RwLock<LruCache<B::Hash, DefaultJob<B, AuthorityId>>>>,
 }
 
 impl<B, AuthorityId> Mining<B, AuthorityId> where
     B: BlockT,
     AuthorityId: Decode + Encode + Clone
 {
-    pub fn new(job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, AuthorityId>>>>>>) -> Self {
+    pub fn new(job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<B, AuthorityId>>>>>>, config: MiningConfig) -> Self {
+        let cache_size = config.job_cache_size.unwrap_or(JOB_CACHE_SIZE) as usize;
+        debug!("Job cache size: {}", cache_size);
         Self {
             job_manager,
-            cache: Arc::new(RwLock::new(HashMap::new())),
+            cache: Arc::new(RwLock::new(LruCache::new(cache_size))),
         }
     }
 
-    fn put_cache(cache: Arc<RwLock<HashMap<B::Hash, (DefaultJob<B, AuthorityId>, Instant)>>>, job: DefaultJob<B, AuthorityId>) {
-
-        let now = Instant::now();
-
-        let expire_at = now.add(JOB_LIFE);
-
-        let mut cache = cache.write();
-
-        cache.insert(job.hash.clone(), (job.clone(), expire_at));
-
-        let expired : Vec<B::Hash> = cache.iter()
-            .filter(|(_k, v)|(**v).1.lt(&now))
-            .map(|(k,_v)|k).cloned().collect();
-
-        for i in expired{
-            cache.remove(&i);
-        }
+    fn put_cache(cache: Arc<RwLock<LruCache<B::Hash, DefaultJob<B, AuthorityId>>>>, job: DefaultJob<B, AuthorityId>) {
+        cache.write().put(job.hash.clone(), job);
     }
 
-    fn get_cache(cache: Arc<RwLock<HashMap<B::Hash, (DefaultJob<B, AuthorityId>, Instant)>>>, hash: &B::Hash) -> Option<DefaultJob<B, AuthorityId>> {
+    fn get_cache(cache: Arc<RwLock<LruCache<B::Hash, DefaultJob<B, AuthorityId>>>>, hash: &B::Hash) -> Option<DefaultJob<B, AuthorityId>> {
 
-        let now = Instant::now();
-        cache.read().get(&hash).and_then(|x|{
-            if x.1.lt(&now) {
-                None
-            } else{
-                Some(x.0.to_owned())
-            }
-        })
-
+        cache.write().get(hash).cloned()
     }
 }
 

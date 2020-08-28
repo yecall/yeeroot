@@ -53,11 +53,12 @@ use yee_runtime::BlockNumber;
 use futures::future::{Loop, Either};
 use rand::thread_rng;
 use rand::seq::SliceRandom;
+use lru::LruCache;
+use chashmap::CHashMap;
 
-// const EXTRA_DATA: &str = "yee-switch";
-const RAW_WORK_LIFE: Duration = Duration::from_secs(60);
-const REFRESH_JOB_DELAY: Duration = Duration::from_millis(500);
-const REFRESH_MAX_TRY_TIMES: usize = 40;
+const REFRESH_JOB_DELAY: Duration = Duration::from_millis(1000);
+const REFRESH_MAX_TRY_TIMES: usize = 3;
+const JOB_LOCK_LIFE: Duration = Duration::from_millis(3000);
 
 pub trait WorkManager {
 	type Hashing: HashT;
@@ -142,7 +143,7 @@ impl<Number, AuthorityId, Hashing> WorkManager for DefaultWorkManager<Number, Au
 
 		Self::put_cache(self.work_cache.clone(), raw_work.clone());
 
-		info!("Raw work: shard_count: {}, shard_jobs: {:?}",
+		debug!("Raw work: shard_count: {}, shard_jobs: {:?}",
 			  raw_work.shard_count,
 			  raw_work.shard_jobs.iter()
 				  .map(|(actual_shard_num, (config_shard_num, job))| (*actual_shard_num, (*config_shard_num, job.hash.clone())))
@@ -255,14 +256,21 @@ impl<Number, AuthorityId, Hashing> RawWork<Number, AuthorityId, Hashing> where
 	}
 }
 
+pub struct WorkManagerConfig{
+	pub job_refresh_interval: u64,
+	pub job_cache_size: u32,
+}
+
 pub struct DefaultWorkManager<Number, AuthorityId, Hashing> where
 	Number: SerdeHex + Clone,
 	Hashing: HashT,
 	Hashing::Output: Ord + Encode + Decode,
 {
 	config: Config,
+	work_manager_config: WorkManagerConfig,
 	jobs: Arc<RwLock<HashMap<u16, Job<Hashing::Output, Number, AuthorityId>>>>,
-	work_cache: Arc<RwLock<HashMap<Hashing::Output, (RawWork<Number, AuthorityId, Hashing>, Instant)>>>,
+	work_cache: Arc<RwLock<LruCache<Hashing::Output, RawWork<Number, AuthorityId, Hashing>>>>,
+	submitted_number: Arc<CHashMap<u16, (Number, Instant)>>,
 }
 
 impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashing>
@@ -272,11 +280,15 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 		Hashing: HashT + Send + Sync + 'static,
 		Hashing::Output: Ord + DeserializeOwned + Encode + Decode + Send + Sync + 'static,
 {
-	pub fn new(config: Config) -> Self {
+	pub fn new(config: Config, work_manager_config: WorkManagerConfig) -> Self {
+
+		let job_cache_size = work_manager_config.job_cache_size as usize;
 		Self {
 			config,
+			work_manager_config,
 			jobs: Arc::new(RwLock::new(HashMap::new())),
-			work_cache: Arc::new(RwLock::new(HashMap::new())),
+			work_cache: Arc::new(RwLock::new(LruCache::new(job_cache_size))),
+			submitted_number: Arc::new(CHashMap::new()),
 		}
 	}
 
@@ -289,6 +301,8 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 
 		let jobs = self.jobs.clone();
 
+		let job_refresh_interval = self.work_manager_config.job_refresh_interval;
+
 		let _thread = thread::Builder::new().name("job manager".to_string()).spawn(move || {
 
 			//fetch job from all the shards
@@ -298,7 +312,7 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 				let shard = shard.clone();
 				let jobs = jobs.clone();
 
-				let task = Interval::new(Instant::now(), Duration::from_secs(1)).for_each(move |_instant| {
+				let task = Interval::new(Instant::now(), Duration::from_millis(job_refresh_interval)).for_each(move |_instant| {
 					let jobs = jobs.clone();
 					Self::get_job_future(&shard).then(move |job| {
 						match job {
@@ -359,6 +373,8 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 				let shard2 = shard.clone();
 
 				let jobs = self.jobs.clone();
+				let submitted_number = self.submitted_number.clone();
+				let submitted_number2 = self.submitted_number.clone();
 
 				let task = future::lazy(move || {
 					if nonce_target <= job_target {
@@ -385,15 +401,38 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 						future::ok((job_result, job))
 					} else {
 						warn!("nonce_target: {:#x}, job_target: {:#x}", nonce_target, job_target);
-						future::err(error::Error::from(error::ErrorKind::TargetNotAccpect))
+						future::err(error::Error::from(error::ErrorKind::TargetNotAccept))
 					}
 				}).and_then(move |(job_result, job)| {
 					info!("New block mined: actual_shard_num: {}, config_shard_num: {}, number: {}, nonce_target: {:#x}, job_target: {:#x}",
 						  actual_shard_num, config_shard_num, job.header.number, nonce_target, job_target);
-					Self::submit_job_future(&shard, job_result).map(|result| (result, job))
+
+					// check number
+
+					let submit_repeated = match submitted_number.get(&config_shard_num).as_ref().map(|x|&**x){
+						Some((number, instant)) => &job.header.number == number && instant.elapsed() < JOB_LOCK_LIFE,
+						_ => false,
+					};
+
+					if submit_repeated {
+						warn!("Job repeated: actual_shard_num: {}, config_shard_num: {}, number: {}", actual_shard_num, config_shard_num, job.header.number);
+						Box::new(future::err(error::Error::from(error::ErrorKind::SubmitRepeated))) as Box<dyn Future<Item=(Hashing::Output, Job<Hashing::Output, Number, AuthorityId>), Error=error::Error> + Send>
+					}else{
+						Box::new(Self::submit_job_future(&shard, job_result).map(|result| (result, job)))
+					}
+
 				}).and_then(move |(result, job)| {
 					info!("Job submitted: actual_shard_num: {}, config_shard_num: {}, number: {}, new_block_hash: {:?}",
 						   actual_shard_num, config_shard_num, job.header.number, result);
+
+					// save number
+					let should_save_number = match submitted_number2.get(&config_shard_num).as_ref().map(|x|&**x){
+						Some((number, instant)) => &job.header.number != number,
+						_ => true,
+					};
+					if should_save_number {
+						submitted_number2.insert(config_shard_num, (job.header.number.clone(), Instant::now()));
+					}
 
 					future::loop_fn(0usize, move |i| {
 						let job_block_number = job.header.number.clone();
@@ -521,33 +560,16 @@ impl<Number, AuthorityId, Hashing> DefaultWorkManager<Number, AuthorityId, Hashi
 			}).map_err(|e| format!("Get job error: {:?}", e).into()))
 	}
 
-	fn put_cache(cache: Arc<RwLock<HashMap<Hashing::Output, (RawWork<Number, AuthorityId, Hashing>, Instant)>>>, raw_work: RawWork<Number, AuthorityId, Hashing>) {
-		let now = Instant::now();
+	fn put_cache(cache: Arc<RwLock<LruCache<Hashing::Output, RawWork<Number, AuthorityId, Hashing>>>>, raw_work: RawWork<Number, AuthorityId, Hashing>) {
 
-		let expire_at = now.add(RAW_WORK_LIFE);
+		let merkle_root = raw_work.work.as_ref().expect("qed").merkle_root.clone();
 
-		let mut cache = cache.write();
-
-		cache.insert(raw_work.work.as_ref().expect("qed").merkle_root.clone(), (raw_work.clone(), expire_at));
-
-		let expired: Vec<Hashing::Output> = cache.iter()
-			.filter(|(_k, v)| (**v).1.lt(&now))
-			.map(|(k, _v)| k).cloned().collect();
-
-		for i in expired {
-			cache.remove(&i);
-		}
+		cache.write().put(merkle_root, raw_work);
 	}
 
-	fn get_cache(cache: Arc<RwLock<HashMap<Hashing::Output, (RawWork<Number, AuthorityId, Hashing>, Instant)>>>, hash: &Hashing::Output) -> Option<RawWork<Number, AuthorityId, Hashing>> {
-		let now = Instant::now();
-		cache.read().get(&hash).and_then(|x| {
-			if x.1.lt(&now) {
-				None
-			} else {
-				Some(x.0.to_owned())
-			}
-		})
+	fn get_cache(cache: Arc<RwLock<LruCache<Hashing::Output, RawWork<Number, AuthorityId, Hashing>>>>, hash: &Hashing::Output) -> Option<RawWork<Number, AuthorityId, Hashing>> {
+
+		cache.write().get(hash).cloned()
 	}
 }
 
