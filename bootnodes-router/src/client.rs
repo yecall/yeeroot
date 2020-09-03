@@ -19,13 +19,14 @@ use jsonrpc_client_http::{self, HttpTransport, HttpHandle};
 use crate::BootnodesRouterConf;
 use log::warn;
 use crate::error;
+use std::time::Duration;
 
 jsonrpc_client!(pub struct BootnodesRouterClient {
     pub fn bootnodes(&mut self) -> RpcRequest<BootnodesRouterConf>;
 });
 
 fn client(uri: &str) -> error::Result<BootnodesRouterClient<HttpHandle>> {
-    let handle = HttpTransport::new().standalone().and_then(|x| x.handle(&uri)).map_err(|e| format!("{}", e))?;
+    let handle = HttpTransport::new().timeout(Duration::from_secs(3)).standalone().and_then(|x| x.handle(&uri)).map_err(|e| format!("{}", e))?;
 
     Ok(BootnodesRouterClient::new(handle))
 }
