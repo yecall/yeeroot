@@ -604,6 +604,27 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 
 
 		debug!(target: "afg", "Check skip, number: {}, hash: {}, skip: {:?}", number, hash, skip);
+		if let Some(skip_number) = skip {
+			if skip_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
+				let chain_info = match self.inner.info() {
+					Ok(info) => info.chain,
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				};
+				if chain_info.finalized_number == skip_number {
+					let next_number = skip_number + As::sa(1);
+					let next_hash = match self.inner.hash(next_number){
+						Ok(Some(hash)) => hash,
+						Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
+						Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					};
+					debug!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
+					match self.skip(next_hash, next_number){
+						Ok(_) => (),
+						Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					}
+				}
+			}
+		}
 
 		debug!(target: "afg", "Import justification, number: {}, hash: {}, has_justification: {}", number, hash, justification.is_some());
 
@@ -746,6 +767,51 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			Ok(_) => {
 				assert!(!enacts_change, "returns Ok when no authority set change should be enacted; qed;");
 			},
+		}
+
+		Ok(())
+	}
+
+	fn skip(
+		&self,
+		hash: Block::Hash,
+		number: NumberFor<Block>,
+	) -> Result<(), ConsensusError> {
+
+		let justification = CrfgJustification::default_justification(hash.clone(), number);
+
+		let result = finalize_block(
+			&*self.inner,
+			&self.authority_set,
+			&self.consensus_changes,
+			None,
+			hash,
+			number,
+			justification.into(),
+		);
+
+		match result {
+			Err(CommandOrError::VoterCommand(command)) => {
+				debug!(target: "afg", "Skip for block #{} that triggers \
+					command {}, signaling voter.", number, command);
+
+				if self.validator {
+					if let Err(e) = self.send_voter_commands.unbounded_send(command) {
+						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
+					}
+				}
+			},
+			Err(CommandOrError::Error(e)) => {
+				return Err(match e {
+					Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					Error::Network(error) => ConsensusErrorKind::ClientImport(error),
+					Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
+					Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
+					Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+				}.into());
+			},
+			Ok(_) => (),
 		}
 
 		Ok(())

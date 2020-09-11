@@ -45,7 +45,7 @@ pub type Log<T> = RawLog<<T as system::Trait>::BlockNumber>;
 /// The identifier for the `finalnum` inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"finalnum";
 
-const STALL_LATENCY: u64 = 12;
+pub const STALL_LATENCY: u64 = 12;
 
 /// Auxiliary trait to extract finalized inherent data.
 pub trait FinalizedInherentData<N: Decode> {

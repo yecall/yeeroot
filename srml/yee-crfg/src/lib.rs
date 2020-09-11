@@ -368,7 +368,7 @@ fn extract_inherent_data<SessionKey>(data: &InherentData) -> Result<SessionKey, 
 		.ok_or_else(|| "Authorities inherent data is not provided.".into())
 }
 
-const SKIP_MIN_INTERVAL: u64 = 6;
+const SKIP_MIN_INTERVAL: u64 = 0;
 const SKIP_PENDING_COUNT: u32 = 6;
 const SKIP_MIN_NUMBER: u64 = 120;
 
