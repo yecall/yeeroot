@@ -17,6 +17,7 @@ session = { package = "srml-session", git = "https://github.com/yeeco/substrate.
 consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default-features = false, branch = "yee-v1.0" }
 finality-tracker = { package = "srml-finality-tracker", path = "../yee-tracker" , default_features = false}
 inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 
 [dev-dependencies]
 runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

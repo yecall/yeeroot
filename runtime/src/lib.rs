@@ -105,9 +105,9 @@ pub mod opaque {
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("yee"),
 	impl_name: create_runtime_str!("yee-rs"),
-	authoring_version: 3,
-	spec_version: 4,
-	impl_version: 4,
+	authoring_version: 4,
+	spec_version: 5,
+	impl_version: 5,
 	apis: RUNTIME_API_VERSIONS,
 };
 
@@ -223,7 +223,7 @@ impl balances::Trait for Runtime {
 
 impl finality_tracker::Trait for Runtime {
 	type Log = Log;
-	type FinalNum = BlockNumber;
+	type OnFinalizationStalled = crfg::Module<Runtime>;
 }
 
 impl crfg::Trait for Runtime {

@@ -37,12 +37,15 @@ use primitives::{
 	traits::{
 		Member, SimpleArithmetic,
 		MaybeDisplay, MaybeSerializeDebug,
+		As,
 	},
 };
 
-pub type Log<T> = RawLog<<T as Trait>::FinalNum>;
+pub type Log<T> = RawLog<<T as system::Trait>::BlockNumber>;
 /// The identifier for the `finalnum` inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"finalnum";
+
+const STALL_LATENCY: u64 = 12;
 
 /// Auxiliary trait to extract finalized inherent data.
 pub trait FinalizedInherentData<N: Decode> {
@@ -98,14 +101,14 @@ pub enum RawLog<N> {
 }
 
 pub trait Trait: system::Trait {
-	type FinalNum: Member + MaybeSerializeDebug + Default + Copy + MaybeDisplay + SimpleArithmetic + Codec;
 	type Log: From<Log<Self>> + Into<system::DigestItemOf<Self>>;
+	type OnFinalizationStalled: OnFinalizationStalled<Self::BlockNumber>;
 }
 
 decl_storage! {
 	trait Store for Module<T: Trait> as Timestamp {
 		/// Final hint to apply in the block. `None` means "same as parent".
-		FinalizedNumber get(finalized_num): Option<T::FinalNum>;
+		FinalizedNumber get(finalized_num): Option<T::BlockNumber>;
 	}
 }
 
@@ -113,15 +116,20 @@ decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		/// Hint that the author of this block thinks the best finalized
 		/// block is the given number.
-		fn write_finalized_log(origin, hint: T::FinalNum) {
+		fn write_finalized_log(origin, hint: T::BlockNumber) {
 			ensure_inherent(origin)?;
 
 			<Self as Store>::FinalizedNumber::put(hint);
 		}
 
-		fn on_finalize() {
+		fn on_finalize(block_number: T::BlockNumber) {
 			if let Some(final_num) = Self::finalized_num() {
 				Self::deposit_log(RawLog::FinalizedBlockNumber(final_num));
+
+				// check stall
+				if final_num + As::sa(STALL_LATENCY) <= block_number {
+					T::OnFinalizationStalled::on_stalled(final_num);
+				}
 			}
 		}
 	}
@@ -149,4 +157,10 @@ impl<T: Trait> ProvideInherent for Module<T> {
 	fn check_inherent(_call: &Self::Call, _data: &InherentData) -> result::Result<(), Self::Error> {
 		Ok(())
 	}
+}
+
+pub trait OnFinalizationStalled<N> {
+	/// The parameter here is how many more blocks to wait before applying
+	/// changes triggered by finality stalling.
+	fn on_stalled(finalized_number: N);
 }

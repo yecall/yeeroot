@@ -41,14 +41,18 @@ use srml_support::storage::StorageValue;
 use srml_support::storage::unhashed::StorageVec;
 use primitives::traits::CurrentHeight;
 use substrate_primitives::ed25519;
-use primitives::traits::MaybeSerializeDebug;
+use primitives::traits::{MaybeSerializeDebug, As};
 use ed25519::Public as AuthorityId;
 use system::ensure_inherent;
+use finality_tracker::OnFinalizationStalled;
 
 use inherents::{
 	RuntimeString, InherentIdentifier, ProvideInherent,
 	InherentData, MakeFatalError,
 };
+
+#[macro_use]
+extern crate alloc;
 
 mod mock;
 mod tests;
@@ -102,6 +106,8 @@ pub trait CrfgChangeSignal<N> {
 	fn as_signal(&self) -> Option<ScheduledChange<N>>;
 	/// Try to cast the log entry as a contained forced signal.
 	fn as_forced_signal(&self) -> Option<(N, ScheduledChange<N>)>;
+	/// Try to cast tot log entry as a contained skip signal.
+	fn as_skip_signal(&self) -> Option<N>;
 }
 
 /// A logs in this module.
@@ -115,6 +121,8 @@ pub enum RawLog<N, SessionKey> {
 	/// finalized block when the change was signaled, the delay in blocks _to import_
 	/// before applying and the new set of authorities.
 	ForcedAuthoritiesChangeSignal(N, N, Vec<(SessionKey, u64)>),
+	/// Skip finalization
+	SkipSignal(N),
 }
 
 impl<N: Clone, SessionKey> RawLog<N, SessionKey> {
@@ -123,6 +131,7 @@ impl<N: Clone, SessionKey> RawLog<N, SessionKey> {
 		match *self {
 			RawLog::AuthoritiesChangeSignal(ref delay, ref signal) => Some((delay.clone(), signal)),
 			RawLog::ForcedAuthoritiesChangeSignal(_, _, _) => None,
+			RawLog::SkipSignal(_) => None,
 		}
 	}
 
@@ -131,6 +140,15 @@ impl<N: Clone, SessionKey> RawLog<N, SessionKey> {
 		match *self {
 			RawLog::ForcedAuthoritiesChangeSignal(ref median, ref delay, ref signal) => Some((median.clone(), delay.clone(), signal)),
 			RawLog::AuthoritiesChangeSignal(_, _) => None,
+			RawLog::SkipSignal(_) => None,
+		}
+	}
+
+	fn as_skip_signal(&self) -> Option<N>{
+		match *self {
+			RawLog::AuthoritiesChangeSignal(_, _) => None,
+			RawLog::ForcedAuthoritiesChangeSignal(_, _, _) => None,
+			RawLog::SkipSignal(ref number) => Some(number.clone()),
 		}
 	}
 }
@@ -156,6 +174,10 @@ impl<N, SessionKey> CrfgChangeSignal<N> for RawLog<N, SessionKey>
 				.map(|(k, w)| (k.into(), w))
 				.collect(),
 		}))
+	}
+
+	fn as_skip_signal(&self) -> Option<N> {
+		RawLog::as_skip_signal(self)
 	}
 }
 
@@ -195,6 +217,8 @@ decl_storage! {
 	trait Store for Module<T: Trait> as CrfgFinality {
 		// Pending change: (signaled at, scheduled change).
 		PendingChange get(pending_change): Option<StoredPendingChange<T::BlockNumber, T::SessionKey>>;
+		PendingSkip get(pending_skip): Option<(T::BlockNumber, u32)>;
+		LastSkipOn get(last_skip_on): Option<T::BlockNumber>;
 	}
 	add_extra_genesis {
 		config(authorities): Vec<(T::SessionKey, u64)>;
@@ -224,10 +248,6 @@ decl_module! {
         fn update_authorities(origin, info: <T as Trait>::SessionKey) {
         	ensure_inherent(origin)?;
 			Self::update_authorities_inner(info);
-        }
-
-        fn force_update_authorities(authorities: Vec<(T::SessionKey, u64)>, median: T::BlockNumber) {
-			Self::force_update_authorities_inner(authorities, median);
         }
 
 		fn on_finalize(block_number: T::BlockNumber) {
@@ -263,20 +283,6 @@ impl<T: Trait> Module<T> {
 			next_authorities: authorities,
 			forced: None,
 		});
-	}
-
-	fn force_update_authorities_inner(
-		authorities: Vec<(T::SessionKey, u64)>,
-		median: T::BlockNumber,
-	){
-		use primitives::traits::{As};
-
-		let delay = T::BlockNumber::sa(0);
-		Self::deposit_log(RawLog::ForcedAuthoritiesChangeSignal(
-			median,
-			delay,
-			authorities,
-		));
 	}
 
 	fn finalize(block_number: T::BlockNumber) {
@@ -360,4 +366,60 @@ fn extract_inherent_data<SessionKey>(data: &InherentData) -> Result<SessionKey, 
 	data.get_data::<SessionKey>(&INHERENT_IDENTIFIER)
 		.map_err(|_| RuntimeString::from("Invalid authorities inherent data encoding."))?
 		.ok_or_else(|| "Authorities inherent data is not provided.".into())
+}
+
+const SKIP_MIN_INTERVAL: u64 = 6;
+const SKIP_PENDING_COUNT: u32 = 6;
+const SKIP_MIN_NUMBER: u64 = 120;
+
+impl<T: Trait> OnFinalizationStalled<T::BlockNumber> for Module<T> {
+
+	fn on_stalled(finalized_number: T::BlockNumber){
+
+		let current_height = system::ChainContext::<T>::default().current_height();
+
+		let should_skip = match <LastSkipOn<T>>::get() {
+			Some(last_skip_on) => {
+				current_height >= last_skip_on + As::sa(SKIP_MIN_INTERVAL)
+			},
+			None => true,
+		};
+
+		let should_skip = if current_height > As::sa(SKIP_MIN_NUMBER) {
+			should_skip
+		} else{
+			false
+		};
+
+		if should_skip {
+
+			match <PendingSkip<T>>::get() {
+				Some((number, count)) => {
+					if number == finalized_number {
+						if count >= SKIP_PENDING_COUNT {
+							<PendingSkip<T>>::kill();
+
+							// commit skip
+							Self::deposit_log(RawLog::SkipSignal(finalized_number));
+							<LastSkipOn<T>>::put(current_height);
+
+							let skip: u64 = As::as_(finalized_number);
+							let on: u64 = As::as_(current_height);
+							runtime_io::print(format!("skip: {} on {}", skip, on).as_str());
+						} else {
+							<PendingSkip<T>>::put((finalized_number, count + 1));
+						}
+					} else {
+						<PendingSkip<T>>::put((finalized_number, 1));
+					}
+				},
+				None => {
+					<PendingSkip<T>>::put((finalized_number, 1));
+				}
+			}
+
+
+		}
+	}
+
 }
