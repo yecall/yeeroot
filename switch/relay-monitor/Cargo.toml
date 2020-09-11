@@ -1,0 +1,23 @@
+[package]
+name = "relay-monitor"
+version = "0.1.0"
+authors = ["sman <sman2013@163.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = "1.0"
+serde_derive = "1.0"
+serde_json = "1.0"
+num-bigint = "0.2.2"
+impl-serde = "0.1"
+parity-codec = "3.5"
+hex = "0.3.1"
+yee-runtime = { package = "yee-runtime", path = "../../runtime" }
+yee-relay = { package = "yee-srml-relay", path = "../../srml/yee-relay", default-features = false }
+yee-balances = { package = "yee-srml-balances", path = "../../srml/yee-balances", default_features = false }
+yee-assets = { package = "yee-srml-assets", path = "../../srml/yee-assets", default-features = false }
+yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
+yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

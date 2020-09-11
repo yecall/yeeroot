@@ -37,6 +37,9 @@ use yee_mining2::work_manager::WorkManagerConfig;
 
 pub const TARGET: &str = "switch";
 
+mod relay_recommit;
+use relay_recommit::RelayRecommitManager;
+
 pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
     let config = get_config(&cmd, &version)?;
 
@@ -66,6 +69,15 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
     if cmd.mine {
         let work_manager = work_manger.clone().expect("qed");
         yee_mining2::start_mining(work_manager, &rpc_config).map_err(|e| "mining error")?;
+    }
+
+    if cmd.enable_relay_recommit {
+        let rpc_config = rpc_config.clone();
+        let from = cmd.relay_recommit_from;
+        std::thread::spawn(move||{
+            let relay_monitor = RelayRecommitManager::new(rpc_config, from);
+            relay_monitor.start();
+        });
     }
 
     let handler = || {
