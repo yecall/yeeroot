@@ -13,8 +13,9 @@ use yee_runtime::{
 use yee_sr_primitives::{OriginExtrinsic, RelayParams};
 use runtime_primitives::{
 	generic::BlockId,
-	traits::{Block as BlockT, Hash, Header as HeaderT},
+	traits::{Block as BlockT, BlakeTwo256, Hash, Header as HeaderT},
 };
+use substrate_primitives::{H256, Hasher};
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -51,27 +52,28 @@ pub struct Digest {
 	pub logs: Vec<String>,
 }
 
-impl Block {
-	pub fn parent<Hash>(&self) -> Hash where Hash: From<[u8]>{
-		let p = hex::decode(self.header.parent_hash.clone()).expect("qed");
-		p.into()
-	}
-}
+// impl Block {
+// 	pub fn parent(&self) -> H256 {
+// 		let p = hex::decode(self.header.parent_hash.clone()).expect("qed");
+// 		p.as_slice().into()
+// 	}
+// }
 
-pub fn process_relay_extrinsic<Hash>(ec: Vec<u8>, hash: Hash, tc: u16, cs: u16) -> (bool, Option<Hash>) {
+pub fn decode_extrinsic(ec: Vec<u8>, tc: u16, cs: u16) -> (bool, Option<H256>) {
 	let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).expect("qed");
 	if ex.signature.is_some() {
+		let h = BlakeTwo256::hash(ec.as_slice());
 		match ex.function {
 			Call::Balances(BalancesCall::transfer(dest, value)) => {
 				let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc).expect("qed");
 				if cs != ds {
-					return (true, None)
+					return (true, Some(h))
 				}
 			}
 			Call::Assets(AssetsCall::transfer(_shard_code, id, dest, value)) => {
 				let ds = yee_sharding_primitives::utils::shard_num_for(&dest, tc).expect("qed");
 				if cs != ds {
-					return (true, None)
+					return (true, Some(h))
 				}
 			}
 			_ => {}
@@ -80,11 +82,12 @@ pub fn process_relay_extrinsic<Hash>(ec: Vec<u8>, hash: Hash, tc: u16, cs: u16) 
 	} else {
 		match ex.function {
 			Call::Relay(RelayCall::transfer(_, otx, _, _, _)) => {
-				// let h = <B::Header as Header>::Hashing::hash_of(otx.as_slice());
+				let h = BlakeTwo256::hash(otx.as_slice());
+				return (false, Some(h))
 			}
 			_ => {}
 		}
 	}
 
-	return true;
+	return (true, None)
 }
