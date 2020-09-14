@@ -166,7 +166,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
     <<<F as ServiceFactory>::Block as Block>::Header as Header>::Number: From<u64>,
 {
     /// check body
-    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, proof_root: H256) -> Result<(), String> {
+    fn check_body(&self, body: &Option<Vec<<F::Block as Block>::Extrinsic>>, pre_header: &<F::Block as Block>::Header, _proof_root: H256) -> Result<(), String> {
         match body.as_ref() {
             Some(exs) => {
                 // check relay extrinsic.
@@ -207,11 +207,11 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
     /// check relay transfer
     fn check_relay_transfer(&self, logs: &[DigestItemFor<F::Block>], exs: &[<F::Block as Block>::Extrinsic]) -> Result<(), String> {
-        let err_str = "Block contains invalid extrinsic.";
+        // let err_str = "Block contains invalid extrinsic.";
         let shard_info: Option<(u16, u16)> = logs.iter().rev()
             .filter_map(ShardingDigestItem::as_sharding_info)
             .next();
-        let (tc, cs) = match shard_info {
+        let (_tc, _cs) = match shard_info {
             Some(info) => info,
             None => { return Err("Can't get shard info in header".to_string()); }
         };
@@ -296,7 +296,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
 
         self.check_shard_info(&header)?;
 
-        self.check_other_logs(&header)?;
+        // self.check_other_logs(&header)?;
 
         check_work_proof(&header, &seal)?;
 
@@ -476,11 +476,11 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         Ok(())
     }
 
-    /// check other digest
-    fn check_other_logs(&self, header: &<F::Block as Block>::Header) -> Result<(), String> {
-
-        Ok(())
-    }
+    // /// check other digest
+    // fn check_other_logs(&self, _header: &<F::Block as Block>::Header) -> Result<(), String> {
+    //
+    //     Ok(())
+    // }
 }
 
 /// check scale

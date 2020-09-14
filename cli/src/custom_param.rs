@@ -148,7 +148,7 @@ where
     <LightClient<F> as ProvideRuntimeApi>::Api: ShardingAPI<FactoryBlock<F>> + YeePOWApi<FactoryBlock<F>>,
 {
 
-    let InitialInfo{genesis_hash, context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, custom_args.shard_num)?;
+    let InitialInfo{genesis_hash: _, context, shard_num, shard_count, scale_out} = get_initial_info::<F>(&config, custom_args.shard_num)?;
 
     config.custom.hrp = get_hrp( config.chain_spec.id());
 

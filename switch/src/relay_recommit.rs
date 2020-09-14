@@ -1,13 +1,14 @@
 use std::collections::HashMap;
-use std::pin::Pin;
+// use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
-use log::{info, warn};
+
 use futures::{Async, Future, Poll, Stream};
 use futures::future;
 use futures::future::join_all;
 use futures::Join4;
 use jsonrpc_core::BoxFuture;
+use log::{info, warn};
 use parking_lot::RwLock;
 use serde_json::Value;
 use tokio::runtime::Runtime;
@@ -15,17 +16,18 @@ use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::timer::Interval;
 
+use relay_monitor::types::{decode_extrinsic, RpcBlockResponse};
 use yee_primitives::Config;
 use yee_runtime::Hash;
 use yee_switch_rpc::client::RpcClient;
-use relay_monitor::types::{RpcBlockResponse, decode_extrinsic};
 
 use crate::error;
 
 pub struct RelayRecommitManager {
     rpc_client: Arc<RpcClient>,
     from: u64,
-    cross_shard_txs: Arc<RwLock<HashMap<Hash, (u16, Hash, u64, u32)>>>,  // value: u16: shard, Hash: Block hash, u64: block number, u32: tx index
+    // value: u16: shard, Hash: Block hash, u64: block number, u32: tx index
+    cross_shard_txs: Arc<RwLock<HashMap<Hash, (u16, Hash, u64, u32)>>>,
     current_height: Arc<RwLock<HashMap<u16, u64>>>,
 }
 
@@ -40,17 +42,17 @@ impl RelayRecommitManager {
     }
 
     pub fn start(&self) {
-        let (tx, mut rx): (UnboundedSender<(u16, Hash, RpcBlockResponse)>, UnboundedReceiver<(u16, Hash, RpcBlockResponse)>) = mpsc::unbounded_channel();
+        let (tx, rx): (UnboundedSender<(u16, Hash, RpcBlockResponse)>, UnboundedReceiver<(u16, Hash, RpcBlockResponse)>) = mpsc::unbounded_channel();
         let rpc_client = self.rpc_client.clone();
-        std::thread::Builder::new().name("get-finalized".to_string()).spawn(move || {
+
+        let _ = std::thread::Builder::new().name("get-finalized".to_string()).spawn(move || {
             Self::get_finalized(rpc_client, tx);
         });
         let cross_shard_txs = self.cross_shard_txs.clone();
         let current_height = self.current_height.clone();
         let rpc_client = self.rpc_client.clone();
-        std::thread::Builder::new().name("finalized-loop".to_string()).spawn(move || {
+        let _ = std::thread::Builder::new().name("finalized-loop".to_string()).spawn(move || {
             let mut rt = Runtime::new().expect("can't start finalized-loop thread");
-            // let mut rt_relay = rt.clone();
             let rx_fu = rx.for_each(move |(shard, hash, block)| {
                 {
                     let mut current_height = current_height.write();
@@ -85,14 +87,14 @@ impl RelayRecommitManager {
                     let num = *num;
                     let index = *index;
                     if s == shard && num > block.block.header.number && num - block.block.header.number > 10 {
-                        let f = rpc_client.call_method_async("author_recommitRelay", "()", (b_hash, index), s)
+                        let f = rpc_client.call_method_async("author_recommitRelay", "()", (b_hash, index), shard)
                             .unwrap_or_else(|e| Box::new(future::err(e.into()))).map_err(|e| { warn!("{:?}", e); });
                         tokio::spawn(f);
                     }
                 }
                 Ok(())
-            }).map_err(|e| {});
-            rt.block_on(rx_fu);
+            }).map_err(|_e| {});
+            let _ = rt.block_on(rx_fu);
         });
     }
 
@@ -103,7 +105,7 @@ impl RelayRecommitManager {
 
         let task = interval.for_each(move |_| {
             let get_block_task = |rpc_client: Arc<RpcClient>, h: Hash, shard: u16| -> BoxFuture<Option<RpcBlockResponse>> {
-                rpc_client.call_method_async("chain_getBlock", "Option<Value>", ((h, )), 0)
+                rpc_client.call_method_async("chain_getBlock", "Option<Value>", ((h, )), shard)
                     .unwrap_or_else(|e| Box::new(future::err(e.into())))
             };
 
@@ -136,7 +138,7 @@ impl RelayRecommitManager {
 
                         if update {
                             tasks.push(get_block_task(rpc_client.clone(), h, 0));
-                            flag.push( (0, h));
+                            flag.push((0, h));
                         }
                     });
 
@@ -155,7 +157,7 @@ impl RelayRecommitManager {
 
                         if update {
                             tasks.push(get_block_task(rpc_client.clone(), h, 1));
-                            flag.push( (1, h));
+                            flag.push((1, h));
                         }
                     });
 
@@ -174,7 +176,7 @@ impl RelayRecommitManager {
 
                         if update {
                             tasks.push(get_block_task(rpc_client.clone(), h, 2));
-                            flag.push( (2, h));
+                            flag.push((2, h));
                         }
                     });
 
@@ -193,38 +195,35 @@ impl RelayRecommitManager {
 
                         if update {
                             tasks.push(get_block_task(rpc_client.clone(), h, 3));
-                            flag.push( (3, h));
+                            flag.push((3, h));
                         }
                     });
 
                     if tasks.len() > 0 {
                         match join_all(tasks).wait() {
                             Ok(blocks) => {
-                                    let mut index = 0;
-                                    for b in blocks {
-                                        tx = tx.clone();
-                                        match b {
-                                            Some(block) => {
-                                                let f = flag[index];
-                                                tx.try_send((f.0, f.1, block));
-                                            }
-                                            None => {}
+                                let mut index = 0;
+                                for b in blocks {
+                                    tx = tx.clone();
+                                    match b {
+                                        Some(block) => {
+                                            let f = flag[index];
+                                            let _ = tx.try_send((f.0, f.1, block));
                                         }
-                                        index = index + 1;
+                                        None => {}
                                     }
+                                    index = index + 1;
+                                }
                             }
-                            Err(_e) => {
-
-                            }
+                            Err(_e) => {}
                         }
                     }
                 }
                 Err(_) => {}
             }
             Ok(())
-        }).map_err(|_|{});
-        // rt.spawn(task);
-        rt.block_on(task);
+        }).map_err(|_| {});
+        let _ = rt.block_on(task);
     }
 }
 
