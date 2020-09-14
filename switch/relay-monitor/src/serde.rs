@@ -185,7 +185,7 @@ impl<T: SerdeHex> fmt::Display for Hex<T> {
 
 #[cfg(test)]
 mod tests {
-	use crate::SerdeHex;
+	use super::SerdeHex;
 	use num_bigint::BigUint;
 	use serde::Deserialize;
 	use serde::Serialize;

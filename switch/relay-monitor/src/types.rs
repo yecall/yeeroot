@@ -1,4 +1,4 @@
-use parity_codec::Decode;
+use parity_codec::{Decode, Compact};
 // use yee_sr_primitives::{OriginExtrinsic, RelayParams};
 use runtime_primitives::{
     traits::{BlakeTwo256, Hash},
@@ -54,7 +54,10 @@ pub struct Digest {
 }
 
 pub fn decode_extrinsic(ec: Vec<u8>, tc: u16, cs: u16) -> (bool, Option<H256>) {
-    let ex: UncheckedExtrinsic = Decode::decode(&mut ec.as_slice()).expect("qed");
+    let ex: UncheckedExtrinsic = match Decode::decode(&mut ec.as_slice()){
+        Some(v) => v,
+        None => return (false, None)
+    };
     if ex.signature.is_some() {
         let h = BlakeTwo256::hash(ec.as_slice());
         match ex.function {

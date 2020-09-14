@@ -10,6 +10,7 @@ use futures::Join4;
 use jsonrpc_core::BoxFuture;
 use log::{info, warn};
 use parking_lot::RwLock;
+use parity_codec::{Decode, Encode, Compact};
 use serde_json::Value;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -63,8 +64,10 @@ impl RelayRecommitManager {
                     let txs = block.block.extrinsics;
                     for i in 5..txs.len() {
                         let tx = txs[i].clone();
-                        let tx_arr = hex::decode(tx.trim_start_matches("0x")).expect("qed");
-                        match decode_extrinsic(tx_arr, 4u16, shard) {
+                        let mut tx_arr = hex::decode(tx.trim_start_matches("0x")).expect("qed");
+                        let mut length_prefix: Vec<u8> = Compact(tx_arr.len() as u32).encode();
+                        length_prefix.append(&mut tx_arr);
+                        match decode_extrinsic(length_prefix, 4u16, shard) {
                             (true, Some(h)) => {
                                 // cross shard origin extrinsic
                                 let mut txs = cross_shard_txs.write();
