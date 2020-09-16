@@ -39,6 +39,7 @@ pub const TARGET: &str = "switch";
 
 mod relay_recommit;
 use relay_recommit::RelayRecommitManager;
+use parity_codec::alloc::collections::HashMap;
 
 pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
     let config = get_config(&cmd, &version)?;
@@ -73,7 +74,21 @@ pub fn run(cmd: SwitchCommandCmd, version: VersionInfo) -> error::Result<()> {
 
     if cmd.enable_relay_recommit {
         let rpc_config = rpc_config.clone();
-        let from = cmd.relay_recommit_from;
+        let from = match cmd.relay_recommit_from {
+            Some(v) => {
+                match serde_json::from_str(v.as_str()) {
+                    Ok(v) => {
+                        let r: HashMap<u16, u64> = v;
+                        r
+                    },
+                    _ => {
+                        HashMap::new()
+                    }
+                }
+            },
+            None => HashMap::new()
+        };
+
         std::thread::spawn(move||{
             let relay_monitor = RelayRecommitManager::new(rpc_config, from);
             relay_monitor.start();

@@ -3,14 +3,15 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use future::FutureResult;
 use futures::{Async, Future, Poll, Stream};
 use futures::future;
 use futures::future::join_all;
 use futures::Join4;
 use jsonrpc_core::BoxFuture;
-use log::{info, warn};
+use log::{error, info, warn};
+use parity_codec::{Compact, Decode, Encode};
 use parking_lot::RwLock;
-use parity_codec::{Decode, Encode, Compact};
 use serde_json::Value;
 use tokio::runtime::Runtime;
 use tokio::sync::mpsc;
@@ -26,14 +27,14 @@ use crate::error;
 
 pub struct RelayRecommitManager {
     rpc_client: Arc<RpcClient>,
-    from: u64,
+    from: HashMap<u16, u64>,
     // value: u16: shard, Hash: Block hash, u64: block number, u32: tx index
     cross_shard_txs: Arc<RwLock<HashMap<Hash, (u16, Hash, u64, u32)>>>,
     current_height: Arc<RwLock<HashMap<u16, u64>>>,
 }
 
 impl RelayRecommitManager {
-    pub fn new(config: Config, from: u64) -> Self {
+    pub fn new(config: Config, from: HashMap<u16, u64>) -> Self {
         Self {
             rpc_client: Arc::new(RpcClient::new(config)),
             from,
@@ -45,10 +46,8 @@ impl RelayRecommitManager {
     pub fn start(&self) {
         let (tx, rx): (UnboundedSender<(u16, Hash, RpcBlockResponse)>, UnboundedReceiver<(u16, Hash, RpcBlockResponse)>) = mpsc::unbounded_channel();
         let rpc_client = self.rpc_client.clone();
+        self.start_fetch_thread(rpc_client, tx);
 
-        let _ = std::thread::Builder::new().name("get-finalized".to_string()).spawn(move || {
-            Self::get_finalized(rpc_client, tx);
-        });
         let cross_shard_txs = self.cross_shard_txs.clone();
         let current_height = self.current_height.clone();
         let rpc_client = self.rpc_client.clone();
@@ -101,132 +100,146 @@ impl RelayRecommitManager {
         });
     }
 
-    fn get_finalized(rpc_client: Arc<RpcClient>, mut tx: UnboundedSender<(u16, Hash, RpcBlockResponse)>) {
-        let mut finalized_info: HashMap<u16, Hash> = HashMap::new();
-        let interval = Interval::new_interval(Duration::from_secs(10));
-        let mut rt = Runtime::new().expect("can't start RelayRecommitManager");
-
-        let task = interval.for_each(move |_| {
-            let get_block_task = |rpc_client: Arc<RpcClient>, h: Hash, shard: u16| -> BoxFuture<Option<RpcBlockResponse>> {
-                rpc_client.call_method_async("chain_getBlock", "Option<Value>", ((h, )), shard)
-                    .unwrap_or_else(|e| Box::new(future::err(e.into())))
-            };
-
-            let f_0: BoxFuture<Option<Hash>> = rpc_client.call_method_async("chain_getFinalizedHead", "Option<Hash>", (), 0)
-                .unwrap_or_else(|e| Box::new(future::err(e.into())));
-            let f_1: BoxFuture<Option<Hash>> = rpc_client.call_method_async("chain_getFinalizedHead", "Option<Hash>", (), 1)
-                .unwrap_or_else(|e| Box::new(future::err(e.into())));
-            let f_2: BoxFuture<Option<Hash>> = rpc_client.call_method_async("chain_getFinalizedHead", "Option<Hash>", (), 2)
-                .unwrap_or_else(|e| Box::new(future::err(e.into())));
-            let f_3: BoxFuture<Option<Hash>> = rpc_client.call_method_async("chain_getFinalizedHead", "Option<Hash>", (), 3)
-                .unwrap_or_else(|e| Box::new(future::err(e.into())));
-            let pair = f_0.join4(f_1, f_2, f_3);
-            match pair.wait() {
-                Ok((v0, v1, v2, v3)) => {
-                    let mut tasks: Vec<BoxFuture<Option<RpcBlockResponse>>> = Vec::with_capacity(4);
-                    let mut flag: Vec<(u16, Hash)> = Vec::with_capacity(4);
-                    v0.map(|h| {
-                        let mut update = false;
-
-                        if finalized_info.contains_key(&0) {
-                            let s_0 = finalized_info.entry(0).or_default();
-                            if *s_0 != h {
-                                *s_0 = h;
-                                update = true;
-                            }
-                        } else {
-                            finalized_info.entry(0).or_insert(h);
-                            update = true;
-                        }
-
-                        if update {
-                            tasks.push(get_block_task(rpc_client.clone(), h, 0));
-                            flag.push((0, h));
-                        }
-                    });
-
-                    v1.map(|h| {
-                        let mut update = false;
-                        if finalized_info.contains_key(&1) {
-                            let s_1 = finalized_info.entry(1).or_default();
-                            if *s_1 != h {
-                                *s_1 = h;
-                                update = true;
-                            }
-                        } else {
-                            finalized_info.entry(1).or_insert(h);
-                            update = true;
-                        }
-
-                        if update {
-                            tasks.push(get_block_task(rpc_client.clone(), h, 1));
-                            flag.push((1, h));
-                        }
-                    });
-
-                    v2.map(|h| {
-                        let mut update = false;
-                        if finalized_info.contains_key(&2) {
-                            let s_2 = finalized_info.entry(2).or_default();
-                            if *s_2 != h {
-                                *s_2 = h;
-                                update = true;
-                            }
-                        } else {
-                            finalized_info.entry(2).or_insert(h);
-                            update = true;
-                        }
-
-                        if update {
-                            tasks.push(get_block_task(rpc_client.clone(), h, 2));
-                            flag.push((2, h));
-                        }
-                    });
-
-                    v3.map(|h| {
-                        let mut update = false;
-                        if finalized_info.contains_key(&3) {
-                            let s_3 = finalized_info.entry(3).or_default();
-                            if *s_3 != h {
-                                *s_3 = h;
-                                update = true;
-                            }
-                        } else {
-                            finalized_info.entry(3).or_insert(h);
-                            update = true;
-                        }
-
-                        if update {
-                            tasks.push(get_block_task(rpc_client.clone(), h, 3));
-                            flag.push((3, h));
-                        }
-                    });
-
-                    if tasks.len() > 0 {
-                        match join_all(tasks).wait() {
-                            Ok(blocks) => {
-                                let mut index = 0;
-                                for b in blocks {
-                                    tx = tx.clone();
-                                    match b {
-                                        Some(block) => {
-                                            let f = flag[index];
-                                            let _ = tx.try_send((f.0, f.1, block));
-                                        }
-                                        None => {}
-                                    }
-                                    index = index + 1;
-                                }
-                            }
-                            Err(_e) => {}
-                        }
-                    }
-                }
-                Err(_) => {}
-            }
-            Ok(())
-        }).map_err(|_| {});
-        let _ = rt.block_on(task);
+    fn start_fetch_thread(&self, rpc_client: Arc<RpcClient>, tx: UnboundedSender<(u16, Hash, RpcBlockResponse)>) {
+        for i in 0..4 {
+            let from = self.from.clone();
+            let rpc_client_tmp = rpc_client.clone();
+            let tx_tmp = tx.clone();
+            let _ = std::thread::Builder::new().name(format!("fetch-shard#{}-block", i)).spawn(move || {
+                let shard = i as u16;
+                start_single_shard_fetch_thread(rpc_client_tmp.clone(), shard, from.get(&shard).cloned(), tx_tmp);
+            });
+        }
     }
 }
 
+fn start_single_shard_fetch_thread(rpc_client: Arc<RpcClient>, shard: u16, from: Option<u64>, mut tx: UnboundedSender<(u16, Hash, RpcBlockResponse)>) {
+    let mut rt = Runtime::new().expect("can't start start_single_shard_fetch_thread");
+    let mut current = from.unwrap_or(0u64);
+    let mut latest = current;
+    loop {
+        let rpc_client_tmp = rpc_client.clone();
+        let block = get_finalized_block(rpc_client_tmp, shard);
+        match rt.block_on(block) {
+            Ok(Ok(Some(v))) => {
+                let v: RpcBlockResponse = v;
+                if v.block.header.number > current {
+                    latest = v.block.header.number;
+                    if current == 0u64 {
+                        current = latest;
+                    }
+                } else {
+                    latest = current;
+                }
+            }
+            _ => {}
+        };
+
+        if current < latest {
+            for num in current..latest + 1 {
+                let rpc_client_tmp = rpc_client.clone();
+                let block_fu = get_block_by_number_future(rpc_client_tmp, num, shard);
+                let (block, hash) = match rt.block_on(block_fu) {
+                    Ok(Ok((Some(v), hash))) => {
+                        let v: RpcBlockResponse = v;
+                        (v, hash)
+                    }
+                    _ => {
+                        break;
+                    }
+                };
+                let _ = tx.try_send((shard, hash, block));
+                current = num;
+            }
+        }
+        std::thread::sleep(Duration::from_secs(10));
+    }
+}
+
+fn get_finalized_block(rpc_client: Arc<RpcClient>, shard: u16) -> BoxFuture<jsonrpc_core::Result<Option<RpcBlockResponse>>> {
+    // get block hash
+    let tmp_rpc_client = rpc_client.clone();
+    let get_finalized_hash = || -> BoxFuture<jsonrpc_core::Result<Option<Hash>>> {
+        let result = get_finalized_future(tmp_rpc_client, shard);
+        let result = result.map(|x| Ok(x));
+        Box::new(result)
+    };
+    let get_finalized_hash = get_finalized_hash();
+
+    // get block
+    let tmp_rpc_client = rpc_client.clone();
+    let get_block = move || -> BoxFuture<jsonrpc_core::Result<Option<RpcBlockResponse>>> {
+        let result = get_finalized_hash.and_then(move |x| match x {
+            Ok(Some(hash)) => {
+                let result = get_block_future(tmp_rpc_client, hash, shard);
+                let result = result.map(|x| -> jsonrpc_core::Result<Option<RpcBlockResponse>> {
+                    Ok(x)
+                });
+                Box::new(result) as BoxFuture<jsonrpc_core::Result<Option<RpcBlockResponse>>>
+            }
+            Ok(None) => Box::new(future::ok(Ok(None))),
+            Err(e) => Box::new(future::err(e)),
+        });
+        Box::new(result)
+    };
+    get_block()
+}
+
+pub fn get_block_by_number_future(rpc_client: Arc<RpcClient>, number: u64, shard: u16)
+                                  -> BoxFuture<jsonrpc_core::Result<(Option<RpcBlockResponse>, Hash)>> {
+    // get block hash
+    let tmp_rpc_client = rpc_client.clone();
+    let get_hash = || -> BoxFuture<jsonrpc_core::Result<Option<Hash>>> {
+        let result = get_block_hash_future(tmp_rpc_client, number, shard);
+        let result = result.map(|x| Ok(x));
+        Box::new(result)
+    };
+    let get_block_hash = get_hash();
+
+    // get block
+    let tmp_rpc_client = rpc_client.clone();
+    let get_block = move || -> BoxFuture<jsonrpc_core::Result<(Option<RpcBlockResponse>, Hash)>> {
+        let result = get_block_hash.and_then(move |x| match x {
+            Ok(Some(hash)) => {
+                let result = get_block_future(tmp_rpc_client, hash.clone(), shard);
+                let result = result.map(move |x| -> jsonrpc_core::Result<(Option<RpcBlockResponse>, Hash)> {
+                    Ok((x, hash))
+                });
+                Box::new(result) as BoxFuture<jsonrpc_core::Result<(Option<RpcBlockResponse>, Hash)>>
+            }
+            Ok(None) => Box::new(future::ok(Ok((None, Default::default())))),
+            Err(e) => Box::new(future::err(e)),
+        });
+        Box::new(result)
+    };
+    get_block()
+}
+
+pub fn get_block_future(
+    rpc_client: Arc<RpcClient>,
+    hash: Hash,
+    shard_num: u16,
+) -> Box<dyn Future<Item=Option<RpcBlockResponse>, Error=jsonrpc_core::Error> + Send> {
+    let result: BoxFuture<Option<RpcBlockResponse>> = rpc_client
+        .call_method_async("chain_getBlock", "", ((hash, )), shard_num)
+        .unwrap_or_else(|e| Box::new(future::err(e.into())));
+    Box::new(result)
+}
+
+pub fn get_block_hash_future(
+    rpc_client: Arc<RpcClient>,
+    number: u64,
+    shard_num: u16,
+) -> Box<dyn Future<Item=Option<Hash>, Error=jsonrpc_core::Error> + Send> {
+    let result: BoxFuture<Option<Hash>> = rpc_client
+        .call_method_async("chain_getBlockHash", "", (number, ), shard_num)
+        .unwrap_or_else(|e| Box::new(future::err(e.into())));
+    Box::new(result)
+}
+
+pub fn get_finalized_future(rpc_client: Arc<RpcClient>, shard: u16) -> Box<dyn Future<Item=Option<Hash>, Error=jsonrpc_core::Error> + Send> {
+    let result: BoxFuture<Option<Hash>> = rpc_client
+        .call_method_async("chain_getFinalizedHead", "", (), shard)
+        .unwrap_or_else(|e| Box::new(future::err(e.into())));
+    Box::new(result)
+}

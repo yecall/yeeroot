@@ -73,8 +73,8 @@ pub struct SwitchCommandCmd {
     pub enable_relay_recommit: bool,
 
     /// relay recommit from
-    #[structopt(long = "relay-recommit-from", default_value = "0")]
-    pub relay_recommit_from: u64,
+    #[structopt(long = "relay-recommit-from")]
+    pub relay_recommit_from: Option<String>,
 
     /// Shard count on dev mode
     #[structopt(long = "dev-shard-count")]
