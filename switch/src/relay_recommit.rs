@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-// use std::pin::Pin;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -25,11 +24,19 @@ use yee_switch_rpc::client::RpcClient;
 
 use crate::error;
 
+struct ExtrinsicFlag {
+    shard: u16,
+    hash: Hash,
+    number: u64,
+    index: u32,
+    flag: u8,
+}
+
 pub struct RelayRecommitManager {
     rpc_client: Arc<RpcClient>,
     from: HashMap<u16, u64>,
-    // value: u16: shard, Hash: Block hash, u64: block number, u32: tx index
-    cross_shard_txs: Arc<RwLock<HashMap<Hash, (u16, Hash, u64, u32)>>>,
+    // value: u16: shard, Hash: Block hash, u64: block number, u32: tx index, u8: flag
+    cross_shard_txs: Arc<RwLock<HashMap<Hash, ExtrinsicFlag>>>,
     current_height: Arc<RwLock<HashMap<u16, u64>>>,
 }
 
@@ -68,14 +75,26 @@ impl RelayRecommitManager {
                         length_prefix.append(&mut tx_arr);
                         match decode_extrinsic(length_prefix, 4u16, shard) {
                             (true, Some(h)) => {
+                                let flag = ExtrinsicFlag { shard, hash, number: block.block.header.number, index: i as u32, flag: 0b01u8 };
                                 // cross shard origin extrinsic
                                 let mut txs = cross_shard_txs.write();
-                                txs.entry(h).or_insert((shard, hash, block.block.header.number, i as u32));
+                                let entry = txs.entry(h).or_insert(flag);
+                                if entry.flag & 0b10u8 == 0b10u8 {  // prune
+                                    txs.remove(&h);
+                                } else {
+                                    entry.flag |= 0b01u8;
+                                }
                             }
                             (false, Some(h)) => {
+                                let flag = ExtrinsicFlag { shard, hash, number: block.block.header.number, index: i as u32, flag: 0b10u8 };
                                 // relay extrinsic
                                 let mut txs = cross_shard_txs.write();
-                                txs.remove(&h);
+                                let entry = txs.entry(h).or_insert(flag);
+                                if entry.flag & 0b01u8 == 0b01u8 {  // prune
+                                    txs.remove(&h);
+                                } else {
+                                    entry.flag |= 0b10u8;
+                                }
                             }
                             _ => {}
                         }
@@ -83,11 +102,11 @@ impl RelayRecommitManager {
                 }
                 // recommit
                 let txs = cross_shard_txs.read();
-                for (_, (s, h, num, index)) in txs.iter() {
-                    let s = *s;
-                    let b_hash = h.clone();
-                    let num = *num;
-                    let index = *index;
+                for (_, flag) in txs.iter() {
+                    let s = flag.shard;
+                    let b_hash = flag.hash.clone();
+                    let num = flag.number;
+                    let index = flag.index;
                     if s == shard && num > block.block.header.number && num - block.block.header.number > 10 {
                         let f = rpc_client.call_method_async("author_recommitRelay", "()", (b_hash, index), shard)
                             .unwrap_or_else(|e| Box::new(future::err(e.into()))).map_err(|e| { warn!("{:?}", e); });
@@ -119,7 +138,7 @@ fn start_single_shard_fetch_thread(rpc_client: Arc<RpcClient>, shard: u16, from:
     let mut latest = current;
     loop {
         let rpc_client_tmp = rpc_client.clone();
-        let block = get_finalized_block(rpc_client_tmp, shard);
+        let block = get_finalized_block_future(rpc_client_tmp, shard);
         match rt.block_on(block) {
             Ok(Ok(Some(v))) => {
                 let v: RpcBlockResponse = v;
@@ -156,7 +175,7 @@ fn start_single_shard_fetch_thread(rpc_client: Arc<RpcClient>, shard: u16, from:
     }
 }
 
-fn get_finalized_block(rpc_client: Arc<RpcClient>, shard: u16) -> BoxFuture<jsonrpc_core::Result<Option<RpcBlockResponse>>> {
+fn get_finalized_block_future(rpc_client: Arc<RpcClient>, shard: u16) -> BoxFuture<jsonrpc_core::Result<Option<RpcBlockResponse>>> {
     // get block hash
     let tmp_rpc_client = rpc_client.clone();
     let get_finalized_hash = || -> BoxFuture<jsonrpc_core::Result<Option<Hash>>> {
