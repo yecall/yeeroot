@@ -22,6 +22,7 @@ use crate::ScheduledChange;
 pub const GENERATED_MODULE_LOG_PREFIX: u8 = 3;
 pub const GENERATED_CHANGE_PREFIX: u8 = 0;
 pub const GENERATED_FORCE_CHANGE_PREFIX: u8 = 1;
+pub const GENERATED_SKIP_PREFIX: u8 = 2;
 
 pub trait CrfgChangeDigestItem<N>: Sized {
     fn change(change: ScheduledChange<N>) -> Self;
@@ -89,3 +90,31 @@ impl<N, Hash, AuthorityId, SealSignature> CrfgForceChangeDigestItem<N> for Diges
     }
 }
 
+
+pub trait CrfgSkipDigestItem<N>: Sized {
+    fn skip(number: N) -> Self;
+    fn as_skip(&self) -> Option<N>;
+}
+
+impl<N, Hash, AuthorityId, SealSignature> CrfgSkipDigestItem<N> for DigestItem<Hash, AuthorityId, SealSignature> where
+    N: Decode + Encode,
+{
+    fn skip(number: N) -> Self {
+        let prefix: [u8; 2] = [GENERATED_MODULE_LOG_PREFIX, GENERATED_SKIP_PREFIX];
+        let data = Encode::encode(&(prefix, number));
+        DigestItem::Other(data)
+    }
+
+    fn as_skip(&self) -> Option<N> {
+        match self {
+            DigestItem::Other(data) if data.len() >= 4
+                && data[0] == GENERATED_MODULE_LOG_PREFIX
+                && data[1] == GENERATED_SKIP_PREFIX => {
+                let input = &mut &data[2..];
+                let number = Decode::decode(input)?;
+                Some(number)
+            }
+            _ => None
+        }
+    }
+}

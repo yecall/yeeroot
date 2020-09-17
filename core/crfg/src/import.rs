@@ -45,7 +45,7 @@ use crate::environment::{finalize_block, is_descendent_of};
 use crate::justification::CrfgJustification;
 
 use ed25519::Public as AuthorityId;
-use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem};
+use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem, CrfgSkipDigestItem};
 use runtime_primitives::traits::Digest;
 use std::time;
 use std::cell::Cell;
@@ -226,6 +226,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
 	DigestItemFor<Block>: CrfgChangeDigestItem<NumberFor<Block>>,
 	DigestItemFor<Block>: CrfgForceChangeDigestItem<NumberFor<Block>>,
+	DigestItemFor<Block>: CrfgSkipDigestItem<NumberFor<Block>>,
 	RA: Send + Sync,
 	PRA: ProvideRuntimeApi,
 	PRA::Api: CrfgApi<Block>,
@@ -252,12 +253,14 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	fn check_new_change(&self, header: &Block::Header, hash: Block::Hash)
 		-> Result<Option<PendingChange<Block::Hash, NumberFor<Block>>>, ConsensusError>
 	{
-		let at = BlockId::hash(*header.parent_hash());
+
 		let digest = header.digest();
 
-		let api = self.api.runtime_api();
-
 		// check for forced change.
+		// never process force change
+		/*
+		let at = BlockId::hash(*header.parent_hash());
+		let api = self.api.runtime_api();
 		{
 			let maybe_change : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgForceChangeDigestItem::as_force_change).next());
 
@@ -288,6 +291,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				},
 			}
 		}
+		*/
 
 		// check normal scheduled change.
 		{
@@ -310,6 +314,25 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				}
 				Ok(None) => Ok(None),
 			}
+		}
+	}
+
+	fn check_skip(&self, header: &Block::Header)
+						-> Result<Option<NumberFor<Block>>, ConsensusError>
+	{
+
+		let digest = header.digest();
+
+		let maybe_skip : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgSkipDigestItem::as_skip).next());
+
+		match maybe_skip {
+			Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+			Ok(Some(skip_number)) => {
+				debug!(target: "afg", "Skip: {:?}", skip_number);
+
+				Ok(Some(skip_number))
+			}
+			Ok(None) => Ok(None),
 		}
 	}
 
@@ -475,6 +498,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		DigestItemFor<Block>: DigestItem<AuthorityId=AuthorityId>,
 		DigestItemFor<Block>: CrfgChangeDigestItem<NumberFor<Block>>,
 		DigestItemFor<Block>: CrfgForceChangeDigestItem<NumberFor<Block>>,
+		DigestItemFor<Block>: CrfgSkipDigestItem<NumberFor<Block>>,
 		RA: Send + Sync,
 		PRA: ProvideRuntimeApi,
 		PRA::Api: CrfgApi<Block>,
@@ -504,6 +528,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 		}
 
+		let skip = self.check_skip(&block.header)?;
 		let pending_changes = self.make_authorities_changes(&mut block, hash)?;
 
 		// we don't want to finalize on `inner.import_block`
@@ -575,6 +600,30 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 
 		if !needs_justification && !enacts_consensus_change {
 			return Ok(ImportResult::Imported(imported_aux));
+		}
+
+
+		debug!(target: "afg", "Check skip, number: {}, hash: {}, skip: {:?}", number, hash, skip);
+		if let Some(skip_number) = skip {
+			if skip_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
+				let chain_info = match self.inner.info() {
+					Ok(info) => info.chain,
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				};
+				if chain_info.finalized_number == skip_number {
+					let next_number = skip_number + As::sa(1);
+					let next_hash = match self.inner.hash(next_number){
+						Ok(Some(hash)) => hash,
+						Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
+						Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					};
+					debug!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
+					match self.skip(next_hash, next_number){
+						Ok(_) => (),
+						Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					}
+				}
+			}
 		}
 
 		debug!(target: "afg", "Import justification, number: {}, hash: {}, has_justification: {}", number, hash, justification.is_some());
@@ -718,6 +767,51 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			Ok(_) => {
 				assert!(!enacts_change, "returns Ok when no authority set change should be enacted; qed;");
 			},
+		}
+
+		Ok(())
+	}
+
+	fn skip(
+		&self,
+		hash: Block::Hash,
+		number: NumberFor<Block>,
+	) -> Result<(), ConsensusError> {
+
+		let justification = CrfgJustification::default_justification(hash.clone(), number);
+
+		let result = finalize_block(
+			&*self.inner,
+			&self.authority_set,
+			&self.consensus_changes,
+			None,
+			hash,
+			number,
+			justification.into(),
+		);
+
+		match result {
+			Err(CommandOrError::VoterCommand(command)) => {
+				debug!(target: "afg", "Skip for block #{} that triggers \
+					command {}, signaling voter.", number, command);
+
+				if self.validator {
+					if let Err(e) = self.send_voter_commands.unbounded_send(command) {
+						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
+					}
+				}
+			},
+			Err(CommandOrError::Error(e)) => {
+				return Err(match e {
+					Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					Error::Network(error) => ConsensusErrorKind::ClientImport(error),
+					Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
+					Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
+					Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+				}.into());
+			},
+			Ok(_) => (),
 		}
 
 		Ok(())
