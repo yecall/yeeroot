@@ -1,4 +1,4 @@
-FROM rust:1.39 AS builder
+FROM rust:1.46 AS builder
 
 RUN set -eux; \
     apt-get update; \
