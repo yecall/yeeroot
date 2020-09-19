@@ -400,37 +400,6 @@ decl_module! {
 			let dest = T::Lookup::lookup(dest)?;
 			<Self as Currency<_>>::transfer(&transactor, &dest, value)?;
 		}
-
-		/// Set the balances of a given account.
-		///
-		/// This will alter `FreeBalance` and `ReservedBalance` in storage.
-		/// If the new free or reserved balance is below the existential deposit,
-		/// it will also decrease the total issuance of the system (`TotalIssuance`)
-		/// and reset the account nonce (`system::AccountNonce`).
-		///
-		/// The dispatch origin for this call is `root`.
-		fn set_balance(
-			who: <T::Lookup as StaticLookup>::Source,
-			#[compact] free: T::Balance,
-			#[compact] reserved: T::Balance
-		) {
-			let who = T::Lookup::lookup(who)?;
-			Self::set_free_balance(&who, free);
-			Self::set_reserved_balance(&who, reserved);
-		}
-
-//		/// execute relay transfer part
-//		///
-//		///
-//		fn relay_transfer(
-//		    _origin,
-//		    transfer: Vec<u8>,
-//		    height: Compact<u64>,
-//		    hash: T::Hash,
-//		    parent: T::Hash
-//		){
-//		    Self::execute_relay_transfer(transfer, height, hash, parent)?;
-//		}
 	}
 }
 
