@@ -31,5 +31,11 @@ util = { package = "util", path = "../../core/util" }
 finality-tracker = { package = "finality-tracker", path = "../../core/finality-tracker" }
 ansi_term = "0.11"
 yee-primitives = { path = "../../core/primitives" }
-yee-merkle = { path = "../../core/util/merkle" }
+yee-merkle = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 hash-db = "0.12.4"
+
+[features]
+default = ["std"]
+std = [
+    "yee-merkle/std"
+]
