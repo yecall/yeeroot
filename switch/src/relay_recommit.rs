@@ -8,7 +8,7 @@ use futures::future;
 use futures::future::join_all;
 use futures::Join4;
 use jsonrpc_core::BoxFuture;
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use parity_codec::{Compact, Decode, Encode};
 use parking_lot::RwLock;
 use serde_json::Value;
@@ -58,6 +58,9 @@ impl RelayRecommitManager {
         let cross_shard_txs = self.cross_shard_txs.clone();
         let current_height = self.current_height.clone();
         let rpc_client = self.rpc_client.clone();
+
+        let (mut tx_relay, rx_relay): (UnboundedSender<(u16, Hash, u32)>, UnboundedReceiver<(u16, Hash, u32)>) = mpsc::unbounded_channel();
+
         let _ = std::thread::Builder::new().name("finalized-loop".to_string()).spawn(move || {
             let mut rt = Runtime::new().expect("can't start finalized-loop thread");
             let rx_fu = rx.for_each(move |(shard, hash, block)| {
@@ -107,14 +110,20 @@ impl RelayRecommitManager {
                     let b_hash = flag.hash.clone();
                     let num = flag.number;
                     let index = flag.index;
-                    if s == shard && num > block.block.header.number && num - block.block.header.number > 10 {
-                        let f = rpc_client.call_method_async("author_recommitRelay", "()", (b_hash, index), shard)
-                            .unwrap_or_else(|e| Box::new(future::err(e.into()))).map_err(|e| { warn!("{:?}", e); });
-                        tokio::spawn(f);
+                    if s == shard && block.block.header.number > num && block.block.header.number - num > 10 {
+                        tx_relay.try_send((shard, b_hash, index));
                     }
                 }
                 Ok(())
             }).map_err(|_e| {});
+
+            let fu_relay = rx_relay.for_each(move |(shard, b_hash, index)| {
+                rpc_client.call_method_async::<_,jsonrpc_core::Error>("author_recommitRelay", "()", (b_hash, index), shard)
+                    .unwrap_or_else(|e| Box::new(future::err(e.into()))).map_err(|e| { warn!("{:?}", e); });
+                Ok(())
+            }).map_err(|e| { warn!("{:?}", e); });
+            rt.spawn(fu_relay);
+
             let _ = rt.block_on(rx_fu);
         });
     }
@@ -151,7 +160,9 @@ fn start_single_shard_fetch_thread(rpc_client: Arc<RpcClient>, shard: u16, from:
                     latest = current;
                 }
             }
-            _ => {}
+            _ => {
+                info!("can't get finalized block");
+            }
         };
 
         if current < latest {
