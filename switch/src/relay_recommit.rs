@@ -118,9 +118,8 @@ impl RelayRecommitManager {
             }).map_err(|_e| {});
 
             let fu_relay = rx_relay.for_each(move |(shard, b_hash, index)| {
-                rpc_client.call_method_async::<_,jsonrpc_core::Error>("author_recommitRelay", "()", (b_hash, index), shard)
-                    .unwrap_or_else(|e| Box::new(future::err(e.into()))).map_err(|e| { warn!("{:?}", e); });
-                Ok(())
+                rpc_client.call_method_async::<_,()>("author_recommitRelay", "()", (b_hash, index), shard)
+                    .unwrap_or_else(|e| Box::new(future::err(e.into()))).map_err(|e| { warn!("{:?}", e); }).then(|_| Ok(()))
             }).map_err(|e| { warn!("{:?}", e); });
             rt.spawn(fu_relay);
 
