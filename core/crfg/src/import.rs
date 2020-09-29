@@ -318,7 +318,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		}
 	}
 
-	fn check_skip(&self, block: &mut ImportBlock<Block>)
+	fn check_skip(&self, block: &mut ImportBlock<Block>, finalized_number: NumberFor<Block>)
 						-> Result<Option<NumberFor<Block>>, ConsensusError>
 	{
 
@@ -328,7 +328,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		let maybe_skip : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgSkipDigestItem::as_skip).next());
 
-		match maybe_skip {
+		let maybe_skip = match maybe_skip {
 			Err(e) => Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 			Ok(Some(skip_number)) => {
 				debug!(target: "afg", "Skip: {:?}", skip_number);
@@ -336,17 +336,21 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				let mut pending_skip = self.pending_skip.lock();
 				pending_skip.push(skip_number);
 
-				crate::aux_schema::update_pending_skip(&*pending_skip,
-													   |insert| block.auxiliary.extend(
-														   insert.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))
-				)));
-
-				debug!(target: "afg", "Pending skip: {:?}", *pending_skip);
-
 				Ok(Some(skip_number))
 			}
 			Ok(None) => Ok(None),
-		}
+		};
+
+		// update aux
+		let mut pending_skip = self.pending_skip.lock();
+		pending_skip.retain(|x| x>=&finalized_number );
+		crate::aux_schema::update_pending_skip(&*pending_skip,
+											   |insert| block.auxiliary.extend(
+												   insert.iter().map(|(k, v)| (k.to_vec(), Some(v.to_vec()))
+												   )));
+		debug!(target: "afg", "Pending skip: {:?}", *pending_skip);
+
+		maybe_skip
 	}
 
 	fn make_authorities_changes<'a>(&'a self, block: &mut ImportBlock<Block>, hash: Block::Hash)
@@ -541,7 +545,15 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 		}
 
-		let skip = self.check_skip(&mut block)?;
+		let chain_info = match self.inner.info() {
+			Ok(info) => info.chain,
+			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+		};
+		let finalized_number = chain_info.finalized_number;
+
+		debug!(target: "afg", "Check skip, number: {}, hash: {}, finalized_number: {}", number, hash, finalized_number);
+
+		let skip = self.check_skip(&mut block, finalized_number)?;
 		let pending_changes = self.make_authorities_changes(&mut block, hash)?;
 
 		// we don't want to finalize on `inner.import_block`
@@ -615,13 +627,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			return Ok(ImportResult::Imported(imported_aux));
 		}
 
-
-		debug!(target: "afg", "Check skip, number: {}, hash: {}", number, hash);
-		let chain_info = match self.inner.info() {
-			Ok(info) => info.chain,
-			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-		};
-		let finalized_number = chain_info.finalized_number;
 		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 			if self.pending_skip.lock().contains(&finalized_number) {
 				let next_number = finalized_number + As::sa(1);
