@@ -71,3 +71,5 @@ impl<H: Copy + PartialEq, N: Copy + Ord> ConsensusChanges<H, N> {
 
 /// Thread-safe consensus changes tracker reference.
 pub(crate) type SharedConsensusChanges<H, N> = Arc<parking_lot::Mutex<ConsensusChanges<H, N>>>;
+
+pub(crate) type SharedPendingSkip<N> = Arc<parking_lot::Mutex<Vec<N>>>;

@@ -702,6 +702,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			api,
 			validator,
 			import_until,
+			persistent_data.pending_skip.clone(),
 		),
 		LinkHalf {
 			client,
@@ -823,7 +824,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	// we shadow network with the wrapping/rebroadcasting network to avoid
 	// accidental reuse.
 	let (broadcast_worker, network) = communication::rebroadcasting_network(network);
-	let PersistentData { authority_set, set_state, consensus_changes } = persistent_data;
+	let PersistentData { authority_set, set_state, consensus_changes, pending_skip } = persistent_data;
 
 	register_finality_tracker_inherent_data_provider(client.clone(), &inherent_data_providers)?;
 
@@ -838,6 +839,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		authority_set: authority_set.clone(),
 		consensus_changes: consensus_changes.clone(),
 		last_completed: environment::LastCompletedRound::new(set_state.round()),
+		pending_skip: pending_skip.clone(),
 	});
 
 	if config.local_next_key.is_some(){
@@ -922,6 +924,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		let network = network.clone();
 		let authority_set = authority_set.clone();
 		let consensus_changes = consensus_changes.clone();
+		let pending_skip = pending_skip.clone();
 
 		let handle_voter_command = move |command: VoterCommand<_, _>, voter_commands_rx| {
 			match command {
@@ -950,6 +953,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 						last_completed: environment::LastCompletedRound::new(
 							(0, genesis_state.clone())
 						),
+						pending_skip,
 					});
 
 

@@ -26,7 +26,7 @@ use grandpa::round::State as RoundState;
 use log::{info, warn};
 
 use crate::authorities::{AuthoritySet, SharedAuthoritySet, PendingChange, DelayKind};
-use crate::consensus_changes::{SharedConsensusChanges, ConsensusChanges};
+use crate::consensus_changes::{SharedConsensusChanges, ConsensusChanges, SharedPendingSkip};
 use crate::NewAuthoritySet;
 
 use substrate_primitives::ed25519::Public as AuthorityId;
@@ -35,6 +35,7 @@ const VERSION_KEY: &[u8] = b"crfg_schema_version";
 const SET_STATE_KEY: &[u8] = b"crfg_completed_round";
 const AUTHORITY_SET_KEY: &[u8] = b"crfg_voters";
 const CONSENSUS_CHANGES_KEY: &[u8] = b"crfg_consensus_changes";
+const PENDING_SKIP_KEY: &[u8] = b"crfg_pending_skip";
 
 const CURRENT_VERSION: u32 = 1;
 
@@ -42,319 +43,335 @@ const CURRENT_VERSION: u32 = 1;
 #[derive(Debug, Clone, Encode, Decode)]
 #[cfg_attr(test, derive(PartialEq))]
 pub enum VoterSetState<H, N> {
-	/// The voter set state, currently paused.
-	Paused(u64, RoundState<H, N>),
-	/// The voter set state, currently live.
-	Live(u64, RoundState<H, N>),
+    /// The voter set state, currently paused.
+    Paused(u64, RoundState<H, N>),
+    /// The voter set state, currently live.
+    Live(u64, RoundState<H, N>),
 }
 
 impl<H: Clone, N: Clone> VoterSetState<H, N> {
-	/// Yields the current state.
-	pub(crate) fn round(&self) -> (u64, RoundState<H, N>) {
-		match *self {
-			VoterSetState::Paused(n, ref s) => (n, s.clone()),
-			VoterSetState::Live(n, ref s) => (n, s.clone()),
-		}
-	}
+    /// Yields the current state.
+    pub(crate) fn round(&self) -> (u64, RoundState<H, N>) {
+        match *self {
+            VoterSetState::Paused(n, ref s) => (n, s.clone()),
+            VoterSetState::Live(n, ref s) => (n, s.clone()),
+        }
+    }
 }
 
 type V0VoterSetState<H, N> = (u64, RoundState<H, N>);
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 struct V0PendingChange<H, N> {
-	next_authorities: Vec<(AuthorityId, u64)>,
-	delay: N,
-	canon_height: N,
-	canon_hash: H,
+    next_authorities: Vec<(AuthorityId, u64)>,
+    delay: N,
+    canon_height: N,
+    canon_hash: H,
 }
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
 struct V0AuthoritySet<H, N> {
-	current_authorities: Vec<(AuthorityId, u64)>,
-	set_id: u64,
-	pending_changes: Vec<V0PendingChange<H, N>>,
+    current_authorities: Vec<(AuthorityId, u64)>,
+    set_id: u64,
+    pending_changes: Vec<V0PendingChange<H, N>>,
 }
 
 impl<H, N> Into<AuthoritySet<H, N>> for V0AuthoritySet<H, N>
-where H: Clone + Debug + PartialEq,
-	  N: Clone + Debug + Ord,
+    where H: Clone + Debug + PartialEq,
+          N: Clone + Debug + Ord,
 {
-	fn into(self) -> AuthoritySet<H, N> {
-		let mut pending_standard_changes = ForkTree::new();
+    fn into(self) -> AuthoritySet<H, N> {
+        let mut pending_standard_changes = ForkTree::new();
 
-		for old_change in self.pending_changes {
-			let new_change = PendingChange {
-				next_authorities: old_change.next_authorities,
-				delay: old_change.delay,
-				canon_height: old_change.canon_height,
-				canon_hash: old_change.canon_hash,
-				delay_kind: DelayKind::Finalized,
-			};
+        for old_change in self.pending_changes {
+            let new_change = PendingChange {
+                next_authorities: old_change.next_authorities,
+                delay: old_change.delay,
+                canon_height: old_change.canon_height,
+                canon_hash: old_change.canon_hash,
+                delay_kind: DelayKind::Finalized,
+            };
 
-			if let Err(err) = pending_standard_changes.import::<_, ClientError>(
-				new_change.canon_hash.clone(),
-				new_change.canon_height.clone(),
-				new_change,
-				// previously we only supported at most one pending change per fork
-				&|_, _| Ok(false),
-			) {
-				warn!(target: "afg", "Error migrating pending authority set change: {:?}.", err);
-				warn!(target: "afg", "Node is in a potentially inconsistent state.");
-			}
+            if let Err(err) = pending_standard_changes.import::<_, ClientError>(
+                new_change.canon_hash.clone(),
+                new_change.canon_height.clone(),
+                new_change,
+                // previously we only supported at most one pending change per fork
+                &|_, _| Ok(false),
+            ) {
+                warn!(target: "afg", "Error migrating pending authority set change: {:?}.", err);
+                warn!(target: "afg", "Node is in a potentially inconsistent state.");
+            }
+        }
+
+        AuthoritySet {
+            current_authorities: self.current_authorities,
+            set_id: self.set_id,
+            pending_forced_changes: Vec::new(),
+            pending_standard_changes,
 		}
-
-		AuthoritySet {
-			current_authorities: self.current_authorities,
-			set_id: self.set_id,
-			pending_forced_changes: Vec::new(),
-			pending_standard_changes
-		}
-	}
+    }
 }
 
 fn load_decode<B: AuxStore, T: Decode>(backend: &B, key: &[u8]) -> ClientResult<Option<T>> {
-	match backend.get_aux(key)? {
-		None => Ok(None),
-		Some(t) => T::decode(&mut &t[..])
-			.ok_or_else(
-				|| ClientErrorKind::Backend(format!("CRFG DB is corrupted.")).into(),
-			)
-			.map(Some)
-	}
+    match backend.get_aux(key)? {
+        None => Ok(None),
+        Some(t) => T::decode(&mut &t[..])
+            .ok_or_else(
+                || ClientErrorKind::Backend(format!("CRFG DB is corrupted.")).into(),
+            )
+            .map(Some)
+    }
 }
 
 /// Persistent data kept between runs.
 pub(crate) struct PersistentData<H, N> {
-	pub(crate) authority_set: SharedAuthoritySet<H, N>,
-	pub(crate) consensus_changes: SharedConsensusChanges<H, N>,
-	pub(crate) set_state: VoterSetState<H, N>,
+    pub(crate) authority_set: SharedAuthoritySet<H, N>,
+    pub(crate) consensus_changes: SharedConsensusChanges<H, N>,
+    pub(crate) set_state: VoterSetState<H, N>,
+    pub(crate) pending_skip: SharedPendingSkip<N>,
 }
 
 /// Load or initialize persistent data from backend.
 pub(crate) fn load_persistent<B, H, N, G>(
-	backend: &B,
-	genesis_hash: H,
-	genesis_number: N,
-	genesis_authorities: G,
+    backend: &B,
+    genesis_hash: H,
+    genesis_number: N,
+    genesis_authorities: G,
 )
-	-> ClientResult<PersistentData<H, N>>
-	where
-		B: AuxStore,
-		H: Debug + Decode + Encode + Clone + PartialEq,
-		N: Debug + Decode + Encode + Clone + Ord,
-		G: FnOnce() -> ClientResult<Vec<(AuthorityId, u64)>>
+    -> ClientResult<PersistentData<H, N>>
+    where
+        B: AuxStore,
+        H: Debug + Decode + Encode + Clone + PartialEq,
+        N: Debug + Decode + Encode + Clone + Ord,
+        G: FnOnce() -> ClientResult<Vec<(AuthorityId, u64)>>
 {
-	let version: Option<u32> = load_decode(backend, VERSION_KEY)?;
-	let consensus_changes = load_decode(backend, CONSENSUS_CHANGES_KEY)?
-		.unwrap_or_else(ConsensusChanges::<H, N>::empty);
+    let version: Option<u32> = load_decode(backend, VERSION_KEY)?;
+    let consensus_changes = load_decode(backend, CONSENSUS_CHANGES_KEY)?
+        .unwrap_or_else(ConsensusChanges::<H, N>::empty);
+    let pending_skip = load_decode(backend, PENDING_SKIP_KEY)?
+        .unwrap_or_else(Vec::<N>::new);
 
-	let make_genesis_round = move || RoundState::genesis((genesis_hash, genesis_number));
+    let make_genesis_round = move || RoundState::genesis((genesis_hash, genesis_number));
 
-	match version {
-		None => {
-			CURRENT_VERSION.using_encoded(|s|
-				backend.insert_aux(&[(VERSION_KEY, s)], &[])
-			)?;
+    match version {
+        None => {
+            CURRENT_VERSION.using_encoded(|s|
+                backend.insert_aux(&[(VERSION_KEY, s)], &[])
+            )?;
 
-			if let Some(old_set) = load_decode::<_, V0AuthoritySet<H, N>>(backend, AUTHORITY_SET_KEY)? {
-				let new_set: AuthoritySet<H, N> = old_set.into();
-				backend.insert_aux(&[(AUTHORITY_SET_KEY, new_set.encode().as_slice())], &[])?;
+            if let Some(old_set) = load_decode::<_, V0AuthoritySet<H, N>>(backend, AUTHORITY_SET_KEY)? {
+                let new_set: AuthoritySet<H, N> = old_set.into();
+                backend.insert_aux(&[(AUTHORITY_SET_KEY, new_set.encode().as_slice())], &[])?;
 
-				let set_state = match load_decode::<_, V0VoterSetState<H, N>>(backend, SET_STATE_KEY)? {
-					Some((number, state)) => {
-						let set_state = VoterSetState::Live(number, state);
-						backend.insert_aux(&[(SET_STATE_KEY, set_state.encode().as_slice())], &[])?;
-						set_state
-					},
-					None => VoterSetState::Live(0, make_genesis_round()),
-				};
+                let set_state = match load_decode::<_, V0VoterSetState<H, N>>(backend, SET_STATE_KEY)? {
+                    Some((number, state)) => {
+                        let set_state = VoterSetState::Live(number, state);
+                        backend.insert_aux(&[(SET_STATE_KEY, set_state.encode().as_slice())], &[])?;
+                        set_state
+                    }
+                    None => VoterSetState::Live(0, make_genesis_round()),
+                };
 
-				return Ok(PersistentData {
-					authority_set: new_set.into(),
-					consensus_changes: Arc::new(consensus_changes.into()),
-					set_state,
-				});
-			}
-		}
-		Some(1) => {
-			if let Some(set) = load_decode::<_, AuthoritySet<H, N>>(backend, AUTHORITY_SET_KEY)? {
-				let set_state = match load_decode::<_, VoterSetState<H, N>>(backend, SET_STATE_KEY)? {
-					Some(state) => state,
-					None => VoterSetState::Live(0, make_genesis_round()),
-				};
+                return Ok(PersistentData {
+                    authority_set: new_set.into(),
+                    consensus_changes: Arc::new(consensus_changes.into()),
+                    set_state,
+                    pending_skip: Arc::new(pending_skip.into()),
+                });
+            }
+        }
+        Some(1) => {
+            if let Some(set) = load_decode::<_, AuthoritySet<H, N>>(backend, AUTHORITY_SET_KEY)? {
+                let set_state = match load_decode::<_, VoterSetState<H, N>>(backend, SET_STATE_KEY)? {
+                    Some(state) => state,
+                    None => VoterSetState::Live(0, make_genesis_round()),
+                };
 
-				return Ok(PersistentData {
-					authority_set: set.into(),
-					consensus_changes: Arc::new(consensus_changes.into()),
-					set_state,
-				});
-			}
-		}
-		Some(other) => return Err(ClientErrorKind::Backend(
-			format!("Unsupported CRFG DB version: {:?}", other)
-		).into()),
-	}
+                return Ok(PersistentData {
+                    authority_set: set.into(),
+                    consensus_changes: Arc::new(consensus_changes.into()),
+                    set_state,
+                    pending_skip: Arc::new(pending_skip.into()),
+                });
+            }
+        }
+        Some(other) => return Err(ClientErrorKind::Backend(
+            format!("Unsupported CRFG DB version: {:?}", other)
+        ).into()),
+    }
 
-	// genesis.
-	info!(target: "afg", "Loading CRFG authority set \
+    // genesis.
+    info!(target: "afg", "Loading CRFG authority set \
 		from genesis on what appears to be first startup.");
 
-	let genesis_set = AuthoritySet::genesis(genesis_authorities()?);
-	let genesis_state = VoterSetState::Live(0, make_genesis_round());
-	backend.insert_aux(
-		&[
-			(AUTHORITY_SET_KEY, genesis_set.encode().as_slice()),
-			(SET_STATE_KEY, genesis_state.encode().as_slice()),
-		],
-		&[],
-	)?;
+    let genesis_set = AuthoritySet::genesis(genesis_authorities()?);
+    let genesis_state = VoterSetState::Live(0, make_genesis_round());
+    backend.insert_aux(
+        &[
+            (AUTHORITY_SET_KEY, genesis_set.encode().as_slice()),
+            (SET_STATE_KEY, genesis_state.encode().as_slice()),
+        ],
+        &[],
+    )?;
 
-	Ok(PersistentData {
-		authority_set: genesis_set.into(),
-		set_state: genesis_state,
-		consensus_changes: Arc::new(consensus_changes.into()),
-	})
+    Ok(PersistentData {
+        authority_set: genesis_set.into(),
+        set_state: genesis_state,
+        consensus_changes: Arc::new(consensus_changes.into()),
+        pending_skip: Arc::new(pending_skip.into()),
+    })
 }
 
 /// Update the authority set on disk after a change.
 pub(crate) fn update_authority_set<H, N, F, R>(
 	set: &AuthoritySet<H, N>,
 	new_set: Option<&NewAuthoritySet<H, N>>,
-	write_aux: F
+	write_aux: F,
 ) -> R where
-	H: Encode + Clone,
-	N: Encode + Clone,
-	F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
+    H: Encode + Clone,
+    N: Encode + Clone,
+    F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
 {
-	// write new authority set state to disk.
-	let encoded_set = set.encode();
+    // write new authority set state to disk.
+    let encoded_set = set.encode();
 
-	if let Some(new_set) = new_set {
-		// we also overwrite the "last completed round" entry with a blank slate
-		// because from the perspective of the finality gadget, the chain has
-		// reset.
-		let round_state = RoundState::genesis((
-			new_set.canon_hash.clone(),
-			new_set.canon_number.clone(),
-		));
-		let set_state = VoterSetState::Live(0, round_state);
-		let encoded = set_state.encode();
+    if let Some(new_set) = new_set {
+        // we also overwrite the "last completed round" entry with a blank slate
+        // because from the perspective of the finality gadget, the chain has
+        // reset.
+        let round_state = RoundState::genesis((
+            new_set.canon_hash.clone(),
+            new_set.canon_number.clone(),
+        ));
+        let set_state = VoterSetState::Live(0, round_state);
+        let encoded = set_state.encode();
 
-		write_aux(&[
-			(AUTHORITY_SET_KEY, &encoded_set[..]),
-			(SET_STATE_KEY, &encoded[..]),
-		])
-	} else {
-		write_aux(&[(AUTHORITY_SET_KEY, &encoded_set[..])])
-	}
+        write_aux(&[
+            (AUTHORITY_SET_KEY, &encoded_set[..]),
+            (SET_STATE_KEY, &encoded[..]),
+        ])
+    } else {
+        write_aux(&[(AUTHORITY_SET_KEY, &encoded_set[..])])
+    }
 }
 
 /// Write voter set state.
 pub(crate) fn write_voter_set_state<B, H, N>(backend: &B, state: &VoterSetState<H, N>)
-	-> ClientResult<()>
-	where B: AuxStore, H: Encode, N: Encode
+                                             -> ClientResult<()>
+    where B: AuxStore, H: Encode, N: Encode
 {
-	backend.insert_aux(
+    backend.insert_aux(
 		&[(SET_STATE_KEY, state.encode().as_slice())],
-		&[]
+		&[],
 	)
 }
 
 /// Update the consensus changes.
 pub(crate) fn update_consensus_changes<H, N, F, R>(
 	set: &ConsensusChanges<H, N>,
-	write_aux: F
+	write_aux: F,
 ) -> R where
-	H: Encode + Clone,
-	N: Encode + Clone,
-	F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
+    H: Encode + Clone,
+    N: Encode + Clone,
+    F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
 {
-	write_aux(&[(CONSENSUS_CHANGES_KEY, set.encode().as_slice())])
+    write_aux(&[(CONSENSUS_CHANGES_KEY, set.encode().as_slice())])
+}
+
+pub(crate) fn update_pending_skip<N, F, R>(
+	set: &Vec<N>,
+	write_aux: F,
+) -> R where
+    N: Encode + Clone,
+    F: FnOnce(&[(&'static [u8], &[u8])]) -> R,
+{
+    write_aux(&[(PENDING_SKIP_KEY, set.encode().as_slice())])
 }
 
 #[cfg(test)]
 pub(crate) fn load_authorities<B: AuxStore, H: Decode, N: Decode>(backend: &B)
-	-> Option<AuthoritySet<H, N>> {
-	load_decode::<_, AuthoritySet<H, N>>(backend, AUTHORITY_SET_KEY)
-		.expect("backend error")
+                                                                  -> Option<AuthoritySet<H, N>> {
+    load_decode::<_, AuthoritySet<H, N>>(backend, AUTHORITY_SET_KEY)
+        .expect("backend error")
 }
 
 #[cfg(test)]
 mod test {
-	use substrate_primitives::H256;
-	use test_client;
-	use super::*;
+    use substrate_primitives::H256;
+    use test_client;
+    use super::*;
 
-	#[test]
-	fn load_decode_migrates_data_format() {
-		let client = test_client::new();
+    #[test]
+    fn load_decode_migrates_data_format() {
+        let client = test_client::new();
 
-		let authorities = vec![(AuthorityId::default(), 100)];
-		let set_id = 3;
-		let round_number = 42;
-		let round_state = RoundState::<H256, u64> {
-			prevote_ghost: None,
-			finalized: None,
-			estimate: None,
-			completable: false,
-		};
+        let authorities = vec![(AuthorityId::default(), 100)];
+        let set_id = 3;
+        let round_number = 42;
+        let round_state = RoundState::<H256, u64> {
+            prevote_ghost: None,
+            finalized: None,
+            estimate: None,
+            completable: false,
+        };
 
-		{
-			let authority_set = V0AuthoritySet::<H256, u64> {
-				current_authorities: authorities.clone(),
-				pending_changes: Vec::new(),
-				set_id,
-			};
+        {
+            let authority_set = V0AuthoritySet::<H256, u64> {
+                current_authorities: authorities.clone(),
+                pending_changes: Vec::new(),
+                set_id,
+            };
 
-			let voter_set_state = (round_number, round_state.clone());
+            let voter_set_state = (round_number, round_state.clone());
 
-			client.insert_aux(
-				&[
-					(AUTHORITY_SET_KEY, authority_set.encode().as_slice()),
-					(SET_STATE_KEY, voter_set_state.encode().as_slice()),
-				],
-				&[],
-			).unwrap();
-		}
+            client.insert_aux(
+                &[
+                    (AUTHORITY_SET_KEY, authority_set.encode().as_slice()),
+                    (SET_STATE_KEY, voter_set_state.encode().as_slice()),
+                ],
+                &[],
+            ).unwrap();
+        }
 
-		assert_eq!(
-			load_decode::<_, u32>(&client, VERSION_KEY).unwrap(),
-			None,
-		);
+        assert_eq!(
+            load_decode::<_, u32>(&client, VERSION_KEY).unwrap(),
+            None,
+        );
 
-		// should perform the migration
-		load_persistent(
-			&client,
-			H256::random(),
-			0,
-			|| unreachable!(),
-		).unwrap();
+        // should perform the migration
+        load_persistent(
+            &client,
+            H256::random(),
+            0,
+            || unreachable!(),
+        ).unwrap();
 
-		assert_eq!(
-			load_decode::<_, u32>(&client, VERSION_KEY).unwrap(),
-			Some(1),
-		);
+        assert_eq!(
+            load_decode::<_, u32>(&client, VERSION_KEY).unwrap(),
+            Some(1),
+        );
 
-		let PersistentData { authority_set, set_state, .. } = load_persistent(
-			&client,
-			H256::random(),
-			0,
-			|| unreachable!(),
-		).unwrap();
+        let PersistentData { authority_set, set_state, .. } = load_persistent(
+            &client,
+            H256::random(),
+            0,
+            || unreachable!(),
+        ).unwrap();
 
-		assert_eq!(
-			*authority_set.inner().read(),
-			AuthoritySet {
-				current_authorities: authorities,
-				pending_standard_changes: ForkTree::new(),
-				pending_forced_changes: Vec::new(),
-				set_id,
-			},
-		);
+        assert_eq!(
+            *authority_set.inner().read(),
+            AuthoritySet {
+                current_authorities: authorities,
+                pending_standard_changes: ForkTree::new(),
+                pending_forced_changes: Vec::new(),
+                set_id,
+            },
+        );
 
-		assert_eq!(
-			set_state,
-			VoterSetState::Live(round_number, round_state),
-		);
-	}
+        assert_eq!(
+            set_state,
+            VoterSetState::Live(round_number, round_state),
+        );
+    }
 }
