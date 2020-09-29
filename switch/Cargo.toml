@@ -25,6 +25,7 @@ exit-future = "0.1"
 futures = "0.1"
 error-chain = "0.12"
 tokio = "0.1.7"
+parking_lot = "0.7.1"
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.1.0", optional = true }
 substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
@@ -36,3 +37,5 @@ yee-runtime = { package = "yee-runtime", path = "../runtime" }
 yee-dev = { package = "yee-dev", path = "../dev" }
 yee-mining2 = { package = "yee-mining2", path = "mining2" }
 yee-primitives = { package = "yee-primitives", path = "../core/primitives" }
+relay-monitor = { path = "./relay-monitor" }
+hex = "0.3.1"

@@ -20,11 +20,11 @@ runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeec
 srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 serde = { version = "1.0", optional = true, features = ["derive"] }
-merkle_light = { git = "https://github.com/yeeco/merkle_light.git", branch = "yee" }
+merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "yee", default-features = false }
 yee-sharding = { package = "yee-sharding", path = "../../sharding" }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
 foreign_chain = { package = "yee-foreign-chain", path = "../../../foreign/chain" }
-yee-merkle = { path = "../../util/merkle" }
+yee-merkle = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 yee-context = { package = "yee-context", path = "../../context" }
@@ -42,4 +42,6 @@ hex = "0.3.1"
 default = ["std"]
 std = [
 	"serde",
+	"merkle-light/std",
+	"yee-merkle/std"
 ]

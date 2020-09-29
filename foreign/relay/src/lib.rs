@@ -22,8 +22,8 @@ use std::{
 
 use ansi_term::Colour;
 use futures::{Stream, sync::mpsc};
-use hash_db::Hasher;
-use log::{trace, debug, error, info, warn};
+// use hash_db::Hasher;
+use log::{trace, debug, info, warn};
 use parity_codec::{Compact, Decode, Encode};
 use parking_lot::RwLock;
 use runtime_primitives::{
@@ -38,7 +38,7 @@ use substrate_client::{
     BlockchainEvents,
     ChainHead,
 };
-use substrate_primitives::{Blake2Hasher, H256, hexdisplay::HexDisplay};
+use substrate_primitives::{H256, hexdisplay::HexDisplay};
 use substrate_service::{
     config::Configuration,
     FactoryBlock,
@@ -53,11 +53,11 @@ use foreign_chain::{ForeignChain, ForeignChainConfig};
 use foreign_network::{message::generic::OutMessage, SyncProvider};
 use yee_assets::Call as AssetsCall;
 use yee_balances::Call as BalancesCall;
-use yee_merkle::{MultiLayerProof, ProofAlgorithm, ProofHash};
+// use yee_merkle::{MultiLayerProof, ProofAlgorithm, ProofHash};
 use yee_primitives::RecommitRelay;
 use yee_relay::Call as RelayCall;
 use yee_runtime::{
-    AccountId,
+    // AccountId,
     Call,
     Hash as RuntimeHash,
     UncheckedExtrinsic,
@@ -69,7 +69,7 @@ pub fn start_relay_transfer<F, C, A>(
     client: Arc<C>,
     executor: &TaskExecutor,
     foreign_network: Arc<dyn SyncProvider<FactoryBlock<F>, <FactoryBlock<F> as BlockT>::Hash>>,
-    foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
+    _foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pool: Arc<TransactionPool<A>>,
     recomit_relay_receiver: mpsc::UnboundedReceiver<RecommitRelay<<F::Block as BlockT>::Hash>>,
 ) -> error::Result<()>
@@ -86,12 +86,10 @@ pub fn start_relay_transfer<F, C, A>(
           <<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Digest as Digest>::Item: FinalityTrackerDigestItem,
           u64: From<<<<F as ServiceFactory>::Block as BlockT>::Header as Header>::Number>,
 {
-    // let network_send = foreign_network.clone();
     let network_rev = foreign_network.clone();
     let recommit_network = foreign_network.clone();
     let client_notify = client.clone();
     let client_recommit = client.clone();
-    // let client_fe = client.clone();
     let import_events = client_notify.import_notification_stream()
         .for_each(move |notification| {
             if notification.is_new_best {
@@ -187,7 +185,7 @@ fn process_relay_extrinsic<Block>(ec: Vec<u8>, header: &<Block as BlockT>::Heade
     <<Block as BlockT>::Header as Header>::Number: From<u64>,
     u64: From<<<Block as BlockT>::Header as Header>::Number>,
 {
-    let mut result = false;
+    let result = false;
     debug!(target: "foreign-relay", "len: {}, origin: {}", &ec.len(), HexDisplay::from(&ec));
     let ex: UncheckedExtrinsic = match Decode::decode(&mut ec.as_slice()) {
         Some(v) => v,

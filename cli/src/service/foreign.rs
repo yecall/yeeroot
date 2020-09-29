@@ -36,7 +36,7 @@ use substrate_client::{ClientInfo};
 use ansi_term::Colour;
 use substrate_service::{Components, ComponentClient, ComponentExHash};
 use substrate_client::runtime_api::BlockT;
-use runtime_primitives::traits::{NumberFor, DigestItemFor};
+use runtime_primitives::traits::{NumberFor};
 use crate::custom_param::{NodeKeyParams, NodeKeyType};
 use std::path::{Path, PathBuf};
 use network::NodeKeyConfig;

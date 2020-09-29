@@ -27,6 +27,8 @@ use impl_serde::serialize;
 use num_bigint::BigUint;
 use jsonrpc_core::BoxFuture;
 use yee_serde_hex::SerdeHex;
+use std::time::Duration;
+use tokio::prelude::FutureExt;
 
 pub struct RpcClient{
     config: Config,

@@ -817,7 +817,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "fork-tree"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2059,7 +2059,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "merkle_light"
 version = "0.3.1"
-source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#0e03c27068f821c65497d22705a96db82f6d3b2e"
+source = "git+https://github.com/yeeco/merkle_light.git?branch=yee#5baa7b0f6ffbc8af58de2a06ad661ca064d13ee4"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -2896,6 +2896,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "relay-monitor"
+version = "0.1.0"
+dependencies = [
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "num-bigint 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_derive 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-runtime 1.0.0",
+ "yee-sharding-primitives 0.1.0",
+ "yee-sr-primitives 0.4.0",
+ "yee-srml-assets 0.4.0",
+ "yee-srml-balances 0.4.0",
+ "yee-srml-relay 0.4.0",
+]
+
+[[package]]
 name = "remove_dir_all"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3297,7 +3318,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "sr-api-macros"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3309,7 +3330,7 @@ dependencies = [
 [[package]]
 name = "sr-io"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "environmental 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3326,7 +3347,7 @@ dependencies = [
 [[package]]
 name = "sr-primitives"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "integer-sqrt 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3341,7 +3362,7 @@ dependencies = [
 [[package]]
 name = "sr-std"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "rustc_version 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -3349,7 +3370,7 @@ dependencies = [
 [[package]]
 name = "sr-version"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "impl-serde 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3361,7 +3382,7 @@ dependencies = [
 [[package]]
 name = "srml-consensus"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3377,7 +3398,7 @@ dependencies = [
 [[package]]
 name = "srml-executive"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3409,7 +3430,7 @@ dependencies = [
 [[package]]
 name = "srml-indices"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3428,7 +3449,7 @@ dependencies = [
 [[package]]
 name = "srml-metadata"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3439,7 +3460,7 @@ dependencies = [
 [[package]]
 name = "srml-session"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3457,7 +3478,7 @@ dependencies = [
 [[package]]
 name = "srml-support"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "bitmask 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3476,7 +3497,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3488,7 +3509,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural-tools"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "proc-macro-crate 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3500,7 +3521,7 @@ dependencies = [
 [[package]]
 name = "srml-support-procedural-tools-derive"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "proc-macro2 0.4.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3510,7 +3531,7 @@ dependencies = [
 [[package]]
 name = "srml-system"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3526,7 +3547,7 @@ dependencies = [
 [[package]]
 name = "srml-timestamp"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3658,7 +3679,7 @@ dependencies = [
 [[package]]
 name = "substrate-basic-authorship"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3686,7 +3707,7 @@ dependencies = [
 [[package]]
 name = "substrate-cli"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "ansi_term 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "app_dirs 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3720,7 +3741,7 @@ dependencies = [
 [[package]]
 name = "substrate-client"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3744,12 +3765,13 @@ dependencies = [
  "substrate-state-machine 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-telemetry 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-trie 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
+ "yee-merkle 0.4.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
 ]
 
 [[package]]
 name = "substrate-client-db"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "kvdb 0.1.0 (git+https://github.com/paritytech/parity-common?rev=b0317f649ab2c665b7987b8475878fc4d2e1f81d)",
@@ -3772,7 +3794,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-aura-primitives"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -3781,7 +3803,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-authorities"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "sr-io 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -3796,7 +3818,7 @@ dependencies = [
 [[package]]
 name = "substrate-consensus-common"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3816,7 +3838,7 @@ dependencies = [
 [[package]]
 name = "substrate-executor"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3839,7 +3861,7 @@ dependencies = [
 [[package]]
 name = "substrate-inherents"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3850,7 +3872,7 @@ dependencies = [
 [[package]]
 name = "substrate-keyring"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3862,7 +3884,7 @@ dependencies = [
 [[package]]
 name = "substrate-keystore"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3876,7 +3898,7 @@ dependencies = [
 [[package]]
 name = "substrate-network"
 version = "0.1.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "bitflags 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "crossbeam-channel 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3905,7 +3927,7 @@ dependencies = [
 [[package]]
 name = "substrate-network-libp2p"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "byteorder 1.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "bytes 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3931,7 +3953,7 @@ dependencies = [
 [[package]]
 name = "substrate-offchain"
 version = "0.1.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3949,7 +3971,7 @@ dependencies = [
 [[package]]
 name = "substrate-offchain-primitives"
 version = "0.1.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "sr-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
@@ -3958,7 +3980,7 @@ dependencies = [
 [[package]]
 name = "substrate-panic-handler"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "backtrace 0.3.31 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3967,7 +3989,7 @@ dependencies = [
 [[package]]
 name = "substrate-peerset"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "libp2p 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -3980,7 +4002,7 @@ dependencies = [
 [[package]]
 name = "substrate-primitives"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "base58 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "blake2-rfc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4010,7 +4032,7 @@ dependencies = [
 [[package]]
 name = "substrate-rpc"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-core 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4035,7 +4057,7 @@ dependencies = [
 [[package]]
 name = "substrate-rpc-servers"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "jsonrpc-http-server 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-pubsub 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4049,7 +4071,7 @@ dependencies = [
 [[package]]
 name = "substrate-serializer"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4058,7 +4080,7 @@ dependencies = [
 [[package]]
 name = "substrate-service"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "exit-future 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4091,7 +4113,7 @@ dependencies = [
 [[package]]
 name = "substrate-state-db"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4102,7 +4124,7 @@ dependencies = [
 [[package]]
 name = "substrate-state-machine"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "heapsize 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4120,7 +4142,7 @@ dependencies = [
 [[package]]
 name = "substrate-telemetry"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "lazy_static 1.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4137,7 +4159,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-client"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4155,7 +4177,7 @@ dependencies = [
 [[package]]
 name = "substrate-test-runtime"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "cfg-if 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4180,7 +4202,7 @@ dependencies = [
 [[package]]
 name = "substrate-transaction-graph"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4195,7 +4217,7 @@ dependencies = [
 [[package]]
 name = "substrate-transaction-pool"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -4211,7 +4233,7 @@ dependencies = [
 [[package]]
 name = "substrate-trie"
 version = "1.0.0"
-source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#37c3c6c318d2798fd06891bbb143667d04926761"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "hash-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "memory-db 0.12.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5140,7 +5162,7 @@ dependencies = [
 
 [[package]]
 name = "yee"
-version = "1.0.3"
+version = "1.1.0"
 dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "vergen 3.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5265,7 +5287,7 @@ dependencies = [
  "yee-consensus-pow-primitives 0.1.0",
  "yee-context 0.6.0",
  "yee-foreign-chain 0.4.0",
- "yee-merkle 0.4.0",
+ "yee-merkle 0.4.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-runtime 1.0.0",
  "yee-sharding 0.1.0",
  "yee-sharding-primitives 0.1.0",
@@ -5377,7 +5399,7 @@ dependencies = [
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "yee-foreign-network-libp2p 0.4.0",
  "yee-foreign-vnetwork 0.4.0",
- "yee-merkle 0.4.0",
+ "yee-merkle 0.4.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-runtime 1.0.0",
 ]
 
@@ -5429,7 +5451,7 @@ dependencies = [
  "util 0.4.0",
  "yee-foreign-chain 0.4.0",
  "yee-foreign-network 0.4.0",
- "yee-merkle 0.4.0",
+ "yee-merkle 0.4.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-primitives 0.5.0",
  "yee-runtime 1.0.0",
  "yee-sharding-primitives 0.1.0",
@@ -5470,6 +5492,7 @@ dependencies = [
 [[package]]
 name = "yee-merkle"
 version = "0.4.0"
+source = "git+https://github.com/yeeco/substrate.git?branch=yee-v1.0#d50272d115e433f24ff5543ce4fe6453cee41790"
 dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "merkle_light 0.3.1 (git+https://github.com/yeeco/merkle_light.git?branch=yee)",
@@ -5712,7 +5735,7 @@ dependencies = [
  "srml-support 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "srml-system 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-primitives 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
- "yee-merkle 0.4.0",
+ "yee-merkle 0.4.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "yee-sharding-primitives 0.1.0",
  "yee-sr-primitives 0.4.0",
  "yee-srml-balances 0.4.0",
@@ -5800,6 +5823,7 @@ dependencies = [
  "error-chain 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "exit-future 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex-literal 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-client-core 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonrpc-client-http 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5811,6 +5835,8 @@ dependencies = [
  "jsonrpc-ws-server 10.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "relay-monitor 0.1.0",
  "serde 1.0.99 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.93 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.39 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -6385,4 +6411,5 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum x25519-dalek 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "7ee1585dc1484373cbc1cee7aafda26634665cf449436fd6e24bfd1fad230538"
 "checksum xdg 2.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d089681aa106a86fade1b0128fb5daf07d5867a509ab036d99988dec80429a57"
 "checksum yamux 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "01bd67889938c48f0049fc60a77341039e6c3eaf16cb7693e6ead7c0ba701295"
+"checksum yee-merkle 0.4.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)" = "<none>"
 "checksum zeroize 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)" = "8ddfeb6eee2fb3b262ef6e0898a52b7563bb8e0d5955a313b3cf2f808246ea14"
