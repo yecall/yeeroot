@@ -295,7 +295,7 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             format!("Header {:?} not sealed", hash)
         })?;
 
-        //self.check_fork_id(&header, &seal)?;
+        self.check_fork_id(&header, &seal)?;
 
         self.check_pow_target(&header, &seal)?;
 
