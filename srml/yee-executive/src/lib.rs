@@ -34,7 +34,7 @@ use primitives::{ApplyOutcome, ApplyError};
 use primitives::transaction_validity::{TransactionValidity, TransactionPriority, TransactionLongevity};
 use yee_sr_primitives::{RelayParams, OriginExtrinsic, };
 use hash_db::Hasher;
-use substrate_primitives::{H256, Blake2Hasher};
+use substrate_primitives::{H256, Blake2Hasher, U256};
 use merkle_light::merkle::MerkleTree;
 use hashbrown::HashMap;
 use yee_sharding_primitives::utils::shard_num_for;
@@ -468,14 +468,11 @@ impl<
 					}
 				},
 				DigestItemEnum::Consensus(_, data) => {
-					if data.len()>= 32 {
-						let input = &mut &data[data.len()-32..];
-						let relay_proof : Option<H256> = Decode::decode(input);
-						if let Some(relay_proof) = relay_proof{
-							pow_seal = Some(PowSealItem {
-								relay_proof
-							});
-						}
+					let seal = decode_pow_seal(&data);
+					if let Some(seal) = seal {
+						pow_seal = Some(PowSealItem {
+							relay_proof: seal.relay_proof
+						});
 					}
 				},
 				_=> ()
@@ -504,6 +501,100 @@ enum DigestItemEnum{
 	ChangesTrieRoot,
 	Seal,
 	Consensus([u8; 4], Vec<u8>),
+}
+
+struct DummyPowSeal {
+	authority_id: [u8; 32],
+	pow_target: U256,
+	timestamp: u64,
+	work_proof: WorkProof,
+	relay_proof: H256,
+	extra_version: u32,
+	extra: PowSealExtra,
+}
+
+fn decode_pow_seal(bytes: &Vec<u8>) -> Option<DummyPowSeal> {
+	let input = &mut &bytes[..];
+	let decoded : Option<([u8; 32], U256, u64, WorkProof, H256, u32)> = Decode::decode(input);
+
+	match decoded {
+		Some((authority_id, pow_target, timestamp,
+				 work_proof, relay_proof, extra_version)) => { // with extra_version
+			match extra_version {
+				1 => {
+					let extra : PowSealExtra = Decode::decode(input).expect("qed");
+					Some(DummyPowSeal {
+						authority_id,
+						pow_target,
+						timestamp,
+						work_proof,
+						relay_proof,
+						extra_version,
+						extra,
+					})
+				}
+				_ => unreachable!(),
+			}
+		},
+		None => { // without extra_version
+			let input = &mut &bytes[..];
+			let decoded : Option<([u8; 32], U256, u64, WorkProof, H256)> = Decode::decode(input);
+			match decoded {
+				Some((authority_id, pow_target,
+						 timestamp,work_proof, relay_proof)) => {
+					let extra_version = 0;
+					let extra = PowSealExtra {
+						fork_id: None,
+					};
+					Some(DummyPowSeal {
+						authority_id,
+						pow_target,
+						timestamp,
+						work_proof,
+						relay_proof,
+						extra_version,
+						extra,
+					})
+				},
+				None => None,
+			}
+		}
+	}
+}
+
+#[derive(Decode, Encode)]
+pub struct PowSealExtra {
+	pub fork_id: Option<u32>,
+}
+
+#[derive(Decode, Encode)]
+pub enum WorkProof {
+	#[codec(index = "0")]
+	Unknown,
+	#[codec(index = "1")]
+	Nonce(ProofNonce),
+	#[codec(index = "2")]
+	Multi(ProofMulti),
+}
+
+#[derive(Decode, Encode)]
+pub struct ProofNonce {
+	/// Extra Data used to encode miner info AND more entropy
+	pub extra_data: Vec<u8>,
+	/// POW block nonce
+	pub nonce: u64,
+}
+
+#[derive(Decode, Encode)]
+pub struct ProofMulti {
+	/// Extra Data used to encode miner info AND more entropy
+	pub extra_data: [u8; 40],
+	/// merkle root of multi-mining headers
+	pub merkle_root: H256,
+	/// POW block nonce
+	pub nonce: u64,
+	/// merkle proof
+	pub merkle_proof: Vec<H256>,
 }
 
 #[cfg(test)]
