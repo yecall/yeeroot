@@ -75,7 +75,7 @@ mod verifier;
 mod worker;
 mod big_array;
 mod extra_data;
-mod fork;
+pub mod fork;
 // use big_array::BigArray;
 pub use extra_data::ExtraData;
 

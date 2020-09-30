@@ -664,6 +664,8 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	api: Arc<PRA>,
 	validator: bool,
 	import_until: Option<NumberFor<Block>>,
+	chain_spec_id: String,
+	shard_num: u16,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -703,6 +705,8 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			validator,
 			import_until,
 			persistent_data.pending_skip.clone(),
+			chain_spec_id,
+			shard_num,
 		),
 		LinkHalf {
 			client,

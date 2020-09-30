@@ -50,6 +50,7 @@ use runtime_primitives::traits::Digest;
 use std::time;
 use std::cell::Cell;
 use fg_primitives::BLOCK_FINAL_LATENCY;
+use yee_consensus_pow::fork::FORK_CONF;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
 const FINALIZE_TIMEOUT: time::Duration = time::Duration::from_secs(30);
@@ -73,6 +74,8 @@ pub struct CrfgBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 	finalize_status: Arc<RwLock<Option<(NumberFor<Block>, time::Instant)>>>,
 	import_until: Option<NumberFor<Block>>,
 	pending_skip: SharedPendingSkip<NumberFor<Block>>,
+	chain_spec_id: String,
+	shard_num: u16,
 }
 
 impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
@@ -527,6 +530,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 	{
 		let hash = block.post_header().hash();
 		let number = block.header.number().clone();
+		let parent_hash = block.header.parent_hash().clone();
 
 		debug!(target: "afg", "Import block, number: {}, hash: {}, origin: {:?}",
 			   number, hash, block.origin);
@@ -627,6 +631,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			return Ok(ImportResult::Imported(imported_aux));
 		}
 
+		// skip
 		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 			if self.pending_skip.lock().contains(&finalized_number) {
 				let next_number = finalized_number + As::sa(1);
@@ -640,6 +645,48 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 					Ok(_) => (),
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 				}
+			}
+		}
+
+		// fork finalize
+		let chain_spec_id  = self.chain_spec_id.clone();
+		let shard_num = self.shard_num;
+		let maybe_fork = FORK_CONF.iter()
+			.find_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
+				let fork_next_number : NumberFor<Block>  = As::sa(*block_number + 1);
+				if conf_chain_spec_id == &chain_spec_id
+					&& conf_shard_num == &shard_num
+					&& number == fork_next_number {
+					let block_hash = hex::decode(block_hash.trim_start_matches("0x")).expect("");
+					let block_number : NumberFor<Block>  = As::sa(*block_number);
+					Some((block_number, block_hash))
+				}else{
+					None
+				}
+			});
+
+		debug!(target: "afg", "Maybe fork: {:?}", maybe_fork);
+
+		if let Some((fork_block_number, fork_block_hash)) = maybe_fork{
+			if parent_hash.as_ref() != fork_block_hash.as_slice() {
+				return Err(ConsensusErrorKind::ClientImport("fork hash not match".to_string()).into());
+			}
+			// skip from finalized_number + 1 to fork_block_number
+			let mut current_number = finalized_number + As::sa(1);
+			while current_number <= fork_block_number {
+				let current_hash = match self.inner.hash(current_number){
+					Ok(Some(hash)) => hash,
+					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				};
+
+				debug!(target: "afg", "Execute skip when fork, next_number: {}, next_hash: {}", &current_number, current_hash);
+				match self.skip(current_hash, current_number){
+					Ok(_) => (),
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				}
+
+				current_number = current_number + As::sa(1);
 			}
 		}
 
@@ -707,6 +754,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		validator: bool,
 		import_until: Option<NumberFor<Block>>,
 		pending_skip: SharedPendingSkip<NumberFor<Block>>,
+		chain_spec_id: String,
+		shard_num: u16,
 	) -> CrfgBlockImport<B, E, Block, RA, PRA> {
 		CrfgBlockImport {
 			inner,
@@ -718,6 +767,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			finalize_status: Arc::new(RwLock::new(None)),
 			import_until,
 			pending_skip,
+			chain_spec_id,
+			shard_num,
 		}
 	}
 }

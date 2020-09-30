@@ -5323,6 +5323,7 @@ dependencies = [
  "finality-grandpa 0.6.0",
  "fork-tree 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "futures 0.1.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "hex 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-codec 3.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "parking_lot 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5339,6 +5340,7 @@ dependencies = [
  "substrate-telemetry 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "substrate-test-client 1.0.0 (git+https://github.com/yeeco/substrate.git?branch=yee-v1.0)",
  "tokio 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
+ "yee-consensus-pow 0.1.0",
  "yee-srml-crfg 1.0.0",
 ]
 

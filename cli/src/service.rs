@@ -414,6 +414,8 @@ construct_service_factory! {
 
                     let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
                         client.clone(), client.clone(), validator, import_until,
+                        config.chain_spec.id().to_string(),
+                        config.custom.shard_num,
                     )?;
 
                     let block_import = Arc::new(block_import);
@@ -450,6 +452,8 @@ construct_service_factory! {
 
                     let (block_import, _) = crfg::block_import::<_, _, _, RuntimeApi, LightClient<Self>>(
                         client.clone(), client.clone(), false, import_until,
+                        config.chain_spec.id().to_string(),
+                        config.custom.shard_num,
                     )?;
 
                     let block_import = Arc::new(block_import);
