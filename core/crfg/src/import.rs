@@ -562,6 +562,67 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		let skip = self.check_skip(&mut block, finalized_number)?;
 		let pending_changes = self.make_authorities_changes(&mut block, hash)?;
 
+
+		// skip
+		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
+			if self.pending_skip.lock().contains(&finalized_number) {
+				let next_number = finalized_number + As::sa(1);
+				let next_hash = match self.inner.hash(next_number){
+					Ok(Some(hash)) => hash,
+					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				};
+				debug!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
+				match self.skip(next_hash, next_number){
+					Ok(_) => (),
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				}
+			}
+		}
+
+		// fork finalize
+		let chain_spec_id  = self.chain_spec_id.clone();
+		let shard_num = self.shard_num;
+		let maybe_fork = FORK_CONF.iter()
+			.find_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
+				let fork_next_number : NumberFor<Block>  = As::sa(*block_number + 1);
+				if conf_chain_spec_id == &chain_spec_id
+					&& conf_shard_num == &shard_num
+					&& number == fork_next_number {
+					let block_hash = hex::decode(block_hash.trim_start_matches("0x")).expect("");
+					let block_number : NumberFor<Block>  = As::sa(*block_number);
+					Some((block_number, block_hash))
+				}else{
+					None
+				}
+			});
+
+		debug!(target: "afg", "Maybe fork: {:?}", maybe_fork);
+
+		if let Some((fork_block_number, fork_block_hash)) = maybe_fork{
+			if parent_hash.as_ref() != fork_block_hash.as_slice() {
+				return Err(ConsensusErrorKind::ClientImport("fork hash not match".to_string()).into());
+			}
+			// skip from finalized_number + 1 to fork_block_number
+			let mut current_number = finalized_number + As::sa(1);
+			while current_number <= fork_block_number {
+				let current_hash = match self.inner.hash(current_number){
+					Ok(Some(hash)) => hash,
+					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				};
+
+				debug!(target: "afg", "Execute skip when fork, next_number: {}, next_hash: {}", &current_number, current_hash);
+				match self.skip(current_hash, current_number){
+					Ok(_) => (),
+					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+				}
+
+				current_number = current_number + As::sa(1);
+			}
+		}
+
+
 		// we don't want to finalize on `inner.import_block`
 		let mut justification = block.justification.take();
 		let enacts_consensus_change = !new_cache.is_empty();
@@ -633,64 +694,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			return Ok(ImportResult::Imported(imported_aux));
 		}
 
-		// skip
-		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
-			if self.pending_skip.lock().contains(&finalized_number) {
-				let next_number = finalized_number + As::sa(1);
-				let next_hash = match self.inner.hash(next_number){
-					Ok(Some(hash)) => hash,
-					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				};
-				debug!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
-				match self.skip(next_hash, next_number){
-					Ok(_) => (),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				}
-			}
-		}
 
-		// fork finalize
-		let chain_spec_id  = self.chain_spec_id.clone();
-		let shard_num = self.shard_num;
-		let maybe_fork = FORK_CONF.iter()
-			.find_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
-				let fork_next_number : NumberFor<Block>  = As::sa(*block_number + 1);
-				if conf_chain_spec_id == &chain_spec_id
-					&& conf_shard_num == &shard_num
-					&& number == fork_next_number {
-					let block_hash = hex::decode(block_hash.trim_start_matches("0x")).expect("");
-					let block_number : NumberFor<Block>  = As::sa(*block_number);
-					Some((block_number, block_hash))
-				}else{
-					None
-				}
-			});
-
-		debug!(target: "afg", "Maybe fork: {:?}", maybe_fork);
-
-		if let Some((fork_block_number, fork_block_hash)) = maybe_fork{
-			if parent_hash.as_ref() != fork_block_hash.as_slice() {
-				return Err(ConsensusErrorKind::ClientImport("fork hash not match".to_string()).into());
-			}
-			// skip from finalized_number + 1 to fork_block_number
-			let mut current_number = finalized_number + As::sa(1);
-			while current_number <= fork_block_number {
-				let current_hash = match self.inner.hash(current_number){
-					Ok(Some(hash)) => hash,
-					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				};
-
-				debug!(target: "afg", "Execute skip when fork, next_number: {}, next_hash: {}", &current_number, current_hash);
-				match self.skip(current_hash, current_number){
-					Ok(_) => (),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				}
-
-				current_number = current_number + As::sa(1);
-			}
-		}
 
 		debug!(target: "afg", "Import justification, number: {}, hash: {}, has_justification: {}", number, hash, justification.is_some());
 
