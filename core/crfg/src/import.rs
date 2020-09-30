@@ -557,10 +557,35 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		};
 		let finalized_number = chain_info.finalized_number;
 
+		// check skip
 		debug!(target: "afg", "Check skip, number: {}, hash: {}, finalized_number: {}", number, hash, finalized_number);
-
 		let skip = self.check_skip(&mut block, finalized_number)?;
+
+		// check pending_changes
 		let pending_changes = self.make_authorities_changes(&mut block, hash)?;
+
+		// check fork
+		let chain_spec_id  = self.chain_spec_id.clone();
+		let shard_num = self.shard_num;
+		let maybe_fork = FORK_CONF.iter()
+			.find_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
+				let fork_next_number : NumberFor<Block>  = As::sa(*block_number + 1);
+				if conf_chain_spec_id == &chain_spec_id
+					&& conf_shard_num == &shard_num
+					&& number == fork_next_number {
+					let block_hash = hex::decode(block_hash.trim_start_matches("0x")).expect("");
+					let block_number : NumberFor<Block>  = As::sa(*block_number);
+					Some((block_number, block_hash))
+				}else{
+					None
+				}
+			});
+		debug!(target: "afg", "Maybe fork: {:?}", maybe_fork);
+		if let Some((fork_block_number, fork_block_hash)) = &maybe_fork {
+			if parent_hash.as_ref() != fork_block_hash.as_slice() {
+				return Err(ConsensusErrorKind::ClientImport("fork hash not match".to_string()).into());
+			}
+		}
 
 		// we don't want to finalize on `inner.import_block`
 		let mut justification = block.justification.take();
@@ -583,7 +608,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			}
 		};
 
-		// skip
+		// execute skip
 		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 			if self.pending_skip.lock().contains(&finalized_number) {
 				let next_number = finalized_number + As::sa(1);
@@ -600,25 +625,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			}
 		}
 
-		// fork finalize
-		let chain_spec_id  = self.chain_spec_id.clone();
-		let shard_num = self.shard_num;
-		let maybe_fork = FORK_CONF.iter()
-			.find_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
-				let fork_next_number : NumberFor<Block>  = As::sa(*block_number + 1);
-				if conf_chain_spec_id == &chain_spec_id
-					&& conf_shard_num == &shard_num
-					&& number == fork_next_number {
-					let block_hash = hex::decode(block_hash.trim_start_matches("0x")).expect("");
-					let block_number : NumberFor<Block>  = As::sa(*block_number);
-					Some((block_number, block_hash))
-				}else{
-					None
-				}
-			});
-
-		debug!(target: "afg", "Maybe fork: {:?}", maybe_fork);
-
+		// execute fork
 		if let Some((fork_block_number, fork_block_hash)) = maybe_fork{
 			if parent_hash.as_ref() != fork_block_hash.as_slice() {
 				return Err(ConsensusErrorKind::ClientImport("fork hash not match".to_string()).into());
