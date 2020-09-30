@@ -16,9 +16,9 @@
 // along with YeeChain.  If not, see <https://www.gnu.org/licenses/>.
 
 /// (chain_spec_id, shard_num) => (block_number, block_hash, fork_id)
-pub const FORK_CONF : [((&str, u16), (u64, &str, u32)); 4] = [
-    (("mainnet", 0),  ( 143054, "0x32e65deeaf15cd7b8f308c6b065aab06956f804ef0279506876adf98f99e4db2", 1)),
-    (("mainnet", 1),  ( 143104, "0x841eef9a70ce91fd2a740eb1dc91795111154caa77897596317a1ac3d022ebef", 1)),
-    (("mainnet", 2),  ( 143088, "0x1998d592983ecc9285df16d1c0994e8310ad3c0bb362915d11d1eb7f473c2054", 1)),
-    (("mainnet", 3),  ( 142547, "0x875315ab95daa46d48818ef366b426b68c78df01949882655a35abb1b97bc021", 1)),
+pub const FORK_CONF : [((&str, u16), (u64, &str, u32)); 1] = [
+    // (("mainnet", 0),  ( 143054, "0x32e65deeaf15cd7b8f308c6b065aab06956f804ef0279506876adf98f99e4db2", 1)),
+    // (("mainnet", 1),  ( 143104, "0x841eef9a70ce91fd2a740eb1dc91795111154caa77897596317a1ac3d022ebef", 1)),
+    // (("mainnet", 2),  ( 143088, "0x1998d592983ecc9285df16d1c0994e8310ad3c0bb362915d11d1eb7f473c2054", 1)),
+    (("mainnet", 3),  ( 142000, "0x8f76fd27f659fcdca7f597606e3322f6aa461b492395e68cd76bab585f7a07c9", 1)),
 ];
