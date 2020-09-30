@@ -48,9 +48,12 @@ use yee_merkle::{ProofHash, ProofAlgorithm, MultiLayerProof};
 use ansi_term::Colour;
 use yee_context::Context;
 use yee_sr_primitives::{RelayTypes, OriginExtrinsic};
+use crate::fork::FORK_CONF;
 
 /// Max length in bytes for pow extra data
 pub const MAX_EXTRA_DATA_LENGTH: usize = 32;
+
+pub const EXTRA_VERSION: u32 = 1;
 
 /// POW consensus seal
 #[derive(Clone, Debug, Decode, Encode)]
@@ -60,6 +63,78 @@ pub struct PowSeal<B: Block, AuthorityId: Decode + Encode + Clone> {
     pub timestamp: u64,
     pub work_proof: WorkProof<B>,
     pub relay_proof: H256,
+    pub extra_version: u32,
+    pub extra: PowSealExtra,
+}
+
+/// version 1
+#[derive(Clone, Debug, Decode, Encode)]
+pub struct PowSealExtra {
+    pub fork_id: Option<u32>,
+}
+
+pub fn encode_pow_seal<B: Block, AuthorityId: Decode + Encode + Clone>(pow_seal: PowSeal<B, AuthorityId>) -> Vec<u8> {
+
+    match pow_seal.extra_version {
+        0 => {
+            let payload = (pow_seal.authority_id, pow_seal.pow_target, pow_seal.timestamp, pow_seal.work_proof, pow_seal.relay_proof);
+            payload.encode()
+        },
+        1 => {
+            pow_seal.encode()
+        }
+        _ => unreachable!(),
+    }
+}
+
+pub fn decode_pow_seal<B: Block, AuthorityId: Decode + Encode + Clone>(bytes: &Vec<u8>) -> Option<PowSeal<B, AuthorityId>> {
+
+    let input = &mut &bytes[..];
+    let decoded : Option<(AuthorityId, PowTarget, u64, WorkProof<B>, H256, u32)> = Decode::decode(input);
+
+    match decoded {
+        Some((authority_id, pow_target, timestamp,
+                 work_proof, relay_proof, extra_version)) => { // with extra_version
+            match extra_version {
+                1 => {
+                    let extra : PowSealExtra = Decode::decode(input).expect("qed");
+                    Some(PowSeal {
+                        authority_id,
+                        pow_target,
+                        timestamp,
+                        work_proof,
+                        relay_proof,
+                        extra_version,
+                        extra,
+                    })
+                }
+                _ => unreachable!(),
+            }
+        },
+        None => { // without extra_version
+            let input = &mut &bytes[..];
+            let decoded : Option<(AuthorityId, PowTarget, u64, WorkProof<B>, H256)> = Decode::decode(input);
+            match decoded {
+                Some((authority_id, pow_target,
+                         timestamp,work_proof, relay_proof)) => {
+                    let extra_version = 0;
+                    let extra = PowSealExtra {
+                        fork_id: None,
+                    };
+                    Some(PowSeal {
+                        authority_id,
+                        pow_target,
+                        timestamp,
+                        work_proof,
+                        relay_proof,
+                        extra_version,
+                        extra,
+                    })
+                },
+                None => None,
+            }
+        }
+    }
 }
 
 /// POW proof used in block header
@@ -161,6 +236,8 @@ pub fn check_work_proof<B, AuthorityId>(header: &B::Header, seal: &PowSeal<B, Au
                 timestamp: seal.timestamp,
                 work_proof: WorkProof::Unknown,
                 relay_proof: seal.relay_proof.clone(),
+                extra_version: seal.extra_version,
+                extra: seal.extra.clone(),
             };
             let mut header_with_pow_seal = header.clone();
             let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());

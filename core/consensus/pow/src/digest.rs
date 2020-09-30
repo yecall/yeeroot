@@ -28,6 +28,7 @@ use runtime_primitives::{
 };
 use pow_primitives::YEE_POW_ENGINE_ID;
 use super::PowSeal;
+use crate::pow::{decode_pow_seal, encode_pow_seal};
 
 /// Digest item acts as a valid POW consensus digest.
 pub trait CompatibleDigestItem<B: Block, AuthorityId: Decode + Encode + Clone>: Sized {
@@ -43,12 +44,12 @@ impl<B, Hash, AuthorityId, SealSignature> CompatibleDigestItem<B, AuthorityId> f
     AuthorityId: Decode + Encode + Clone,
 {
     fn pow_seal(seal: PowSeal<B, AuthorityId>) -> Self {
-        DigestItem::Consensus(YEE_POW_ENGINE_ID, seal.encode())
+        DigestItem::Consensus(YEE_POW_ENGINE_ID, encode_pow_seal(seal))
     }
 
     fn as_pow_seal(&self) -> Option<PowSeal<B, AuthorityId>> {
         match self {
-            DigestItem::Consensus(YEE_POW_ENGINE_ID, seal) => Decode::decode(&mut &seal[..]),
+            DigestItem::Consensus(YEE_POW_ENGINE_ID, seal) => decode_pow_seal(seal),
             _ => None
         }
     }

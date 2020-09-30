@@ -51,7 +51,7 @@ use {
 	},
     inherents::InherentDataProviders,
     runtime_primitives::{
-        generic, traits::{Block, Digest, DigestItemFor, Header, NumberFor, ProvideRuntimeApi},
+        generic, traits::{Block, Digest, DigestItemFor, Header, NumberFor, ProvideRuntimeApi, As},
     },
 };
 use {
@@ -70,8 +70,9 @@ use yee_sharding::{ScaleOutPhaseDigestItem, ShardingDigestItem};
 use yee_sr_primitives::{OriginExtrinsic, RelayParams};
 
 use crate::{CompatibleDigestItem, PowSeal, ShardExtra, WorkProof};
-use crate::pow::{calc_pow_target, check_work_proof, gen_extrinsic_proof};
+use crate::pow::{calc_pow_target, check_work_proof, gen_extrinsic_proof, EXTRA_VERSION, PowSealExtra};
 use crate::verifier::check_scale;
+use crate::fork::FORK_CONF;
 
 #[derive(Clone)]
 pub struct DefaultJob<B: Block, AuthorityId: Decode + Encode + Clone> {
@@ -123,6 +124,7 @@ pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I, F> where
     shard_extra: ShardExtra<AccountId>,
     context: Context<B>,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
+    chain_spec_id: String,
     phantom: PhantomData<B>,
 }
 
@@ -149,6 +151,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
         shard_extra: ShardExtra<AccountId>,
         context: Context<B>,
         foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
+        chain_spec_id: String,
     ) -> Self {
         Self {
             client,
@@ -160,6 +163,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
             context,
             foreign_chains,
             phantom: PhantomData,
+            chain_spec_id,
         }
     }
 }
@@ -209,6 +213,9 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
         let authority_id = self.authority_id.clone();
         let context = self.context.clone();
 
+        let shard_num = self.shard_extra.shard_num;
+        let chain_spec_id = self.chain_spec_id.clone();
+
         let build_job = move |(block, exe_result): (B, Vec<bool>)| {
             let (header, body) = block.deconstruct();
             let header_num = header.number().clone();
@@ -220,12 +227,31 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
             // generate proof
             let (relay_proof, proof) = gen_extrinsic_proof::<B>(&header, &body, exe_result);
             debug!("height: {:?}, proof's len={:?}", header_num, proof.len());
+
+            // find first fork_id
+            let fork_id = FORK_CONF.iter()
+                .filter_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
+                    if conf_chain_spec_id == &chain_spec_id && conf_shard_num == &shard_num && header_num > As::sa(*block_number) {
+                        Some(*fork_id)
+                    }else{
+                        None
+                    }
+                }).last();
+            debug!("fork_id: {:?}", fork_id);
+
+            let extra_version = EXTRA_VERSION;
+            let extra = PowSealExtra {
+                fork_id,
+            };
+
             let pow_seal = PowSeal {
                 authority_id,
                 pow_target,
                 timestamp,
                 work_proof,
                 relay_proof,
+                extra_version,
+                extra,
             };
             let mut header_with_pow_seal = header.clone();
             let item = <DigestItemFor<B> as CompatibleDigestItem<B, AuthorityId>>::pow_seal(pow_seal.clone());

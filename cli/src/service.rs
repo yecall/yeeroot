@@ -383,6 +383,7 @@ construct_service_factory! {
                             trigger_exit: service.config.custom.trigger_exit.clone().expect("qed"),
                         },
                         context: service.config.custom.context.clone().expect("qed"),
+                        chain_spec_id: service.config.chain_spec.id().to_string(),
                     };
 
                     executor.spawn(start_pow::<Self, Self::Block, _, _, _, _, _, _, _>(
@@ -437,6 +438,7 @@ construct_service_factory! {
                             trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
                         },
                         config.custom.context.clone().expect("qed"),
+                        config.chain_spec.id().to_string(),
                     ).map_err(Into::into)
                 }
             },
@@ -468,6 +470,7 @@ construct_service_factory! {
                             trigger_exit: config.custom.trigger_exit.clone().expect("qed"),
                         },
                         config.custom.context.clone().expect("qed"),
+                        config.chain_spec.id().to_string(),
                     ).map_err(Into::into)
 
                     // import_queue::<Self, _,  _, <Pair as PairT>::Public>(

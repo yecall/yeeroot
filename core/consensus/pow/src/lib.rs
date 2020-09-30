@@ -75,6 +75,7 @@ mod verifier;
 mod worker;
 mod big_array;
 mod extra_data;
+mod fork;
 // use big_array::BigArray;
 pub use extra_data::ExtraData;
 
@@ -84,7 +85,8 @@ pub struct Params<AccountId, B> where
     pub force_authoring: bool,
     pub mine: bool,
     pub shard_extra: ShardExtra<AccountId>,
-    pub context: Context<B>
+    pub context: Context<B>,
+    pub chain_spec_id: String,
 }
 
 pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
@@ -127,6 +129,7 @@ pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
         params.shard_extra.clone(),
         params.context.clone(),
         foreign_chains.clone(),
+        params.chain_spec_id.clone(),
     ));
 
     let mut reg_lock = job_manager.write();
@@ -180,6 +183,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     shard_extra: ShardExtra<AccountId>,
     context: Context<F::Block>,
+    chain_spec_id: String,
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
     H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
@@ -208,6 +212,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
             phantom: PhantomData,
             shard_extra,
             context,
+            chain_spec_id,
         }
     );
     Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import))
