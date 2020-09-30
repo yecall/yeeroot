@@ -562,6 +562,26 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		let skip = self.check_skip(&mut block, finalized_number)?;
 		let pending_changes = self.make_authorities_changes(&mut block, hash)?;
 
+		// we don't want to finalize on `inner.import_block`
+		let mut justification = block.justification.take();
+		let enacts_consensus_change = !new_cache.is_empty();
+		let import_result = self.inner.import_block(block, new_cache);
+
+		let mut imported_aux = {
+			match import_result {
+				Ok(ImportResult::Imported(aux)) => aux,
+				Ok(r) => {
+					debug!(target: "afg", "Restoring old authority set after block import result: {:?}", r);
+					pending_changes.revert();
+					return Ok(r);
+				},
+				Err(e) => {
+					debug!(target: "afg", "Restoring old authority set after block import error: {:?}", e);
+					pending_changes.revert();
+					return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
+				},
+			}
+		};
 
 		// skip
 		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
@@ -621,28 +641,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				current_number = current_number + As::sa(1);
 			}
 		}
-
-
-		// we don't want to finalize on `inner.import_block`
-		let mut justification = block.justification.take();
-		let enacts_consensus_change = !new_cache.is_empty();
-		let import_result = self.inner.import_block(block, new_cache);
-
-		let mut imported_aux = {
-			match import_result {
-				Ok(ImportResult::Imported(aux)) => aux,
-				Ok(r) => {
-					debug!(target: "afg", "Restoring old authority set after block import result: {:?}", r);
-					pending_changes.revert();
-					return Ok(r);
-				},
-				Err(e) => {
-					debug!(target: "afg", "Restoring old authority set after block import error: {:?}", e);
-					pending_changes.revert();
-					return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
-				},
-			}
-		};
 
 		let (applied_changes, do_pause) = pending_changes.defuse();
 
