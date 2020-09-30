@@ -127,6 +127,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 	}
 
 	fn on_tick(&self, link: &(dyn ::consensus_common::import_queue::Link<Block>)) {
+		/*
 		let info = match self.inner.info(){
 			Ok(info) => info,
 			Err(e) => {
@@ -165,6 +166,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 			//clear status to avoid request justification too often
 			*self.finalize_status.write() = None;
 		}
+		*/
 
 	}
 
