@@ -613,7 +613,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		debug!(target: "afg", "Applied changes, number: {}, hash: {}, applied_changes: {:?}", number, hash, applied_changes);
 
 		// execute skip
-		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
+		if maybe_fork.is_none() && finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 			if self.pending_skip.lock().contains(&finalized_number) {
 				let next_number = finalized_number + As::sa(1);
 				let next_hash = match self.inner.hash(next_number){
