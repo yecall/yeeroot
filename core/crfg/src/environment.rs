@@ -350,8 +350,12 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 	E: CallExecutor<Block, Blake2Hasher> + Send + Sync,
 	RA: Send + Sync,
 {
+	debug!(target: "afg", "into finalize_block");
+
 	// lock must be held through writing to DB to avoid race
 	let mut authority_set = authority_set.inner().write();
+
+	debug!(target: "afg", "after authority_set");
 
 	// FIXME #1483: clone only when changed
 	let old_authority_set = authority_set.clone();
