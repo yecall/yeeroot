@@ -366,9 +366,6 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 	};
 
 	let mut pending_skip = pending_skip.lock();
-	pending_skip.retain(|x| x>=&number );
-
-	debug!(target: "afg", "Finalizing pending skip: {:?}", *pending_skip);
 
 	let update_res: Result<_, Error> = client.lock_import_and_run(|import_op| {
 		let status = authority_set.apply_standard_changes(
@@ -398,6 +395,9 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		}
 
 		// pending skip
+		pending_skip.retain(|x| x>=&number );
+		debug!(target: "afg", "Finalizing pending skip: {:?}", *pending_skip);
+
 		let write_result = crate::aux_schema::update_pending_skip(&*pending_skip,
 				|insert| client.apply_aux(import_op, insert, &[]),);
 		if let Err(e) = write_result {

@@ -642,7 +642,10 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				debug!(target: "afg", "Execute skip when fork, next_number: {}, next_hash: {}", &current_number, current_hash);
 				match self.skip(current_hash, current_number){
 					Ok(_) => (),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					Err(e) => {
+						debug!(target: "afg", "Execute skip when fork, failed, next_number: {}, next_hash: {}, e: {}", &current_number, current_hash, e);
+						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
+					},
 				}
 
 				current_number = current_number + As::sa(1);
@@ -861,6 +864,8 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	) -> Result<(), ConsensusError> {
 
 		let justification = CrfgJustification::default_justification(hash.clone(), number);
+
+		debug!(target: "afg", "Skip finalize_block: {} {}", number, &hash);
 
 		let result = finalize_block(
 			&*self.inner,
