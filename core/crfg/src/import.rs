@@ -608,6 +608,10 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			}
 		};
 
+		let (applied_changes, do_pause) = pending_changes.defuse();
+
+		debug!(target: "afg", "Applied changes, number: {}, hash: {}, applied_changes: {:?}", number, hash, applied_changes);
+
 		// execute skip
 		if finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 			if self.pending_skip.lock().contains(&finalized_number) {
@@ -651,10 +655,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				current_number = current_number + As::sa(1);
 			}
 		}
-
-		let (applied_changes, do_pause) = pending_changes.defuse();
-
-		debug!(target: "afg", "Applied changes, number: {}, hash: {}, applied_changes: {:?}", number, hash, applied_changes);
 
 		// Send the pause signal after import but BEFORE sending a `ChangeAuthorities` message.
 		if do_pause {
