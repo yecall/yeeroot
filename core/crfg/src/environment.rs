@@ -365,14 +365,23 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		canonical_at_height(client, (hash, number), true, canon_number)
 	};
 
+	debug!(target: "afg", "after consensus_changes lock");
+
 	let mut pending_skip = pending_skip.lock();
 
+	debug!(target: "afg", "after pending_skip lock");
+
 	let update_res: Result<_, Error> = client.lock_import_and_run(|import_op| {
+
+		debug!(target: "afg", "into lock_import_and_run");
+
 		let status = authority_set.apply_standard_changes(
 			hash,
 			number,
 			&is_descendent_of(client, None),
 		).map_err(|e| Error::Safety(e.to_string()))?;
+
+		debug!(target: "afg", "after apply_standard_changes");
 
 		// check if this is this is the first finalization of some consensus changes
 		let (alters_consensus_changes, finalizes_consensus_changes) = consensus_changes
@@ -394,6 +403,8 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 			}
 		}
 
+		debug!(target: "afg", "after alters_consensus_changes");
+
 		// pending skip
 		pending_skip.retain(|x| x>=&number );
 		debug!(target: "afg", "Finalizing pending skip: {:?}", *pending_skip);
@@ -406,6 +417,8 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 
 			return Err(e.into());
 		}
+
+		debug!(target: "afg", "after update_pending_skip");
 
 		// NOTE: this code assumes that honest voters will never vote past a
 		// transition block, thus we don't have to worry about the case where
