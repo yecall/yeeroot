@@ -44,7 +44,7 @@ use crate::{
 };
 
 use crate::authorities::SharedAuthoritySet;
-use crate::consensus_changes::SharedConsensusChanges;
+use crate::consensus_changes::{SharedConsensusChanges, SharedPendingSkip};
 use crate::justification::CrfgJustification;
 use crate::until_imported::UntilVoteTargetImported;
 
@@ -88,6 +88,7 @@ pub(crate) struct Environment<B, E, Block: BlockT, N: Network<Block>, RA> {
 	pub(crate) network: N,
 	pub(crate) set_id: u64,
 	pub(crate) last_completed: LastCompletedRound<Block::Hash, NumberFor<Block>>,
+	pub(crate) pending_skip: SharedPendingSkip<NumberFor<Block>>,
 }
 
 impl<Block: BlockT<Hash=H256>, B, E, N, RA> grandpa::Chain<Block::Hash, NumberFor<Block>> for Environment<B, E, Block, N, RA> where
@@ -281,6 +282,7 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 			hash,
 			number,
 			(round, commit).into(),
+			&self.pending_skip,
 		)
 	}
 
@@ -342,6 +344,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 	hash: Block::Hash,
 	number: NumberFor<Block>,
 	justification_or_commit: JustificationOrCommit<Block>,
+	pending_skip: &SharedPendingSkip<NumberFor<Block>>,
 ) -> Result<(), CommandOrError<Block::Hash, NumberFor<Block>>> where
 	B: Backend<Block, Blake2Hasher>,
 	E: CallExecutor<Block, Blake2Hasher> + Send + Sync,
@@ -362,7 +365,10 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		canonical_at_height(client, (hash, number), true, canon_number)
 	};
 
+	let mut pending_skip = pending_skip.lock();
+
 	let update_res: Result<_, Error> = client.lock_import_and_run(|import_op| {
+
 		let status = authority_set.apply_standard_changes(
 			hash,
 			number,
@@ -387,6 +393,19 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 
 				return Err(e.into());
 			}
+		}
+
+		// pending skip
+		pending_skip.retain(|x| x>=&number );
+		debug!(target: "afg", "Finalizing pending skip: {:?}", *pending_skip);
+
+		let write_result = crate::aux_schema::update_pending_skip(&*pending_skip,
+				|insert| client.apply_aux(import_op, insert, &[]),);
+		if let Err(e) = write_result {
+			warn!(target: "finality", "Failed to write updated pending skio to disk. Bailing.");
+			warn!(target: "finality", "Node is in a potentially inconsistent state.");
+
+			return Err(e.into());
 		}
 
 		// NOTE: this code assumes that honest voters will never vote past a

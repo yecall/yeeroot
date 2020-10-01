@@ -25,6 +25,8 @@ grandpa = { package = "finality-grandpa", version = "0.6.0", path = "../finality
 srml-crfg = { package = "yee-srml-crfg", path = "../../srml/yee-crfg" }
 srml-finality-tracker = { package = "srml-finality-tracker", path = "../../srml/yee-tracker" }
 ansi_term = "0.11"
+yee-consensus-pow = { path = "../consensus/pow"}
+hex = "0.3.1"
 
 [dev-dependencies]
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

@@ -55,6 +55,7 @@ use {
             Header,
             NumberFor,
             ProvideRuntimeApi,
+            As,
         },
     },
     // util::relay_decode::RelayTransfer,
@@ -72,6 +73,7 @@ use crate::pow::{calc_pow_target, check_work_proof, gen_extrinsic_proof, PowSeal
 use crate::ShardExtra;
 
 use super::CompatibleDigestItem;
+use crate::fork::FORK_CONF;
 
 /// Verifier for POW blocks.
 pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
@@ -81,6 +83,7 @@ pub struct PowVerifier<F: ServiceFactory, C, AccountId, AuthorityId> {
     pub phantom: PhantomData<AuthorityId>,
     pub shard_extra: ShardExtra<AccountId>,
     pub context: Context<F::Block>,
+    pub chain_spec_id: String,
 }
 
 #[forbid(deprecated)]
@@ -292,6 +295,8 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
             format!("Header {:?} not sealed", hash)
         })?;
 
+        self.check_fork_id(&header, &seal)?;
+
         self.check_pow_target(&header, &seal)?;
 
         self.check_shard_info(&header)?;
@@ -301,6 +306,33 @@ impl<F, C, AccountId, AuthorityId> PowVerifier<F, C, AccountId, AuthorityId> whe
         check_work_proof(&header, &seal)?;
 
         Ok((header, digest_item))
+    }
+
+    /// check fork_id
+    fn check_fork_id(&self, header: &<F::Block as Block>::Header, seal: &PowSeal<F::Block, AuthorityId>) -> Result<(), String> {
+
+        let header_num = header.number().clone();
+        let chain_spec_id = self.chain_spec_id.clone();
+        let shard_num = self.shard_extra.shard_num;
+
+        // check fork_id
+        let fork_id = seal.extra.fork_id;
+        let expect_fork_id =  FORK_CONF.iter()
+            .filter_map(|((conf_chain_spec_id, conf_shard_num), (block_number, block_hash, fork_id))| {
+                if conf_chain_spec_id == &chain_spec_id && conf_shard_num == &shard_num && header_num > As::sa(*block_number) {
+                    Some(*fork_id)
+                }else{
+                    None
+                }
+            }).last();
+
+        debug!("Verify fork_id: {:?}, expected: {:?}", fork_id, expect_fork_id);
+
+        if fork_id == expect_fork_id {
+            Ok(())
+        }else{
+            Err("Invalid fork id".to_string())
+        }
     }
 
     /// check pow_target in seal
