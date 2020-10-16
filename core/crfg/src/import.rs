@@ -38,7 +38,7 @@ use runtime_primitives::traits::{
 };
 use substrate_primitives::{H256, ed25519, Blake2Hasher};
 
-use crate::{Error, CommandOrError, NewAuthoritySet, VoterCommand};
+use crate::{Error, CommandOrError, NewAuthoritySet, VoterCommand, SyncState};
 use crate::authorities::{AuthoritySet, SharedAuthoritySet, DelayKind, PendingChange};
 use crate::consensus_changes::{SharedConsensusChanges, SharedPendingSkip};
 use crate::environment::{finalize_block, is_descendent_of};
@@ -770,7 +770,14 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		pending_skip: SharedPendingSkip<NumberFor<Block>>,
 		chain_spec_id: String,
 		shard_num: u16,
+		sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<Block>>>>>,
 	) -> CrfgBlockImport<B, E, Block, RA, PRA> {
+
+		let mut sync_state = sync_state.write();
+		sync_state.insert(shard_num, SyncState{
+			pending_skip: pending_skip.clone(),
+		});
+
 		CrfgBlockImport {
 			inner,
 			authority_set,

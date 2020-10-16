@@ -43,9 +43,10 @@ use parity_codec::{Decode, Encode, Codec};
 use serde::de::Unexpected::Other;
 use futures::sync::mpsc;
 use yee_primitives::{RecommitRelay, Hrp};
-use crfg::CrfgState;
+use crfg::{CrfgState, SyncState};
 use yee_foreign_network::SyncProvider;
 use serde::Serialize;
+use parity_codec::alloc::collections::HashMap;
 
 pub struct FullRpcHandlerConstructor;
 
@@ -64,6 +65,8 @@ where B: BlockT
 
     fn provide_config(&self) -> Arc<Config>;
 
+    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>;
+
 }
 
 #[derive(Clone, Serialize)]
@@ -80,6 +83,7 @@ where B: BlockT {
     crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
     foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
     config: Arc<Config>,
+    sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>,
 }
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
@@ -104,6 +108,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             crfg_state: config.custom.provide_crfg_state(),
             foreign_network: config.custom.provide_foreign_network(),
             config: config.custom.provide_config(),
+            sync_state: config.custom.provide_sync_state(),
         }
     }
 
@@ -148,6 +153,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             extra.foreign_network.clone(),
             client.clone(),
             extra.config.clone(),
+            extra.sync_state.clone(),
         );
         io.extend_with(misc.to_delegate());
 

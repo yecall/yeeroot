@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use yee_primitives::RecommitRelay;
 use futures::sync::mpsc;
 use parking_lot::RwLock;
-use crfg::CrfgState;
+use crfg::{CrfgState, SyncState};
 use std::time::Duration;
 use substrate_primitives::{Bytes, H256, Blake2Hasher};
 use transaction_pool::txpool::{Pool, ChainApi as PoolChainApi};
@@ -46,6 +46,9 @@ pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "chain_getRelayProof")]
 	fn get_relay_proof(&self, hash: Option<Hash>) -> errors::Result<Option<Bytes>>;
 
+	#[rpc(name = "sync_state")]
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<Number>>>;
+
 }
 
 pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
@@ -55,6 +58,7 @@ pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
 	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 	client: Arc<Client<Backend, E, B, RA>>,
 	config: Arc<Config>,
+	sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>,
 }
 
 impl<P: PoolChainApi, B, H, Backend, E, RA> Misc<P, B, H, Backend, E, RA>
@@ -72,6 +76,7 @@ where
 		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 		client: Arc<Client<Backend, E, B, RA>>,
 		config: Arc<Config>,
+		sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
@@ -80,6 +85,7 @@ where
 			foreign_network,
 			client,
 			config,
+			sync_state,
 		}
 	}
 
@@ -159,6 +165,13 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		let proof = proof.map(|x|Bytes(x));
 		Ok(proof)
 	}
+
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<NumberFor<B>>>> {
+		let state = self.sync_state.read().iter().map(|(k, v)|{
+			(*k, v.clone().into())
+		}).collect::<HashMap<_, _>>();
+		Ok(state)
+	}
 }
 
 mod types {
@@ -188,6 +201,11 @@ mod types {
 		pub local_key_public: Option<Public>,
 		pub local_next_key_public: Option<Public>,
 		pub name: Option<String>,
+	}
+
+	#[derive(Serialize)]
+	pub struct SyncState<N> {
+		pub pending_skip: Vec<N>,
 	}
 
 	#[derive(Serialize)]
@@ -286,6 +304,14 @@ mod types {
 				finalized: t.finalized,
 				estimate: t.estimate,
 				completable: t.completable,
+			}
+		}
+	}
+
+	impl<N: Clone> From<crfg::SyncState<N>> for SyncState<N> {
+		fn from(t: crfg::SyncState<N>) -> SyncState<N> {
+			SyncState {
+				pending_skip: (*t.pending_skip.lock()).clone(),
 			}
 		}
 	}

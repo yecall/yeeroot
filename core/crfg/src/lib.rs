@@ -115,6 +115,7 @@ use until_imported::UntilCommitBlocksImported;
 
 use ed25519::{Public as AuthorityId, Signature as AuthoritySignature};
 use parking_lot::RwLock;
+use crate::consensus_changes::SharedPendingSkip;
 
 #[cfg(test)]
 mod tests;
@@ -666,6 +667,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	import_until: Option<NumberFor<Block>>,
 	chain_spec_id: String,
 	shard_num: u16,
+	sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<Block>>>>>,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -707,6 +709,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			persistent_data.pending_skip.clone(),
 			chain_spec_id,
 			shard_num,
+			sync_state,
 		),
 		LinkHalf {
 			client,
@@ -1047,4 +1050,9 @@ pub struct CrfgState<H, N> {
 	pub set_id: u64,
 	pub voters: Arc<VoterSet<AuthorityId>>,
 	pub set_status: VoterSetState<H, N>,
+}
+
+#[derive(Clone)]
+pub struct SyncState<N> {
+	pub pending_skip: SharedPendingSkip<N>,
 }

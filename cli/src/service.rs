@@ -55,7 +55,7 @@ use crfg;
 use yee_primitives::Hrp;
 use crate::{CliTriggerExit, CliSignal};
 use yee_context::{Context};
-use crfg::CrfgState;
+use crfg::{CrfgState, SyncState};
 use yee_foreign_network::SyncProvider;
 use crate::custom_param::NodeKeyParams;
 
@@ -94,6 +94,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>>,
     pub crfg_state: Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
+    pub sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<F::Block>>>>>,
     pub mine: bool,
     pub import_until: Option<HashMap<u16, NumberFor<F::Block>>>,
     pub job_cache_size: Option<u32>,
@@ -121,6 +122,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             job_manager: Arc::new(RwLock::new(None)),
             recommit_relay_sender: Arc::new(RwLock::new(None)),
             crfg_state: Arc::new(RwLock::new(None)),
+            sync_state: Arc::new(RwLock::new(HashMap::new())),
             mine: Default::default(),
             import_until: Default::default(),
             job_cache_size: Default::default(),
@@ -152,15 +154,16 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             scale_out: self.scale_out.clone(),
             trigger_exit: self.trigger_exit.clone(),
             context: self.context.clone(),
+            job_manager: self.job_manager.clone(),
+            recommit_relay_sender: self.recommit_relay_sender.clone(),
+            crfg_state: self.crfg_state.clone(),
+            sync_state: self.sync_state.clone(),
+            foreign_chains: self.foreign_chains.clone(),
+            foreign_network: self.foreign_network.clone(),
 
             // cloned config SHALL NOT SHARE some items with original config
             inherent_data_providers: Default::default(),
             bootnodes_router_conf: None,
-            job_manager: Arc::new(RwLock::new(None)),
-            recommit_relay_sender: Arc::new(RwLock::new(None)),
-            crfg_state: Arc::new(RwLock::new(None)),
-            foreign_chains: Arc::new(RwLock::new(None)),
-            foreign_network: Arc::new(RwLock::new(None)),
         }
     }
 }
@@ -207,6 +210,10 @@ impl<F> ProvideRpcExtra<DefaultJob<Block, <Pair as PairT>::Public>, F::Block, Co
             job_cache_size,
         };
         Arc::new(config)
+    }
+
+    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<NumberFor<F::Block>>>>> {
+        self.sync_state.clone()
     }
 
 }
@@ -416,6 +423,7 @@ construct_service_factory! {
                         client.clone(), client.clone(), validator, import_until,
                         config.chain_spec.id().to_string(),
                         config.custom.shard_num,
+                        config.custom.sync_state.clone(),
                     )?;
 
                     let block_import = Arc::new(block_import);
@@ -454,6 +462,7 @@ construct_service_factory! {
                         client.clone(), client.clone(), false, import_until,
                         config.chain_spec.id().to_string(),
                         config.custom.shard_num,
+                        config.custom.sync_state.clone(),
                     )?;
 
                     let block_import = Arc::new(block_import);
