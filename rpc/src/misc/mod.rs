@@ -47,7 +47,7 @@ pub trait MiscApi<Hash, Number> {
 	fn get_relay_proof(&self, hash: Option<Hash>) -> errors::Result<Option<Bytes>>;
 
 	#[rpc(name = "sync_state")]
-	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<Number>>>;
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<Hash, Number>>>;
 
 }
 
@@ -58,7 +58,7 @@ pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
 	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 	client: Arc<Client<Backend, E, B, RA>>,
 	config: Arc<Config>,
-	sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>,
+	sync_state: Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>,
 }
 
 impl<P: PoolChainApi, B, H, Backend, E, RA> Misc<P, B, H, Backend, E, RA>
@@ -76,7 +76,7 @@ where
 		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 		client: Arc<Client<Backend, E, B, RA>>,
 		config: Arc<Config>,
-		sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>,
+		sync_state: Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
@@ -166,7 +166,7 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		Ok(proof)
 	}
 
-	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<NumberFor<B>>>> {
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<B::Hash, NumberFor<B>>>> {
 		let state = self.sync_state.read().iter().map(|(k, v)|{
 			(*k, v.clone().into())
 		}).collect::<HashMap<_, _>>();
@@ -204,8 +204,8 @@ mod types {
 	}
 
 	#[derive(Serialize)]
-	pub struct SyncState<N> {
-		pub pending_skip: Vec<N>,
+	pub struct SyncState<H, N> {
+		pub pending_skip: Vec<(H, N, N)>,
 	}
 
 	#[derive(Serialize)]
@@ -308,8 +308,8 @@ mod types {
 		}
 	}
 
-	impl<N: Clone> From<crfg::SyncState<N>> for SyncState<N> {
-		fn from(t: crfg::SyncState<N>) -> SyncState<N> {
+	impl<H: Clone, N: Clone> From<crfg::SyncState<H, N>> for SyncState<H, N> {
+		fn from(t: crfg::SyncState<H, N>) -> SyncState<H, N> {
 			SyncState {
 				pending_skip: (*t.pending_skip.lock()).clone(),
 			}

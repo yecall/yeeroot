@@ -94,7 +94,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=DefaultJob<Block, <Pair as PairT>::Public>>>>>>,
     pub recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<<F::Block as BlockT>::Hash>>>>>,
     pub crfg_state: Arc<RwLock<Option<CrfgState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
-    pub sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<F::Block>>>>>,
+    pub sync_state: Arc<RwLock<HashMap<u16, SyncState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
     pub mine: bool,
     pub import_until: Option<HashMap<u16, NumberFor<F::Block>>>,
     pub job_cache_size: Option<u32>,
@@ -212,7 +212,7 @@ impl<F> ProvideRpcExtra<DefaultJob<Block, <Pair as PairT>::Public>, F::Block, Co
         Arc::new(config)
     }
 
-    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<NumberFor<F::Block>>>>> {
+    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>> {
         self.sync_state.clone()
     }
 

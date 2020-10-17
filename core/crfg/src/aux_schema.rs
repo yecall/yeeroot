@@ -129,7 +129,7 @@ pub(crate) struct PersistentData<H, N> {
     pub(crate) authority_set: SharedAuthoritySet<H, N>,
     pub(crate) consensus_changes: SharedConsensusChanges<H, N>,
     pub(crate) set_state: VoterSetState<H, N>,
-    pub(crate) pending_skip: SharedPendingSkip<N>,
+    pub(crate) pending_skip: SharedPendingSkip<H, N>,
 }
 
 /// Load or initialize persistent data from backend.
@@ -150,7 +150,7 @@ pub(crate) fn load_persistent<B, H, N, G>(
     let consensus_changes = load_decode(backend, CONSENSUS_CHANGES_KEY)?
         .unwrap_or_else(ConsensusChanges::<H, N>::empty);
     let pending_skip = load_decode(backend, PENDING_SKIP_KEY)?
-        .unwrap_or_else(Vec::<N>::new);
+        .unwrap_or_else(Vec::<(H, N, N)>::new);
 
     let make_genesis_round = move || RoundState::genesis((genesis_hash, genesis_number));
 

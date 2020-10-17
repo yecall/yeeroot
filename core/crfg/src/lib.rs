@@ -100,6 +100,7 @@ mod import;
 mod justification;
 mod until_imported;
 mod digest;
+mod skip;
 
 #[cfg(feature="service-integration")]
 mod service_integration;
@@ -667,7 +668,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	import_until: Option<NumberFor<Block>>,
 	chain_spec_id: String,
 	shard_num: u16,
-	sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<Block>>>>>,
+	sync_state: Arc<RwLock<HashMap<u16, SyncState<Block::Hash, NumberFor<Block>>>>>,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -1053,6 +1054,6 @@ pub struct CrfgState<H, N> {
 }
 
 #[derive(Clone)]
-pub struct SyncState<N> {
-	pub pending_skip: SharedPendingSkip<N>,
+pub struct SyncState<H, N> {
+	pub pending_skip: SharedPendingSkip<H, N>,
 }

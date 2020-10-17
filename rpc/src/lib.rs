@@ -65,7 +65,7 @@ where B: BlockT
 
     fn provide_config(&self) -> Arc<Config>;
 
-    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>;
+    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>;
 
 }
 
@@ -83,7 +83,7 @@ where B: BlockT {
     crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
     foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
     config: Arc<Config>,
-    sync_state: Arc<RwLock<HashMap<u16, SyncState<NumberFor<B>>>>>,
+    sync_state: Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>,
 }
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
