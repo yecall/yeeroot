@@ -311,7 +311,7 @@ mod types {
 	impl<H: Clone, N: Clone> From<crfg::SyncState<H, N>> for SyncState<H, N> {
 		fn from(t: crfg::SyncState<H, N>) -> SyncState<H, N> {
 			SyncState {
-				pending_skip: (*t.pending_skip.lock()).clone(),
+				pending_skip: (*t.pending_skip.read()).clone(),
 			}
 		}
 	}

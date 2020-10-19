@@ -365,7 +365,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		canonical_at_height(client, (hash, number), true, canon_number)
 	};
 
-	let mut pending_skip = pending_skip.lock();
+	let mut pending_skip = pending_skip.write();
 
 	let update_res: Result<_, Error> = client.lock_import_and_run(|import_op| {
 

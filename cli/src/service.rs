@@ -97,6 +97,7 @@ pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     pub sync_state: Arc<RwLock<HashMap<u16, SyncState<<F::Block as BlockT>::Hash, NumberFor<F::Block>>>>>,
     pub mine: bool,
     pub import_until: Option<HashMap<u16, NumberFor<F::Block>>>,
+    pub import_leading: Option<NumberFor<F::Block>>,
     pub job_cache_size: Option<u32>,
     pub foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
     pub foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<F::Block, ComponentExHash<FullComponents<F>>>>>>>,
@@ -125,6 +126,7 @@ impl<F: substrate_service::ServiceFactory> Default for NodeConfig<F> {
             sync_state: Arc::new(RwLock::new(HashMap::new())),
             mine: Default::default(),
             import_until: Default::default(),
+            import_leading: Default::default(),
             job_cache_size: Default::default(),
             foreign_chains: Arc::new(RwLock::new(None)),
             foreign_network: Arc::new(RwLock::new(None)),
@@ -149,6 +151,7 @@ impl<F: substrate_service::ServiceFactory> Clone for NodeConfig<F> {
             foreign_node_key_params: self.foreign_node_key_params.clone(),
             mine: self.mine,
             import_until: self.import_until.clone(),
+            import_leading: self.import_leading.clone(),
             job_cache_size: self.job_cache_size,
             hrp: self.hrp.clone(),
             scale_out: self.scale_out.clone(),
@@ -418,9 +421,10 @@ construct_service_factory! {
                     let validator = config.roles == Roles::AUTHORITY;
                     let shard_num = config.custom.shard_num;
                     let import_until = config.custom.import_until.as_ref().and_then(|x| x.get(&shard_num).cloned());
+                    let import_leading = config.custom.import_leading;
 
                     let (block_import, link_half) = crfg::block_import::<_, _, _, RuntimeApi, FullClient<Self>>(
-                        client.clone(), client.clone(), validator, import_until,
+                        client.clone(), client.clone(), validator, import_until, import_leading,
                         config.chain_spec.id().to_string(),
                         config.custom.shard_num,
                         config.custom.sync_state.clone(),
@@ -457,9 +461,10 @@ construct_service_factory! {
 
                     let shard_num = config.custom.shard_num;
                     let import_until = config.custom.import_until.as_ref().and_then(|x| x.get(&shard_num).cloned());
+                    let import_leading = config.custom.import_leading;
 
                     let (block_import, _) = crfg::block_import::<_, _, _, RuntimeApi, LightClient<Self>>(
-                        client.clone(), client.clone(), false, import_until,
+                        client.clone(), client.clone(), false, import_until, import_leading,
                         config.chain_spec.id().to_string(),
                         config.custom.shard_num,
                         config.custom.sync_state.clone(),

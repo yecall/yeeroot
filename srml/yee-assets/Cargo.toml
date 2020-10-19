@@ -7,18 +7,18 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", optional = true }
 parity-codec = { version = "3.2", default-features = false }
-primitives = { package = "sr-primitives",  git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-srml-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+primitives = { package = "sr-primitives",  git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9", default-features = false }
+srml-support = { package = "srml-support", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9", default-features = false }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9", default-features = false }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9", default-features = false }
 sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives", default-features = false }
 sharding = { package = "yee-srml-sharding", path = "../yee-sharding", default-features = false }
 yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
 
 [dev-dependencies]
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-# sr-std = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-runtime_io = { package = "sr-io",  git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+# sr-std = { git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+runtime_io = { package = "sr-io",  git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
 
 [features]
 default = ["std"]

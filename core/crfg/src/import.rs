@@ -17,7 +17,7 @@
 use std::{sync::Arc, collections::HashMap};
 
 use log::{debug, trace, info, warn};
-use parity_codec::Encode;
+use parity_codec::{Encode, Decode};
 use futures::sync::mpsc;
 use parking_lot::{RwLockWriteGuard, RwLock};
 
@@ -55,6 +55,7 @@ use crate::skip::SKIP_CONF;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
 const FINALIZE_TIMEOUT: time::Duration = time::Duration::from_secs(30);
+const DEFAULT_IMPORT_LEADING: u64 = 2880;
 
 /// A block-import handler for CRFG.
 ///
@@ -74,6 +75,7 @@ pub struct CrfgBlockImport<B, E, Block: BlockT<Hash=H256>, RA, PRA> {
 	validator: bool,
 	finalize_status: Arc<RwLock<Option<(NumberFor<Block>, time::Instant)>>>,
 	import_until: Option<NumberFor<Block>>,
+	import_leading: Option<NumberFor<Block>>,
 	pending_skip: SharedPendingSkip<Block::Hash, NumberFor<Block>>,
 	chain_spec_id: String,
 	shard_num: u16,
@@ -325,28 +327,41 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 	}
 
 	fn check_skip(&self, block: &mut ImportBlock<Block>, finalized_number: NumberFor<Block>)
-						-> Result<(), ConsensusError>
 	{
 		let header = &block.header;
 
 		let digest = header.digest();
 
-		let maybe_skip : Result<_, String> = Ok(digest.logs().iter().filter_map(CrfgSkipDigestItem::as_skip).next());
+		let maybe_skip = digest.logs().iter().filter_map(CrfgSkipDigestItem::as_skip).next();
 
-		match maybe_skip {
-			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-			Ok(Some(skip_number)) => {
+		let maybe_skip = match maybe_skip {
+			Some(skip_number) => {
 				let block_hash = block.post_header().hash();
 				let block_number = header.number().clone();
-				debug!(target: "afg", "Skip: block_hash: {:?}, block_number: {}, skip_number: {}", block_hash, block_number, skip_number);
-				let mut pending_skip = self.pending_skip.lock();
-				pending_skip.push((block_hash, block_number, skip_number));
+				Some((block_hash, block_number, skip_number))
+			},
+			None => {
+				let block_number = header.number().clone();
+				let skip = SKIP_CONF.get(&(&self.chain_spec_id, self.shard_num, As::as_(block_number)))
+					.map(|(block_hash, skip_number)| {
+
+						let block_hash = hex::decode(block_hash.trim_start_matches("0x")).expect("qed");
+						let block_hash = Decode::decode(&mut &block_hash[..]).expect("qed");
+
+						(block_hash, block_number, As::sa(*skip_number))
+					});
+				skip
 			}
-			Ok(None) => (),
 		};
 
+		if let Some(skip) = maybe_skip {
+			debug!(target: "afg", "Skip: block_hash: {:?}, block_number: {}, skip_number: {}", skip.0, skip.1, skip.2);
+			let mut pending_skip = self.pending_skip.write();
+			pending_skip.push(skip);
+		}
+
 		// update aux
-		let mut pending_skip = self.pending_skip.lock();
+		let mut pending_skip = self.pending_skip.write();
 		pending_skip.retain(|(_block_hash, _block_number, skip_number)| skip_number>=&finalized_number );
 		crate::aux_schema::update_pending_skip(&*pending_skip,
 											   |insert| block.auxiliary.extend(
@@ -354,7 +369,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 												   )));
 		debug!(target: "afg", "Pending skip: {:?}", *pending_skip);
 
-		Ok(())
 	}
 
 	fn make_authorities_changes<'a>(&'a self, block: &mut ImportBlock<Block>, hash: Block::Hash)
@@ -536,12 +550,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		debug!(target: "afg", "Import block, number: {}, hash: {}, origin: {:?}",
 			   number, hash, block.origin);
 
-		if let Some(import_until) = self.import_until {
-			if number > import_until {
-				return Err(ConsensusErrorKind::ClientImport("Exceed max block number".to_string()).into());
-			}
-		}
-
 		// early exit if block already in chain, otherwise the check for
 		// authority changes will error when trying to re-import a change block
 		match self.inner.backend().blockchain().status(BlockId::Hash(hash)) {
@@ -557,8 +565,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		let finalized_number = chain_info.finalized_number;
 
 		// check skip
-		debug!(target: "afg", "Check skip, number: {}, hash: {}, finalized_number: {}", number, hash, finalized_number);
-		self.check_skip(&mut block, finalized_number)?;
+		self.check_skip(&mut block, finalized_number);
 
 		// check pending_changes
 		let pending_changes = self.make_authorities_changes(&mut block, hash)?;
@@ -614,23 +621,24 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		// execute skip
 		if maybe_fork.is_none() && finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 
-			if let Some((_block_hash, _block_number, skip_number)) =
-			self.pending_skip.lock().iter().find(|(block_hash, block_number, skip_number)| {
-				skip_number == &finalized_number &&
-				block_number.clone() + As::sa(2) <= number &&
-				(match self.inner.hash(block_number.clone()){
-					Ok(Some(h)) => &h == block_hash,
-					_ => false
-				})
-			}) {
+			let maybe_skip = self.pending_skip.read().iter().find(|(block_hash, block_number, skip_number)| {
+				let result = skip_number == &finalized_number &&
+					block_number.clone() + As::sa(2) <= number &&
+					(match self.inner.hash(block_number.clone()){
+						Ok(Some(h)) => &h == block_hash,
+						_ => false
+					});
+				result
+			}).cloned();
 
+			if let Some((_block_hash, _block_number, skip_number)) = maybe_skip {
 				let next_number = finalized_number + As::sa(1);
 				let next_hash = match self.inner.hash(next_number){
 					Ok(Some(hash)) => hash,
 					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 				};
-				debug!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
+				info!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
 				match self.skip(next_hash, next_number){
 					Ok(_) => (),
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
@@ -763,9 +771,28 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 	fn check_block(
 		&self,
 		hash: Block::Hash,
+		number: NumberFor<Block>,
 		parent_hash: Block::Hash,
 	) -> Result<ImportResult, Self::Error> {
-		self.inner.check_block(hash, parent_hash)
+
+		if let Some(import_until) = self.import_until {
+			if number > import_until {
+				return Ok(ImportResult::Hold);
+			}
+		}
+
+		let chain_info = match self.inner.info() {
+			Ok(info) => info.chain,
+			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+		};
+		let finalized_number = chain_info.finalized_number;
+
+		let import_leading = self.import_leading.unwrap_or(As::sa(DEFAULT_IMPORT_LEADING));
+		if finalized_number + import_leading < number {
+			return Ok(ImportResult::Hold);
+		}
+
+		self.inner.check_block(hash, number, parent_hash)
 	}
 }
 
@@ -778,6 +805,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		api: Arc<PRA>,
 		validator: bool,
 		import_until: Option<NumberFor<Block>>,
+		import_leading: Option<NumberFor<Block>>,
 		pending_skip: SharedPendingSkip<Block::Hash, NumberFor<Block>>,
 		chain_spec_id: String,
 		shard_num: u16,
@@ -798,6 +826,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			validator,
 			finalize_status: Arc::new(RwLock::new(None)),
 			import_until,
+			import_leading,
 			pending_skip,
 			chain_spec_id,
 			shard_num,
