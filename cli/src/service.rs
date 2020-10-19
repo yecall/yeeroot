@@ -25,7 +25,7 @@ use {
     consensus_common::import_queue::ImportQueue,
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
-        NetworkProviderParams, FactoryBlock, NetworkProvider, ServiceFactory, ComponentExHash,
+        NetworkProviderParams, FactoryBlock, NetworkProvider, Network, ServiceFactory, ComponentExHash,
     },
     yee_runtime::{
         self, GenesisConfig, opaque::Block, RuntimeApi,
@@ -243,7 +243,7 @@ impl<F, EH> NetworkProvider<F, EH> for NetworkWrapper<F, EH> where
         params: NetworkProviderParams<F, EH>,
         protocol_id: network::ProtocolId,
         import_queue: Box<dyn ImportQueue<FactoryBlock<F>>>,
-    ) -> Result<network::NetworkChan<FactoryBlock<F>>, network::Error> {
+    ) -> Result<(Arc<dyn Network<F::Block>>, network::NetworkChan<FactoryBlock<F>>), network::Error> {
         self.inner.provide_network(network_id, params, protocol_id, import_queue)
     }
 }

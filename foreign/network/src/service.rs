@@ -880,7 +880,7 @@ impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBloc
 		params: substrate_service::NetworkProviderParams<F, EH>,
 		protocol_id: substrate_network::ProtocolId,
 		import_queue: Box<dyn consensus::import_queue::ImportQueue<substrate_service::FactoryBlock<F>>>,
-	) -> Result<substrate_network::NetworkChan<substrate_service::FactoryBlock<F>>, substrate_network::Error>{
+	) -> Result<(Arc<dyn substrate_service::Network<F::Block>>, substrate_network::NetworkChan<substrate_service::FactoryBlock<F>>), substrate_network::Error>{
 
 		let shard_num = network_id as u16;
 
@@ -901,7 +901,7 @@ impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBloc
 			self.vnetwork_holder.network_ready_channel.write().0.send(());
 		}
 
-		Ok(network_chan)
+		Ok((service, network_chan))
 	}
 
 }

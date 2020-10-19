@@ -20,5 +20,5 @@ yee-balances = { package = "yee-srml-balances", path = "../../srml/yee-balances"
 yee-assets = { package = "yee-srml-assets", path = "../../srml/yee-assets", default-features = false }
 yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
-runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+runtime-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }

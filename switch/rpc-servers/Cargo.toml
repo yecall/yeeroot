@@ -10,5 +10,5 @@ pubsub = { package = "jsonrpc-pubsub", version = "10.0.1" }
 ws = { package = "jsonrpc-ws-server", version = "10.0.1" }
 log = "0.4"
 serde = "1.0"
-sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
 yee-switch-rpc = { path = "../rpc" }

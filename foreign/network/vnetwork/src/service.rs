@@ -294,6 +294,19 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	}
 }
 
+impl<B, S, I> substrate_service::Network<B> for Service<B, S, I> where
+	B: BlockT,
+	S: NetworkSpecialization<B>,
+	I: IdentifySpecialization,
+{
+	fn on_block_imported(&self, hash: B::Hash, header: B::Header) {
+		self.on_block_imported(hash, header);
+	}
+	fn on_block_finalized(&self, hash: B::Hash, header: B::Header) {
+		self.on_block_finalized(hash, header);
+	}
+}
+
 /// A link implementation that connects to the network.
 #[derive(Clone)]
 pub struct NetworkLink<B: BlockT, S: NetworkSpecialization<B>> {

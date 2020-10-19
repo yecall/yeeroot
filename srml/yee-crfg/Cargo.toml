@@ -7,20 +7,20 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", optional = true, features = ["derive"] }
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
 crfg-primitives = { path = "../../core/crfg/primitives", default-features = false }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-session = { package = "srml-session", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+session = { package = "srml-session", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+consensus = { package = "srml-consensus", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
 finality-tracker = { package = "srml-finality-tracker", path = "../yee-tracker" , default_features = false}
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
-runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9", default-features = false }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+runtime_io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d", default-features = false }
 
 [dev-dependencies]
-runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", rev = "9e048aacc2357d7353f221221842e8a579eb3ca9" }
+runtime-io = { package = "sr-io", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
 
 [features]
 default = ["std"]
