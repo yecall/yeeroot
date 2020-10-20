@@ -363,6 +363,10 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 	fn hold(&self) {
 		let _ = self.protocol_sender.send(ProtocolMsg::HoldSync);
 	}
+
+	fn skip_justification_requests(&self, justifications: Vec<(B::Hash, NumberFor<B>)>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::SkipJustificationRequests(justifications));
+	}
 }
 
 /// Create a ImportQueuePort/Chan pair.

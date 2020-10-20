@@ -543,7 +543,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 	type Error = ConsensusError;
 
 	fn import_block(&self, mut block: ImportBlock<Block>, new_cache: HashMap<well_known_cache_keys::Id, Vec<u8>>)
-		-> Result<ImportResult, Self::Error>
+		-> Result<ImportResult<Block::Hash, NumberFor<Block>>, Self::Error>
 	{
 		let hash = block.post_header().hash();
 		let number = block.header.number().clone();
@@ -645,6 +645,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 					Ok(_) => (),
 					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 				}
+                imported_aux.skip_justification_requests = vec![(next_hash, next_number)];
 
 			}
 
@@ -656,6 +657,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				return Err(ConsensusErrorKind::ClientImport("fork hash not match".to_string()).into());
 			}
 			// skip from finalized_number + 1 to fork_block_number
+			let mut skipped = Vec::new();
 			let mut current_number = finalized_number + As::sa(1);
 			while current_number <= fork_block_number {
 				let current_hash = match self.inner.hash(current_number){
@@ -672,9 +674,11 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
 					},
 				}
+				skipped.push((current_hash, current_number));
 
 				current_number = current_number + As::sa(1);
 			}
+			imported_aux.skip_justification_requests = skipped;
 		}
 
 		// Send the pause signal after import but BEFORE sending a `ChangeAuthorities` message.
@@ -774,7 +778,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		parent_hash: Block::Hash,
-	) -> Result<ImportResult, Self::Error> {
+	) -> Result<ImportResult<Block::Hash, NumberFor<Block>>, Self::Error> {
 
 		if let Some(import_until) = self.import_until {
 			if number > import_until {

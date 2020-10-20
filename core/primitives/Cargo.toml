@@ -13,4 +13,4 @@ parity-codec = "3.2"
 
 [dev-dependencies]
 hex = "0.3.1"
-substrate_primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+substrate_primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "d2262b59c38c119d7c527410e160bc9e583f6b63" }
