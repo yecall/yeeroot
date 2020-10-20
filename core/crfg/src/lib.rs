@@ -90,8 +90,8 @@ use ansi_term::Colour;
 pub use fg_primitives::ScheduledChange;
 use std::collections::HashMap;
 
-mod authorities;
-mod aux_schema;
+pub mod authorities;
+pub mod aux_schema;
 mod communication;
 mod consensus_changes;
 mod environment;
@@ -100,6 +100,7 @@ mod import;
 mod justification;
 mod until_imported;
 mod digest;
+pub use digest::CrfgChangeDigestItem;
 
 #[cfg(feature="service-integration")]
 mod service_integration;

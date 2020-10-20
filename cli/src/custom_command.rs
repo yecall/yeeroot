@@ -23,6 +23,8 @@ use yee_bootnodes_router;
 use substrate_cli::VersionInfo;
 use substrate_service::{ChainSpec, FactoryGenesis, ServiceFactory};
 use crate::chain_revert::{RevertCmd, revert_chain};
+use runtime_primitives::traits::{Block as BlockT, Digest, DigestItemFor, Header as HeaderT, NumberFor};
+use crfg::{aux_schema, authorities, CrfgChangeDigestItem, ScheduledChange};
 
 //use yee_switch::SwitchCommandCmd;
 #[derive(Clone, Debug)]
@@ -76,6 +78,7 @@ impl GetLogFilter for CustomCommand {
 pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, VersionInfo)>) -> substrate_cli::error::Result<()> where
     F: ServiceFactory,
     S: FnOnce(&str) -> Result<Option<ChainSpec<FactoryGenesis<F>>>, String>,
+    <<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Digest as Digest>::Item: CrfgChangeDigestItem<<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Number>,
 {
 
     match params{
