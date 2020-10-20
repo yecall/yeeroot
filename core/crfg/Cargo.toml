@@ -5,21 +5,21 @@ authors = ["YeeCo contact@yeefoundation.com"]
 edition = "2018"
 
 [dependencies]
-fork-tree = { git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d"}
+fork-tree = { git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b"}
 futures = "0.1"
 log = "0.4"
 parking_lot = "0.7.1"
 tokio = "0.1.7"
 rand = "0.6"
 parity-codec = { version = "3.2", features = ["derive"] }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-substrate-telemetry = { git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d"}
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+substrate-telemetry = { git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b"}
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+service = {package = "substrate-service", git = "https://github.com/yeeco/substrate.git", optional = true, rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
 fg_primitives = { package = "crfg-primitives", path = "./primitives" }
 grandpa = { package = "finality-grandpa", version = "0.6.0", path = "../finality-grandpa", features = ["derive-codec"] }
 srml-crfg = { package = "yee-srml-crfg", path = "../../srml/yee-crfg" }
@@ -30,10 +30,10 @@ hex = "0.3.1"
 lazy_static = "1.2"
 
 [dev-dependencies]
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", features = ["test-helpers"] , rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-keyring = { package = "substrate-keyring", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
-test_client = { package = "substrate-test-client", git = "https://github.com/yeeco/substrate.git", rev = "4d823d5aa88bf06c6eb6b62215ab6f704a6ec23d" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", features = ["test-helpers"] , rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+keyring = { package = "substrate-keyring", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
+test_client = { package = "substrate-test-client", git = "https://github.com/yeeco/substrate.git", rev = "bfebc504a56ae4d159e8cdb024b3982ea641ca8b" }
 env_logger = "0.6"
 
 [features]

@@ -38,7 +38,7 @@ use runtime_primitives::traits::{
 };
 use substrate_primitives::{H256, ed25519, Blake2Hasher};
 
-use crate::{Error, CommandOrError, NewAuthoritySet, VoterCommand, SyncState};
+use crate::{Error, CommandOrError, NewAuthoritySet, VoterCommand, CrfgStateProvider, CrfgState};
 use crate::authorities::{AuthoritySet, SharedAuthoritySet, DelayKind, PendingChange};
 use crate::consensus_changes::{SharedConsensusChanges, SharedPendingSkip};
 use crate::environment::{finalize_block, is_descendent_of};
@@ -52,6 +52,8 @@ use std::cell::Cell;
 use fg_primitives::BLOCK_FINAL_LATENCY;
 use yee_consensus_pow::fork::FORK_CONF;
 use crate::skip::SKIP_CONF;
+use std::ops::Add;
+use std::fmt::Debug;
 
 const DEFAULT_FINALIZE_BLOCK: u64 = 1;
 const FINALIZE_TIMEOUT: time::Duration = time::Duration::from_secs(30);
@@ -735,7 +737,6 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				});
 			},
 			None => {
-				use runtime_primitives::traits::As;
 				if number.as_() == DEFAULT_FINALIZE_BLOCK {
 					let justification=  CrfgJustification::<Block>::default_justification(hash, number);
 					self.import_justification(hash, number, justification.encode(), needs_justification).unwrap_or_else(|err| {
@@ -809,13 +810,14 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		pending_skip: SharedPendingSkip<Block::Hash, NumberFor<Block>>,
 		chain_spec_id: String,
 		shard_num: u16,
-		sync_state: Arc<RwLock<HashMap<u16, SyncState<Block::Hash, NumberFor<Block>>>>>,
+		crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<Block::Hash, NumberFor<Block>>>>>>,
 	) -> CrfgBlockImport<B, E, Block, RA, PRA> {
 
-		let mut sync_state = sync_state.write();
-		sync_state.insert(shard_num, SyncState{
+		let mut providers = crfg_state_providers.write();
+		providers.insert(shard_num, Arc::new(ImportCrfgStateProvider{
+			authority_set: authority_set.clone(),
 			pending_skip: pending_skip.clone(),
-		});
+		}));
 
 		CrfgBlockImport {
 			inner,
@@ -950,5 +952,29 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		}
 
 		Ok(())
+	}
+}
+
+struct ImportCrfgStateProvider<H, N> {
+	pub authority_set: SharedAuthoritySet<H, N>,
+	pub pending_skip: SharedPendingSkip<H, N>,
+}
+
+impl<H, N> CrfgStateProvider<H, N> for ImportCrfgStateProvider<H, N>
+where
+	N: Add<Output=N> + Ord + Clone + Send + Sync + Debug,
+	H: Eq + Clone + Send + Sync + Debug
+{
+	fn crfg_state(&self) -> CrfgState<H, N> {
+		let set_id = self.authority_set.set_id();
+		let voters = self.authority_set.current_authorities();
+		let pending_skip = (*self.pending_skip.read()).clone();
+		CrfgState {
+			config: None,
+			set_id,
+			voters,
+			set_status: None,
+			pending_skip,
+		}
 	}
 }

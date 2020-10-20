@@ -43,7 +43,7 @@ use parity_codec::{Decode, Encode, Codec};
 use serde::de::Unexpected::Other;
 use futures::sync::mpsc;
 use yee_primitives::{RecommitRelay, Hrp};
-use crfg::{CrfgStateProvider, SyncState};
+use crfg::CrfgStateProvider;
 use yee_foreign_network::SyncProvider;
 use serde::Serialize;
 use parity_codec::alloc::collections::HashMap;
@@ -61,11 +61,11 @@ where B: BlockT
 
     fn provide_crfg_state_provider(&self) -> Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>;
 
+    fn provide_import_crfg_state_providers(&self) -> Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>;
+
     fn provide_foreign_network(&self) -> Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>;
 
     fn provide_config(&self) -> Arc<Config>;
-
-    fn provide_sync_state(&self) -> Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>;
 
 }
 
@@ -81,9 +81,9 @@ where B: BlockT {
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>,
     recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
     crfg_state_provider: Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
+    import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
     foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
     config: Arc<Config>,
-    sync_state: Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>,
 }
 
 impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
@@ -106,9 +106,9 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             job_manager: config.custom.provide_job_manager(),
             recommit_relay_sender: config.custom.provide_recommit_relay_sender(),
             crfg_state_provider: config.custom.provide_crfg_state_provider(),
+            import_crfg_state_providers: config.custom.provide_import_crfg_state_providers(),
             foreign_network: config.custom.provide_foreign_network(),
             config: config.custom.provide_config(),
-            sync_state: config.custom.provide_sync_state(),
         }
     }
 
@@ -149,11 +149,11 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
         let misc = Misc::new(
             extra.recommit_relay_sender.clone(),
             extra.crfg_state_provider.clone(),
+            extra.import_crfg_state_providers.clone(),
             transaction_pool.clone(),
             extra.foreign_network.clone(),
             client.clone(),
             extra.config.clone(),
-            extra.sync_state.clone(),
         );
         io.extend_with(misc.to_delegate());
 

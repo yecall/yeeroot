@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use yee_primitives::RecommitRelay;
 use futures::sync::mpsc;
 use parking_lot::RwLock;
-use crfg::{CrfgStateProvider, SyncState};
+use crfg::CrfgStateProvider;
 use std::time::Duration;
 use substrate_primitives::{Bytes, H256, Blake2Hasher};
 use transaction_pool::txpool::{Pool, ChainApi as PoolChainApi};
@@ -47,18 +47,18 @@ pub trait MiscApi<Hash, Number> {
 	fn get_relay_proof(&self, hash: Option<Hash>) -> errors::Result<Option<Bytes>>;
 
 	#[rpc(name = "sync_state")]
-	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<Hash, Number>>>;
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<Hash, Number>>>;
 
 }
 
 pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
 	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
 	crfg_state_provider: Arc<RwLock<Option<Arc<CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
+	import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 	pool: Arc<Pool<P>>,
 	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 	client: Arc<Client<Backend, E, B, RA>>,
 	config: Arc<Config>,
-	sync_state: Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>,
 }
 
 impl<P: PoolChainApi, B, H, Backend, E, RA> Misc<P, B, H, Backend, E, RA>
@@ -72,20 +72,20 @@ where
 	pub fn new(
 		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
 		crfg_state_provider: Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
+		import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 		pool: Arc<Pool<P>>,
 		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 		client: Arc<Client<Backend, E, B, RA>>,
 		config: Arc<Config>,
-		sync_state: Arc<RwLock<HashMap<u16, SyncState<B::Hash, NumberFor<B>>>>>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
 			crfg_state_provider,
+			import_crfg_state_providers,
 			pool,
 			foreign_network,
 			client,
 			config,
-			sync_state,
 		}
 	}
 
@@ -166,9 +166,9 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		Ok(proof)
 	}
 
-	fn sync_state(&self) -> errors::Result<HashMap<u16, types::SyncState<B::Hash, NumberFor<B>>>> {
-		let state = self.sync_state.read().iter().map(|(k, v)|{
-			(*k, v.clone().into())
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<B::Hash, NumberFor<B>>>> {
+		let state = self.import_crfg_state_providers.read().iter().map(|(k, v)|{
+			(*k, v.crfg_state().into())
 		}).collect::<HashMap<_, _>>();
 		Ok(state)
 	}
@@ -306,14 +306,6 @@ mod types {
 				finalized: t.finalized,
 				estimate: t.estimate,
 				completable: t.completable,
-			}
-		}
-	}
-
-	impl<H: Clone, N: Clone> From<crfg::SyncState<H, N>> for SyncState<H, N> {
-		fn from(t: crfg::SyncState<H, N>) -> SyncState<H, N> {
-			SyncState {
-				pending_skip: (*t.pending_skip.read()).clone(),
 			}
 		}
 	}

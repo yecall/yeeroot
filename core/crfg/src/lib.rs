@@ -669,7 +669,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	import_leading: Option<NumberFor<Block>>,
 	chain_spec_id: String,
 	shard_num: u16,
-	sync_state: Arc<RwLock<HashMap<u16, SyncState<Block::Hash, NumberFor<Block>>>>>,
+	crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<Block::Hash, NumberFor<Block>>>>>>,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -712,7 +712,7 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			persistent_data.pending_skip.clone(),
 			chain_spec_id,
 			shard_num,
-			sync_state,
+			crfg_state_providers,
 		),
 		LinkHalf {
 			client,
@@ -1088,9 +1088,4 @@ impl<H: Clone + Send + Sync, N: Clone + Send + Sync> CrfgStateProvider<H, N> for
 			pending_skip,
 		}
 	}
-}
-
-#[derive(Clone)]
-pub struct SyncState<H, N> {
-	pub pending_skip: SharedPendingSkip<H, N>,
 }
