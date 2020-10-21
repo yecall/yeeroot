@@ -49,7 +49,6 @@ use crate::digest::{CrfgChangeDigestItem, CrfgForceChangeDigestItem, CrfgSkipDig
 use runtime_primitives::traits::Digest;
 use std::time;
 use std::cell::Cell;
-use fg_primitives::BLOCK_FINAL_LATENCY;
 use yee_consensus_pow::fork::FORK_CONF;
 use crate::skip::SKIP_CONF;
 use std::ops::Add;
@@ -126,53 +125,9 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 				// since the delay of crfg is always 0, effective_block_hash = pending_change.canon_hash
 				// the above code can be replaced with the following code
 				// to avoid using best_containing( which contains unimplemented for light client)
-				link.request_justification(&pending_change.canon_hash, pending_change.canon_height, false);
+				link.request_justification(&pending_change.canon_hash, pending_change.canon_height);
 			}
 		}
-	}
-
-	fn on_tick(&self, link: &(dyn ::consensus_common::import_queue::Link<Block>)) {
-		/*
-		let info = match self.inner.info(){
-			Ok(info) => info,
-			Err(e) => {
-				warn!(target: "afg", "Justification import encounters error on tick: {:?}", e);
-				return;
-			}
-		};
-		let best_number = info.chain.best_number;
-		let finalized_number = info.chain.finalized_number;
-		let (status, updated) = match self.finalize_status.read().as_ref(){
-			Some((f, i)) => {
-				if f != &finalized_number {
-					((finalized_number, time::Instant::now()), true)
-				}else{
-					((f.clone(), i.clone()), false)
-				}
-			},
-			None => ((finalized_number, time::Instant::now()), true)
-		};
-		if updated {
-			*self.finalize_status.write() = Some(status);
-		}
-
-		if best_number - finalized_number > As::sa(BLOCK_FINAL_LATENCY + 2 ) && status.1.elapsed() > FINALIZE_TIMEOUT {
-			info!(target: "afg", "Finalize stalls, finalized_number: {} elapsed: {:?}", finalized_number, status.1.elapsed());
-
-			let authorities = self.authority_set.inner().read();
-			for pending_change in authorities.pending_changes() {
-				if pending_change.delay_kind == DelayKind::Finalized &&
-					pending_change.effective_number() > finalized_number &&
-					pending_change.effective_number() <= best_number
-				{
-					link.request_justification(&pending_change.canon_hash, pending_change.canon_height, true);
-				}
-			}
-			//clear status to avoid request justification too often
-			*self.finalize_status.write() = None;
-		}
-		*/
-
 	}
 
 	fn import_justification(
@@ -643,7 +598,10 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 				info!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
 				match self.skip(next_hash, next_number){
 					Ok(_) => (),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					Err(e) => {
+						debug!(target: "afg", "Execute skip, failed, next_number: {}, next_hash: {}, e: {}", &next_number, next_hash, e);
+						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
+					},
 				}
                 imported_aux.skip_justification_requests = vec![(next_hash, next_number)];
 

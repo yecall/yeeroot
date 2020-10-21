@@ -340,8 +340,8 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 		let _ = self.protocol_sender.send(ProtocolMsg::ClearJustificationRequests);
 	}
 
-	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>, force: bool) {
-		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number, force));
+	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number));
 	}
 
 	fn useless_peer(&self, who: PeerId, reason: &str) {
