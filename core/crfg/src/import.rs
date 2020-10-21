@@ -578,35 +578,41 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 		// execute skip
 		if maybe_fork.is_none() && finalized_number + As::sa(srml_finality_tracker::STALL_LATENCY) <= number {
 
-			let maybe_skip = self.pending_skip.read().iter().find(|(block_hash, block_number, skip_number)| {
-				let result = skip_number == &finalized_number &&
-					block_number.clone() + As::sa(2) <= number &&
-					(match self.inner.hash(block_number.clone()){
-						Ok(Some(h)) => &h == block_hash,
-						_ => false
-					});
-				result
-			}).cloned();
+			let mut work_finalized_number = finalized_number;
+			let mut skipped = Vec::new();
+			loop {
+				let maybe_skip = self.pending_skip.read().iter().find(|(block_hash, block_number, skip_number)| {
+					let result = skip_number == &work_finalized_number &&
+						block_number.clone() + As::sa(2) <= number &&
+						(match self.inner.hash(block_number.clone()) {
+							Ok(Some(h)) => &h == block_hash,
+							_ => false
+						});
+					result
+				}).cloned();
 
-			if let Some((_block_hash, _block_number, skip_number)) = maybe_skip {
-				let next_number = finalized_number + As::sa(1);
-				let next_hash = match self.inner.hash(next_number){
-					Ok(Some(hash)) => hash,
-					Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
-					Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
-				};
-				info!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
-				match self.skip(next_hash, next_number){
-					Ok(_) => (),
-					Err(e) => {
-						debug!(target: "afg", "Execute skip, failed, next_number: {}, next_hash: {}, e: {}", &next_number, next_hash, e);
-						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
-					},
+				if let Some((_block_hash, _block_number, skip_number)) = maybe_skip {
+					let next_number = work_finalized_number + As::sa(1);
+					let next_hash = match self.inner.hash(next_number) {
+						Ok(Some(hash)) => hash,
+						Ok(None) => return Err(ConsensusErrorKind::ClientImport("Unknown block number".to_string()).into()),
+						Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+					};
+					info!(target: "afg", "Execute skip, next_number: {}, next_hash: {}", &next_number, next_hash);
+					work_finalized_number = match self.skip(next_hash, next_number) {
+						Ok(number) => number,
+						Err(e) => {
+							debug!(target: "afg", "Execute skip, failed, next_number: {}, next_hash: {}, e: {}", &next_number, next_hash, e);
+							return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
+						},
+					};
+					skipped.push((next_hash, next_number));
+
+				} else {
+					break;
 				}
-                imported_aux.skip_justification_requests = vec![(next_hash, next_number)];
-
 			}
-
+			imported_aux.skip_justification_requests = skipped;
 		}
 
 		// execute fork
@@ -685,9 +691,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> BlockImport<Block>
 			return Ok(ImportResult::Imported(imported_aux));
 		}
 
-
-
-		debug!(target: "afg", "Import justification, number: {}, hash: {}, has_justification: {}", number, hash, justification.is_some());
+		debug!(target: "afg", "Import block process justification, number: {}, hash: {}, has_justification: {}", number, hash, justification.is_some());
 
 		match justification {
 			Some(justification) => {
@@ -872,7 +876,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		&self,
 		hash: Block::Hash,
 		number: NumberFor<Block>,
-	) -> Result<(), ConsensusError> {
+	) -> Result<NumberFor<Block>, ConsensusError> {
 
 		let justification = CrfgJustification::default_justification(hash.clone(), number);
 
@@ -889,7 +893,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 			&self.pending_skip,
 		);
 
-		match result {
+		let finalized_number = match result {
 			Err(CommandOrError::VoterCommand(command)) => {
 				debug!(target: "afg", "Skip for block #{} that triggers \
 					command {}, signaling voter.", number, command);
@@ -899,21 +903,40 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into());
 					}
 				}
+				number
 			},
 			Err(CommandOrError::Error(e)) => {
-				return Err(match e {
-					Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-					Error::Network(error) => ConsensusErrorKind::ClientImport(error),
-					Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
-					Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-					Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
-					Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-				}.into());
-			},
-			Ok(_) => (),
-		}
 
-		Ok(())
+				// finalized_number is some if skipped
+				let finalized_number = match self.inner.info() {
+					Ok(info) => {
+						let finalized_number = info.chain.finalized_number;
+						if finalized_number >= number{
+							Some(finalized_number)
+						} else {
+							None
+						}
+					},
+					Err(e) => None,
+				};
+				match finalized_number {
+					Some(finalized_number) => finalized_number,
+					None => {
+						return Err(match e {
+							Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+							Error::Network(error) => ConsensusErrorKind::ClientImport(error),
+							Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
+							Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+							Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
+							Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+						}.into());
+					}
+				}
+			},
+			Ok(_) => number,
+		};
+
+		Ok(finalized_number)
 	}
 }
 
