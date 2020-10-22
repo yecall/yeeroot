@@ -21,12 +21,17 @@ use structopt::{StructOpt, clap::{SubCommand}};
 use yee_switch;
 use yee_bootnodes_router;
 use substrate_cli::VersionInfo;
+use substrate_service::{ChainSpec, FactoryGenesis, ServiceFactory};
+use crate::chain_revert::{RevertCmd, revert_chain};
+use runtime_primitives::traits::{Block as BlockT, Digest, DigestItemFor, Header as HeaderT, NumberFor};
+use crfg::{aux_schema, authorities, CrfgChangeDigestItem, ScheduledChange};
 
 //use yee_switch::SwitchCommandCmd;
 #[derive(Clone, Debug)]
 pub enum CustomCommand {
     SwitchCommandCmd(yee_switch::params::SwitchCommandCmd),
     BootnodesRouterCommandCmd(yee_bootnodes_router::params::BootnodesRouterCommandCmd),
+    Revert(RevertCmd),
     None,
 }
 
@@ -39,6 +44,10 @@ impl StructOpt for CustomCommand {
             .subcommand(
                 yee_bootnodes_router::params::BootnodesRouterCommandCmd::augment_clap(SubCommand::with_name("bootnodes-router"))
                     .about("Yee bootnodes router"))
+            .subcommand(
+                RevertCmd::augment_clap(SubCommand::with_name("revert"))
+                    .about("Yee revert block")
+            )
     }
 
     fn from_clap(matches: &::structopt::clap::ArgMatches) -> Self {
@@ -47,6 +56,8 @@ impl StructOpt for CustomCommand {
                 CustomCommand::SwitchCommandCmd(yee_switch::params::SwitchCommandCmd::from_clap(matches)),
             ("bootnodes-router", Some(matches)) =>
                 CustomCommand::BootnodesRouterCommandCmd(yee_bootnodes_router::params::BootnodesRouterCommandCmd::from_clap(matches)),
+            ("revert", Some(matches)) =>
+                CustomCommand::Revert(RevertCmd::from_clap(matches)),
             (_, Some(_)) => CustomCommand::None,
             (_, None) => CustomCommand::None,
         }
@@ -58,17 +69,23 @@ impl GetLogFilter for CustomCommand {
         match self {
             CustomCommand::SwitchCommandCmd(cmd) => cmd.get_log_filter(),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => cmd.get_log_filter(),
+            CustomCommand::Revert(cmd) => cmd.get_log_filter(),
             CustomCommand::None => None
         }
     }
 }
 
-pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, VersionInfo)>) -> substrate_cli::error::Result<()> {
+pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, VersionInfo)>) -> substrate_cli::error::Result<()> where
+    F: ServiceFactory,
+    S: FnOnce(&str) -> Result<Option<ChainSpec<FactoryGenesis<F>>>, String>,
+    <<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Digest as Digest>::Item: CrfgChangeDigestItem<<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Number>,
+{
 
     match params{
-        Some((custom_command, _spec_factory, _exit, version))=> match custom_command{
+        Some((custom_command, spec_factory, _exit, version))=> match custom_command{
             CustomCommand::SwitchCommandCmd(cmd) => Ok(yee_switch::run(cmd, version).map_err(|e| format!("{:?}", e))?),
             CustomCommand::BootnodesRouterCommandCmd(cmd) => Ok(yee_bootnodes_router::run(cmd, version).map_err(|e| format!("{:?}", e))?),
+            CustomCommand::Revert(cmd) => Ok(revert_chain::<F, S>(cmd, version, spec_factory).map_err(|e|format!("{:?}", e))?),
             CustomCommand::None => Ok(())
         },
         None => Ok(())
