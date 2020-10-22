@@ -32,18 +32,18 @@ trie-root = "0.12.0"
 yee-runtime = { path = "../runtime" }
 consensus = { package = "yee-consensus-pow", path = "../core/consensus/pow" }
 sharding_primitives = { package = "yee-sharding-primitives", path = "../core/sharding/primitives" }
-sr-io = { git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-substrate-executor = { git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
-state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
+sr-io = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+substrate-executor = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
 fg_primitives = { package = "crfg-primitives", path = "../core/crfg/primitives" }
 crfg = { package = "yee-crfg", path = "../core/crfg" }
 structopt = "0.2"
@@ -58,7 +58,7 @@ yee-dev = { package = "yee-dev", path = "../dev" }
 yee-primitives = { package = "yee-primitives", path = "../core/primitives" }
 yee-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives" }
 srml-sharding = { package = "yee-srml-sharding", path = "../srml/yee-sharding" }
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "f104225049f82d90b32a4eb2694bb38b4b28a295" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
 srml-crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg" }
 foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
