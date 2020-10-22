@@ -5,7 +5,7 @@ use app_dirs::{AppDataType, AppInfo};
 use log::info;
 use parity_codec::{Decode, Encode};
 use parity_codec::alloc::collections::HashMap;
-use primitives::H256;
+use primitives::{H256, ed25519::Public as AuthorityId};
 use runtime_primitives::generic::{BlockId, DigestItem};
 use runtime_primitives::traits::{Block as BlockT, Digest, DigestItemFor, Header as HeaderT, NumberFor};
 use runtime_primitives::traits::As;
@@ -15,7 +15,7 @@ use substrate_cli::SharedParams;
 use substrate_cli::VersionInfo;
 use substrate_client::backend::AuxStore;
 use substrate_service::{ChainSpec, Configuration, FactoryFullConfiguration, FactoryGenesis, new_full_client, new_light_client, RuntimeGenesis, ServiceFactory};
-
+use fork_tree::ForkTree;
 use crfg::{authorities, aux_schema, CrfgChangeDigestItem, ScheduledChange};
 use finality_grandpa::round::State;
 use yee_foreign_network::message::generic::Message::Status;
@@ -71,10 +71,40 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
             let best = client.revert(As::sa(number))?;
             let header = client.header(&BlockId::Number(best))?.expect("can't get header");
             let hash = header.hash();
+
+            // for test
+            match client.get_aux(aux_schema::AUTHORITY_SET_KEY) {
+                Ok(Some(t)) => {
+                    let old: authorities::AuthoritySet<Hash, u64> = Decode::decode(&mut &t[..]).unwrap();
+                    info!("old-AUTHORITY_SET_KEY: {:?}", old);
+                },
+                _ => {}
+            }
+            match client.get_aux(aux_schema::SET_STATE_KEY) {
+                Ok(Some(t)) => {
+                    let old: aux_schema::VoterSetState<Hash, u64> = Decode::decode(&mut &t[..]).unwrap();
+                    info!("old-SET_STATE_KEY: {:?}", old);
+                },
+                _ => {}
+            }
+            match client.get_aux(aux_schema::CONSENSUS_CHANGES_KEY) {
+                Ok(Some(v)) => {
+                    info!("old-CONSENSUS_CHANGES_KEY: {:?}", v);
+                },
+                _ => {}
+            }
+            match client.get_aux(aux_schema::PENDING_SKIP_KEY) {
+                Ok(Some(v)) => {
+                    info!("old-PENDING_SKIP_KEY: {:?}", v);
+                },
+                _ => {}
+            }
+
             let authorities = match get_authorities::<F::Block>(header, number) {
                 Ok(v) => v,
                 Err(e) => panic!("{:?}", e)
             };
+            info!("new-authorities: {:?}", authorities.clone() );
             client.insert_aux(&[(aux_schema::AUTHORITY_SET_KEY, authorities.encode().as_slice())], &[])?;
 
             let state = State {
@@ -84,6 +114,7 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
                 completable: true,
             };
             let set_state = aux_schema::VoterSetState::Live(0u64, state);
+            info!("new-SET_STATE_KEY: {:?}", set_state.clone() );
             client.insert_aux(&[(aux_schema::SET_STATE_KEY, set_state.encode().as_slice())], &[])?;
             client.insert_aux(&[(aux_schema::CONSENSUS_CHANGES_KEY, empty.as_slice())], &[])?;
             client.insert_aux(&[(aux_schema::PENDING_SKIP_KEY, empty.as_slice())], &[])?;
@@ -176,7 +207,6 @@ fn db_path(base_path: &Path, chain_id: &str, is_full: bool, shard_num: u16) -> P
     path
 }
 
-type AuthorityId = [u8; 32];
 type Hash = [u8; 32];
 
 fn get_authorities<B: BlockT>(header: B::Header, number: u64) -> Result<authorities::AuthoritySet<Hash, u64>, String>
@@ -190,14 +220,34 @@ where
 
     match change {
         Some(v) => {
-            let authority_set = aux_schema::V0AuthoritySet::<[u8; 32], u64> {
-                current_authorities: v.next_authorities,
-                pending_changes: Vec::new(),
+            let authorities = aggregate_authorities(v.next_authorities);
+            let mut authority_set = authorities::AuthoritySet::<Hash, u64> {
+                current_authorities: authorities,
                 set_id: number,
+                pending_standard_changes: ForkTree::new(),
+                pending_forced_changes: Vec::new(),
             };
-            let new_set: authorities::AuthoritySet<Hash, u64> = authority_set.into();
-            Ok(new_set)
+            authority_set.pending_standard_changes.best_finalized_number = Some(number);
+            Ok(authority_set)
         }
         None => Err(String::from("can't get ScheduledChange"))
     }
+}
+
+fn aggregate_authorities(authorities: Vec<(AuthorityId, u64)>) -> Vec<(AuthorityId, u64)> {
+    let mut polymer: Vec<(AuthorityId, u64)> = Vec::new();
+
+    for author in authorities {
+        match polymer.iter().position(|x| x.0 == author.0){
+            Some(pos) => {
+                let reappear = polymer.get_mut(pos);
+                reappear.unwrap().1 += 1;
+            },
+            None => {
+                polymer.push((author.0, author.1));
+            }
+        }
+    }
+
+    polymer
 }

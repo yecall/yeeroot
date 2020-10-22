@@ -67,6 +67,7 @@ foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 yee-context = { package = "yee-context", path = "../core/context" }
 finality-tracker = { package = "finality-tracker", path = "../core/finality-tracker" }
+fork-tree = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2"}
 
 [features]
 custom-wasm-code = []
