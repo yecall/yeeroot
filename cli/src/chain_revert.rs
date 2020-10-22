@@ -64,6 +64,7 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
     let base_path = base_path(&cli.shared_params, &version);
     for (shard, number) in target {
         let empty: Vec<u8> = vec![];
+        let empty = empty.encode();
         if shard == cli.shard_num {
             config.database_path = db_path(&base_path, spec_id.as_str(), true, shard).to_string_lossy().into();
             let client = new_full_client::<F>(&config)?;
