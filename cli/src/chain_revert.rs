@@ -72,39 +72,10 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
             let header = client.header(&BlockId::Number(best))?.expect("can't get header");
             let hash = header.hash();
 
-            // for test
-            match client.get_aux(aux_schema::AUTHORITY_SET_KEY) {
-                Ok(Some(t)) => {
-                    let old: authorities::AuthoritySet<Hash, u64> = Decode::decode(&mut &t[..]).unwrap();
-                    info!("old-AUTHORITY_SET_KEY: {:?}", old);
-                },
-                _ => {}
-            }
-            match client.get_aux(aux_schema::SET_STATE_KEY) {
-                Ok(Some(t)) => {
-                    let old: aux_schema::VoterSetState<Hash, u64> = Decode::decode(&mut &t[..]).unwrap();
-                    info!("old-SET_STATE_KEY: {:?}", old);
-                },
-                _ => {}
-            }
-            match client.get_aux(aux_schema::CONSENSUS_CHANGES_KEY) {
-                Ok(Some(v)) => {
-                    info!("old-CONSENSUS_CHANGES_KEY: {:?}", v);
-                },
-                _ => {}
-            }
-            match client.get_aux(aux_schema::PENDING_SKIP_KEY) {
-                Ok(Some(v)) => {
-                    info!("old-PENDING_SKIP_KEY: {:?}", v);
-                },
-                _ => {}
-            }
-
             let authorities = match get_authorities::<F::Block>(header, number) {
                 Ok(v) => v,
                 Err(e) => panic!("{:?}", e)
             };
-            info!("new-authorities: {:?}", authorities.clone() );
             client.insert_aux(&[(aux_schema::AUTHORITY_SET_KEY, authorities.encode().as_slice())], &[])?;
 
             let state = State {
@@ -113,9 +84,8 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
                 estimate: Some((hash, number)),
                 completable: true,
             };
-            let set_state = aux_schema::VoterSetState::Live(0u64, state);
-            info!("new-SET_STATE_KEY: {:?}", set_state.clone() );
-            client.insert_aux(&[(aux_schema::SET_STATE_KEY, set_state.encode().as_slice())], &[])?;
+            let set_state = aux_schema::VoterSetState::Live(0u64, state).encode();
+            client.insert_aux(&[(aux_schema::SET_STATE_KEY, set_state.as_slice())], &[])?;
             client.insert_aux(&[(aux_schema::CONSENSUS_CHANGES_KEY, empty.as_slice())], &[])?;
             client.insert_aux(&[(aux_schema::PENDING_SKIP_KEY, empty.as_slice())], &[])?;
             info!("Reverted shard: {}. Best: #{}", shard, best);
