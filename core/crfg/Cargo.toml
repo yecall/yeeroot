@@ -27,6 +27,7 @@ srml-finality-tracker = { package = "srml-finality-tracker", path = "../../srml/
 ansi_term = "0.11"
 yee-consensus-pow = { path = "../consensus/pow"}
 hex = "0.3.1"
+lazy_static = "1.2"
 
 [dev-dependencies]
 consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }

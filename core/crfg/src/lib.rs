@@ -90,8 +90,8 @@ use ansi_term::Colour;
 pub use fg_primitives::ScheduledChange;
 use std::collections::HashMap;
 
-mod authorities;
-mod aux_schema;
+pub mod authorities;
+pub mod aux_schema;
 mod communication;
 mod consensus_changes;
 mod environment;
@@ -100,6 +100,8 @@ mod import;
 mod justification;
 mod until_imported;
 mod digest;
+pub use digest::CrfgChangeDigestItem;
+mod skip;
 
 #[cfg(feature="service-integration")]
 mod service_integration;
@@ -115,6 +117,7 @@ use until_imported::UntilCommitBlocksImported;
 
 use ed25519::{Public as AuthorityId, Signature as AuthoritySignature};
 use parking_lot::RwLock;
+use crate::consensus_changes::SharedPendingSkip;
 
 #[cfg(test)]
 mod tests;
@@ -664,8 +667,10 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 	api: Arc<PRA>,
 	validator: bool,
 	import_until: Option<NumberFor<Block>>,
+	import_leading: Option<NumberFor<Block>>,
 	chain_spec_id: String,
 	shard_num: u16,
+	crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<Block::Hash, NumberFor<Block>>>>>>,
 ) -> Result<(CrfgBlockImport<B, E, Block, RA, PRA>, LinkHalf<B, E, Block, RA>), ClientError>
 	where
 		B: Backend<Block, Blake2Hasher> + 'static,
@@ -704,9 +709,11 @@ pub fn block_import<B, E, Block: BlockT<Hash=H256>, RA, PRA>(
 			api,
 			validator,
 			import_until,
+			import_leading,
 			persistent_data.pending_skip.clone(),
 			chain_spec_id,
 			shard_num,
+			crfg_state_providers,
 		),
 		LinkHalf {
 			client,
@@ -806,7 +813,7 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 	network: N,
 	inherent_data_providers: InherentDataProviders,
 	on_exit: impl Future<Item=(),Error=()> + Send + 'static,
-	crfg_state: Arc<RwLock<Option<CrfgState<Block::Hash, NumberFor<Block>>>>>,
+	crfg_state_provider: Arc<RwLock<Option<Arc<dyn CrfgStateProvider<Block::Hash, NumberFor<Block>>>>>>,
 ) -> ::client::error::Result<impl Future<Item=(),Error=()> + Send + 'static> where
 	Block::Hash: Ord,
 	B: Backend<Block, Blake2Hasher> + 'static,
@@ -850,6 +857,17 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		info!("{} set new crfg authority key", Colour::Green.paint("crfg:"));
 	}
 
+	let run_crfg_state_provider = Arc::new(RwLock::new(RunCrfgStateProvider{
+		config: Some(config.clone()),
+		set_id: initial_environment.set_id,
+		voters: initial_environment.voters.clone(),
+		set_status: Some(set_state.clone()),
+		pending_skip: initial_environment.pending_skip.clone(),
+	}));
+
+	let mut provider = crfg_state_provider.write();
+	*provider = Some(Arc::new(run_crfg_state_provider.clone()));
+
 	let initial_state = (initial_environment, set_state, voter_commands_rx.into_future());
 	let voter_work = future::loop_fn(initial_state, move |params| {
 		let (env, set_state, voter_commands_rx) = params;
@@ -860,13 +878,10 @@ pub fn run_crfg<B, E, Block: BlockT<Hash=H256>, N, RA>(
 		);
 
 		{
-			let mut state = crfg_state.write();
-			*state = Some(CrfgState {
-				config: config.clone(),
-				set_id: env.set_id,
-				voters: env.voters.clone(),
-				set_status: set_state.clone(),
-			});
+			let mut provider = run_crfg_state_provider.write();
+			provider.set_id = env.set_id;
+			provider.voters = env.voters.clone();
+			provider.set_status = Some(set_state.clone());
 		}
 
 		let voters = authority_set.clone().current_authorities();
@@ -1043,8 +1058,35 @@ pub fn inherent_to_common_error(err: RuntimeString) -> consensus_common::Error {
 
 #[derive(Clone)]
 pub struct CrfgState<H, N> {
-	pub config: Config,
+	pub config: Option<Config>,
+	pub set_id: u64,
+	pub voters: VoterSet<AuthorityId>,
+	pub set_status: Option<VoterSetState<H, N>>,
+	pub pending_skip: Vec<(H, N, N)>,
+}
+
+pub trait CrfgStateProvider<H, N>: Send + Sync {
+	fn crfg_state(&self) -> CrfgState<H, N>;
+}
+
+struct RunCrfgStateProvider<H, N> {
+	pub config: Option<Config>,
 	pub set_id: u64,
 	pub voters: Arc<VoterSet<AuthorityId>>,
-	pub set_status: VoterSetState<H, N>,
+	pub set_status: Option<VoterSetState<H, N>>,
+	pub pending_skip: SharedPendingSkip<H, N>,
+}
+
+impl<H: Clone + Send + Sync, N: Clone + Send + Sync> CrfgStateProvider<H, N> for Arc<RwLock<RunCrfgStateProvider<H, N>>> {
+	fn crfg_state(&self) -> CrfgState<H, N> {
+		let read = self.read();
+		let pending_skip = (*read.pending_skip.read()).clone();
+		CrfgState {
+			config: read.config.clone(),
+			set_id: read.set_id,
+			voters: (*read.voters).clone(),
+			set_status: read.set_status.clone(),
+			pending_skip,
+		}
+	}
 }

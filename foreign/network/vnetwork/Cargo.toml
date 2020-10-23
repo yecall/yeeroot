@@ -26,6 +26,7 @@ peerset = { package = "substrate-peerset", git = "https://github.com/yeeco/subst
 tokio = "0.1.11"
 keyring = { package = "substrate-keyring", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", optional = true }
 substrate_network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate_service = { package = "substrate-service", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 
 [dev-dependencies]
 env_logger = { version = "0.6" }

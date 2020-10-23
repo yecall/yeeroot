@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 use yee_primitives::RecommitRelay;
 use futures::sync::mpsc;
 use parking_lot::RwLock;
-use crfg::CrfgState;
+use crfg::CrfgStateProvider;
 use std::time::Duration;
 use substrate_primitives::{Bytes, H256, Blake2Hasher};
 use transaction_pool::txpool::{Pool, ChainApi as PoolChainApi};
@@ -40,18 +40,25 @@ pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "system_config")]
 	fn system_config(&self) -> errors::Result<Config>;
 
+	#[rpc(name = "system_syncState")]
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<Hash, Number>>>;
+
 	#[rpc(name = "crfg_state")]
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>>;
 
 	#[rpc(name = "chain_getRelayProof")]
 	fn get_relay_proof(&self, hash: Option<Hash>) -> errors::Result<Option<Bytes>>;
 
+
+
 }
 
 pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
 	recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
-	crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
+	crfg_state_provider: Arc<RwLock<Option<Arc<CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
+	import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 	pool: Arc<Pool<P>>,
+	network: Arc<network::SyncProvider<B>>,
 	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 	client: Arc<Client<Backend, E, B, RA>>,
 	config: Arc<Config>,
@@ -67,16 +74,20 @@ where
 {
 	pub fn new(
 		recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
-		crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
+		crfg_state_provider: Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
+		import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 		pool: Arc<Pool<P>>,
+		network: Arc<network::SyncProvider<B>>,
 		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 		client: Arc<Client<Backend, E, B, RA>>,
 		config: Arc<Config>,
 	) -> Self {
 		Self {
 			recommit_relay_sender,
-			crfg_state,
+			crfg_state_provider,
+			import_crfg_state_providers,
 			pool,
+			network,
 			foreign_network,
 			client,
 			config,
@@ -126,10 +137,25 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		let foreign_network = self.foreign_network.read();
 		let foreign_network = foreign_network.as_ref().ok_or(errors::Error::from(errors::ErrorKind::NotReady))?;
 		let client_info = foreign_network.client_info();
+		let network_state = foreign_network.network_state();
+		let main_peer_count = self.network.network_state().connected_peers.len() as u32;
+
+		let mut peer_count_map: HashMap<u16, u32> = HashMap::new();
+		peer_count_map.insert(self.config.shard_num, main_peer_count);
+		for (_peer_id, peer) in &network_state.connected_peers {
+			match peer.shard_num {
+				Some(shard_num) => {
+					let count = peer_count_map.entry(shard_num).or_insert(0);
+					*count = *count + 1;
+				}
+				None => {}
+			}
+		}
 
 		let status = client_info.into_iter().map(|(k, v)|{
 			let status = v.map(|v|{
 				ForeignStatus {
+					peer_count: *peer_count_map.get(&k).unwrap_or(&0u32),
 					best_number: v.chain.best_number,
 					best_hash: v.chain.best_hash,
 					finalized_number: v.chain.finalized_number,
@@ -149,7 +175,7 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 	}
 
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<B::Hash, NumberFor<B>>>> {
-		let state = self.crfg_state.read().as_ref().cloned().map(|x|x.into());
+		let state = self.crfg_state_provider.read().as_ref().cloned().map(|x|x.crfg_state().into());
 		Ok(state)
 	}
 
@@ -158,6 +184,13 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		let proof = self.client.proof(&BlockId::Hash(hash))?;
 		let proof = proof.map(|x|Bytes(x));
 		Ok(proof)
+	}
+
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<B::Hash, NumberFor<B>>>> {
+		let state = self.import_crfg_state_providers.read().iter().map(|(k, v)|{
+			(*k, v.crfg_state().into())
+		}).collect::<HashMap<_, _>>();
+		Ok(state)
 	}
 }
 
@@ -175,10 +208,11 @@ mod types {
 
 	#[derive(Serialize)]
 	pub struct CrfgState<H, N> {
-		pub config: Config,
+		pub config: Option<Config>,
 		pub set_id: u64,
 		pub voters: VoterSet,
-		pub set_status: VoterSetState<H, N>,
+		pub set_status: Option<VoterSetState<H, N>>,
+		pub pending_skip: Vec<(H, N, N)>,
 	}
 
 	#[derive(Serialize)]
@@ -188,6 +222,11 @@ mod types {
 		pub local_key_public: Option<Public>,
 		pub local_next_key_public: Option<Public>,
 		pub name: Option<String>,
+	}
+
+	#[derive(Serialize)]
+	pub struct SyncState<H, N> {
+		pub pending_skip: Vec<(H, N, N)>,
 	}
 
 	#[derive(Serialize)]
@@ -219,6 +258,7 @@ mod types {
 
 	#[derive(Serialize)]
 	pub struct ForeignStatus<H, N> {
+		pub peer_count: u32,
 		pub best_number: N,
 		pub best_hash: H,
 		pub finalized_number: N,
@@ -231,10 +271,11 @@ mod types {
 	{
 		fn from(t: crfg::CrfgState<H, N>) -> CrfgState<H, N> {
 			CrfgState {
-				config: t.config.into(),
+				config: t.config.map(Into::into),
 				set_id: t.set_id,
 				voters: t.voters.into(),
-				set_status: t.set_status.into(),
+				set_status: t.set_status.map(Into::into),
+				pending_skip: t.pending_skip,
 			}
 		}
 	}
@@ -251,8 +292,8 @@ mod types {
 		}
 	}
 
-	impl From<Arc<grandpa::VoterSet<AuthorityId>>> for VoterSet {
-		fn from(t: Arc<grandpa::VoterSet<AuthorityId>>) -> VoterSet {
+	impl From<grandpa::VoterSet<AuthorityId>> for VoterSet {
+		fn from(t: grandpa::VoterSet<AuthorityId>) -> VoterSet {
 			VoterSet {
 				weights: t.weights.iter().map(|(k, v)| (Public(k.0.to_vec()), v.clone().into())).collect(),
 				voters: t.voters.iter().map(|(l, r)| (Public(l.0.to_vec()), *r)).collect(),

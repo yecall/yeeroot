@@ -29,7 +29,7 @@ use std::fmt::Debug;
 use std::ops::Add;
 use std::sync::Arc;
 
-use ed25519::Public as AuthorityId;
+pub use ed25519::Public as AuthorityId;
 
 /// A shared authority set.
 pub(crate) struct SharedAuthoritySet<H, N> {
@@ -87,17 +87,17 @@ pub(crate) struct Status<H, N> {
 
 /// A set of authorities.
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub(crate) struct AuthoritySet<H, N> {
-	pub(crate) current_authorities: Vec<(AuthorityId, u64)>,
-	pub(crate) set_id: u64,
+pub struct AuthoritySet<H, N> {
+	pub current_authorities: Vec<(AuthorityId, u64)>,
+	pub set_id: u64,
 	// Tree of pending standard changes across forks. Standard changes are
 	// enacted on finality and must be enacted (i.e. finalized) in-order across
 	// a given branch
-	pub(crate) pending_standard_changes: ForkTree<H, N, PendingChange<H, N>>,
+	pub pending_standard_changes: ForkTree<H, N, PendingChange<H, N>>,
 	// Pending forced changes across different forks (at most one per fork).
 	// Forced changes are enacted on block depth (not finality), for this reason
 	// only one forced change should exist per fork.
-	pub(crate) pending_forced_changes: Vec<PendingChange<H, N>>,
+	pub pending_forced_changes: Vec<PendingChange<H, N>>,
 }
 
 impl<H, N> AuthoritySet<H, N>
@@ -377,7 +377,7 @@ where
 
 /// Kinds of delays for pending changes.
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-pub(crate) enum DelayKind<N> {
+pub enum DelayKind<N> {
 	/// Depth in finalized chain.
 	Finalized,
 	/// Depth in best chain. The median last finalized block is calculated at the time the
@@ -390,18 +390,18 @@ pub(crate) enum DelayKind<N> {
 /// This will be applied when the announcing block is at some depth within
 /// the finalized or unfinalized chain.
 #[derive(Debug, Clone, Encode, PartialEq)]
-pub(crate) struct PendingChange<H, N> {
+pub struct PendingChange<H, N> {
 	/// The new authorities and weights to apply.
-	pub(crate) next_authorities: Vec<(AuthorityId, u64)>,
+	pub next_authorities: Vec<(AuthorityId, u64)>,
 	/// How deep in the chain the announcing block must be
 	/// before the change is applied.
-	pub(crate) delay: N,
+	pub delay: N,
 	/// The announcing block's height.
-	pub(crate) canon_height: N,
+	pub canon_height: N,
 	/// The announcing block's hash.
-	pub(crate) canon_hash: H,
+	pub canon_hash: H,
 	/// The delay kind.
-	pub(crate) delay_kind: DelayKind<N>,
+	pub delay_kind: DelayKind<N>,
 }
 
 impl<H: Decode, N: Decode> Decode for PendingChange<H, N> {

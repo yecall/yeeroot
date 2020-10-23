@@ -294,6 +294,19 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	}
 }
 
+impl<B, S, I> substrate_service::Network<B> for Service<B, S, I> where
+	B: BlockT,
+	S: NetworkSpecialization<B>,
+	I: IdentifySpecialization,
+{
+	fn on_block_imported(&self, hash: B::Hash, header: B::Header) {
+		self.on_block_imported(hash, header);
+	}
+	fn on_block_finalized(&self, hash: B::Hash, header: B::Header) {
+		self.on_block_finalized(hash, header);
+	}
+}
+
 /// A link implementation that connects to the network.
 #[derive(Clone)]
 pub struct NetworkLink<B: BlockT, S: NetworkSpecialization<B>> {
@@ -318,7 +331,7 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 	fn justification_imported(&self, who: PeerId, hash: &B::Hash, number: NumberFor<B>, success: bool) {
 		let _ = self.protocol_sender.send(ProtocolMsg::JustificationImportResult(hash.clone(), number, success));
 		if !success {
-			let reason = Severity::Bad(format!("Invalid justification provided for #{}", hash).to_string());
+			let reason = Severity::Useless(format!("Invalid justification provided for #{}", hash).to_string());
 			let _ = self.network_sender.send(NetworkMsg::ReportPeer(who, reason));
 		}
 	}
@@ -327,8 +340,8 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 		let _ = self.protocol_sender.send(ProtocolMsg::ClearJustificationRequests);
 	}
 
-	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>, force: bool) {
-		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number, force));
+	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number));
 	}
 
 	fn useless_peer(&self, who: PeerId, reason: &str) {
@@ -345,6 +358,14 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 
 	fn restart(&self) {
 		let _ = self.protocol_sender.send(ProtocolMsg::RestartSync);
+	}
+
+	fn hold(&self) {
+		let _ = self.protocol_sender.send(ProtocolMsg::HoldSync);
+	}
+
+	fn skip_justification_requests(&self, justifications: Vec<(B::Hash, NumberFor<B>)>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::SkipJustificationRequests(justifications));
 	}
 }
 

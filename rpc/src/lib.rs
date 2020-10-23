@@ -43,9 +43,10 @@ use parity_codec::{Decode, Encode, Codec};
 use serde::de::Unexpected::Other;
 use futures::sync::mpsc;
 use yee_primitives::{RecommitRelay, Hrp};
-use crfg::CrfgState;
+use crfg::CrfgStateProvider;
 use yee_foreign_network::SyncProvider;
 use serde::Serialize;
+use parity_codec::alloc::collections::HashMap;
 
 pub struct FullRpcHandlerConstructor;
 
@@ -58,7 +59,9 @@ where B: BlockT
 
     fn provide_recommit_relay_sender(&self) -> Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>;
 
-    fn provide_crfg_state(&self) -> Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>;
+    fn provide_crfg_state_provider(&self) -> Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>;
+
+    fn provide_import_crfg_state_providers(&self) -> Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>;
 
     fn provide_foreign_network(&self) -> Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>;
 
@@ -68,6 +71,8 @@ where B: BlockT
 
 #[derive(Clone, Serialize)]
 pub struct Config {
+    pub shard_num: u16,
+    pub shard_count: u16,
     pub coinbase: Option<String>,
     pub job_cache_size: Option<u32>,
 }
@@ -77,7 +82,8 @@ pub struct FullRpcExtra<J, B, H>
 where B: BlockT {
     job_manager: Arc<RwLock<Option<Arc<dyn JobManager<Job=J>>>>>,
     recommit_relay_sender: Arc<RwLock<Option<mpsc::UnboundedSender<RecommitRelay<B::Hash>>>>>,
-    crfg_state: Arc<RwLock<Option<CrfgState<B::Hash, NumberFor<B>>>>>,
+    crfg_state_provider: Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
+    import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
     foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
     config: Arc<Config>,
 }
@@ -101,7 +107,8 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
         FullRpcExtra{
             job_manager: config.custom.provide_job_manager(),
             recommit_relay_sender: config.custom.provide_recommit_relay_sender(),
-            crfg_state: config.custom.provide_crfg_state(),
+            crfg_state_provider: config.custom.provide_crfg_state_provider(),
+            import_crfg_state_providers: config.custom.provide_import_crfg_state_providers(),
             foreign_network: config.custom.provide_foreign_network(),
             config: config.custom.provide_config(),
         }
@@ -143,8 +150,10 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
 
         let misc = Misc::new(
             extra.recommit_relay_sender.clone(),
-            extra.crfg_state.clone(),
+            extra.crfg_state_provider.clone(),
+            extra.import_crfg_state_providers.clone(),
             transaction_pool.clone(),
+            network.clone(),
             extra.foreign_network.clone(),
             client.clone(),
             extra.config.clone(),

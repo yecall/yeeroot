@@ -30,7 +30,7 @@ use substrate_service::{
 use substrate_client::ChainHead;
 use runtime_primitives::{
     generic::BlockId,
-    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero, Block as BlockT, NumberFor},
+    traits::{ProvideRuntimeApi, Header, Digest as DigestT, DigestItemFor, Zero, Block as BlockT, NumberFor, As},
 };
 use crate::error;
 use crate::service::{NodeConfig, NativeExecutor};
@@ -95,6 +95,10 @@ pub struct YeeCliConfig {
     /// A json to specify until which block when importing for each shard
     #[structopt(long = "import-until")]
     pub import_until: Option<String>,
+
+    /// Max leading blocks.
+    #[structopt(long = "import-leading")]
+    pub import_leading: Option<u64>,
 
     /// Pow job cache size
     #[structopt(long = "job-cache-size")]
@@ -216,6 +220,7 @@ where
     config.custom.foreign_in_peers = custom_args.foreign_in_peers;
     config.custom.mine = custom_args.mine;
     config.custom.import_until = get_import_until::<F::Block>(&custom_args.import_until).ok();
+    config.custom.import_leading = custom_args.import_leading.map(As::sa);
     config.custom.job_cache_size = custom_args.job_cache_size;
 
     config.custom.context = Some(context);
@@ -231,6 +236,7 @@ where
     info!("  bootnodes router conf: {:?}", config.custom.bootnodes_router_conf);
     info!("  mine: {:?}", config.custom.mine);
     info!("  import_until: {:?}", config.custom.import_until);
+    info!("  import_leading: {:?}", config.custom.import_leading);
 
     register_inherent_data_provider(&config.custom.inherent_data_providers, shard_num, shard_count, scale_out)
         .map_err(|e| format!("Inherent data error: {:?}", e))?;

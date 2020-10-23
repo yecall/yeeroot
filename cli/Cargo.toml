@@ -7,6 +7,7 @@ license = "GPL-3.0"
 
 [dependencies]
 hyper = "0.11"
+app_dirs = "1.2"
 tokio-proto = "0.1"
 serde = "1.0"
 serde_json = "1.0"
@@ -27,6 +28,7 @@ tokio = "0.1"
 exit-future = "0.1"
 parking_lot = "0.7.1"
 hex-literal = "0.1"
+hex = "0.4.2"
 parity-codec = "3.2"
 trie-root = "0.12.0"
 yee-runtime = { path = "../runtime" }
@@ -46,6 +48,7 @@ runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeec
 state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
 fg_primitives = { package = "crfg-primitives", path = "../core/crfg/primitives" }
 crfg = { package = "yee-crfg", path = "../core/crfg" }
+finality-grandpa = { package = "finality-grandpa", path = "../core/finality-grandpa" }
 structopt = "0.2"
 ansi_term = "0.11"
 yee-switch = { package = "yee-switch", path = "../switch" }
@@ -64,6 +67,7 @@ foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 yee-context = { package = "yee-context", path = "../core/context" }
 finality-tracker = { package = "finality-tracker", path = "../core/finality-tracker" }
+fork-tree = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
 
 [features]
 custom-wasm-code = []

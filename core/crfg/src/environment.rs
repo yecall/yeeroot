@@ -88,7 +88,7 @@ pub(crate) struct Environment<B, E, Block: BlockT, N: Network<Block>, RA> {
 	pub(crate) network: N,
 	pub(crate) set_id: u64,
 	pub(crate) last_completed: LastCompletedRound<Block::Hash, NumberFor<Block>>,
-	pub(crate) pending_skip: SharedPendingSkip<NumberFor<Block>>,
+	pub(crate) pending_skip: SharedPendingSkip<Block::Hash, NumberFor<Block>>,
 }
 
 impl<Block: BlockT<Hash=H256>, B, E, N, RA> grandpa::Chain<Block::Hash, NumberFor<Block>> for Environment<B, E, Block, N, RA> where
@@ -344,7 +344,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 	hash: Block::Hash,
 	number: NumberFor<Block>,
 	justification_or_commit: JustificationOrCommit<Block>,
-	pending_skip: &SharedPendingSkip<NumberFor<Block>>,
+	pending_skip: &SharedPendingSkip<Block::Hash, NumberFor<Block>>,
 ) -> Result<(), CommandOrError<Block::Hash, NumberFor<Block>>> where
 	B: Backend<Block, Blake2Hasher>,
 	E: CallExecutor<Block, Blake2Hasher> + Send + Sync,
@@ -365,7 +365,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		canonical_at_height(client, (hash, number), true, canon_number)
 	};
 
-	let mut pending_skip = pending_skip.lock();
+	let mut pending_skip = pending_skip.write();
 
 	let update_res: Result<_, Error> = client.lock_import_and_run(|import_op| {
 
@@ -396,7 +396,7 @@ pub(crate) fn finalize_block<B, Block: BlockT<Hash=H256>, E, RA>(
 		}
 
 		// pending skip
-		pending_skip.retain(|x| x>=&number );
+		pending_skip.retain(|(_block_hash, _block_number, skip_number)| skip_number>=&number );
 		debug!(target: "afg", "Finalizing pending skip: {:?}", *pending_skip);
 
 		let write_result = crate::aux_schema::update_pending_skip(&*pending_skip,

@@ -4,6 +4,7 @@ mod custom_param;
 mod dev_param;
 mod service;
 mod chain_spec;
+mod chain_revert;
 
 pub use crate::service::Factory;
 pub use crate::service::NodeConfig;

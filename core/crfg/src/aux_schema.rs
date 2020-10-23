@@ -32,10 +32,10 @@ use crate::NewAuthoritySet;
 use substrate_primitives::ed25519::Public as AuthorityId;
 
 const VERSION_KEY: &[u8] = b"crfg_schema_version";
-const SET_STATE_KEY: &[u8] = b"crfg_completed_round";
-const AUTHORITY_SET_KEY: &[u8] = b"crfg_voters";
-const CONSENSUS_CHANGES_KEY: &[u8] = b"crfg_consensus_changes";
-const PENDING_SKIP_KEY: &[u8] = b"crfg_pending_skip";
+pub const SET_STATE_KEY: &[u8] = b"crfg_completed_round";
+pub const AUTHORITY_SET_KEY: &[u8] = b"crfg_voters";
+pub const CONSENSUS_CHANGES_KEY: &[u8] = b"crfg_consensus_changes";
+pub const PENDING_SKIP_KEY: &[u8] = b"crfg_pending_skip";
 
 const CURRENT_VERSION: u32 = 1;
 
@@ -62,18 +62,18 @@ impl<H: Clone, N: Clone> VoterSetState<H, N> {
 type V0VoterSetState<H, N> = (u64, RoundState<H, N>);
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-struct V0PendingChange<H, N> {
-    next_authorities: Vec<(AuthorityId, u64)>,
-    delay: N,
-    canon_height: N,
-    canon_hash: H,
+pub struct V0PendingChange<H, N> {
+    pub next_authorities: Vec<(AuthorityId, u64)>,
+    pub delay: N,
+    pub canon_height: N,
+    pub canon_hash: H,
 }
 
 #[derive(Debug, Clone, Encode, Decode, PartialEq)]
-struct V0AuthoritySet<H, N> {
-    current_authorities: Vec<(AuthorityId, u64)>,
-    set_id: u64,
-    pending_changes: Vec<V0PendingChange<H, N>>,
+pub struct V0AuthoritySet<H, N> {
+    pub current_authorities: Vec<(AuthorityId, u64)>,
+    pub set_id: u64,
+    pub pending_changes: Vec<V0PendingChange<H, N>>,
 }
 
 impl<H, N> Into<AuthoritySet<H, N>> for V0AuthoritySet<H, N>
@@ -129,7 +129,7 @@ pub(crate) struct PersistentData<H, N> {
     pub(crate) authority_set: SharedAuthoritySet<H, N>,
     pub(crate) consensus_changes: SharedConsensusChanges<H, N>,
     pub(crate) set_state: VoterSetState<H, N>,
-    pub(crate) pending_skip: SharedPendingSkip<N>,
+    pub(crate) pending_skip: SharedPendingSkip<H, N>,
 }
 
 /// Load or initialize persistent data from backend.
@@ -150,7 +150,7 @@ pub(crate) fn load_persistent<B, H, N, G>(
     let consensus_changes = load_decode(backend, CONSENSUS_CHANGES_KEY)?
         .unwrap_or_else(ConsensusChanges::<H, N>::empty);
     let pending_skip = load_decode(backend, PENDING_SKIP_KEY)?
-        .unwrap_or_else(Vec::<N>::new);
+        .unwrap_or_else(Vec::<(H, N, N)>::new);
 
     let make_genesis_round = move || RoundState::genesis((genesis_hash, genesis_number));
 
