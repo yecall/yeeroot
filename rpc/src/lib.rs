@@ -71,6 +71,8 @@ where B: BlockT
 
 #[derive(Clone, Serialize)]
 pub struct Config {
+    pub shard_num: u16,
+    pub shard_count: u16,
     pub coinbase: Option<String>,
     pub job_cache_size: Option<u32>,
 }
@@ -151,6 +153,7 @@ impl<C: Components> RpcHandlerConstructor<C> for FullRpcHandlerConstructor where
             extra.crfg_state_provider.clone(),
             extra.import_crfg_state_providers.clone(),
             transaction_pool.clone(),
+            network.clone(),
             extra.foreign_network.clone(),
             client.clone(),
             extra.config.clone(),

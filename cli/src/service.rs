@@ -212,7 +212,11 @@ impl<F> ProvideRpcExtra<DefaultJob<Block, <Pair as PairT>::Public>, F::Block, Co
         let hrp = self.hrp.clone();
         let coinbase = self.coinbase.as_ref().map(|x|x.to_address(hrp.clone()).expect("qed").0);
         let job_cache_size = self.job_cache_size;
+        let shard_num = self.shard_num;
+        let shard_count = self.shard_count;
         let config = Config {
+            shard_num,
+            shard_count,
             coinbase,
             job_cache_size,
         };

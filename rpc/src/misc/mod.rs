@@ -40,14 +40,16 @@ pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "system_config")]
 	fn system_config(&self) -> errors::Result<Config>;
 
+	#[rpc(name = "system_syncState")]
+	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<Hash, Number>>>;
+
 	#[rpc(name = "crfg_state")]
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>>;
 
 	#[rpc(name = "chain_getRelayProof")]
 	fn get_relay_proof(&self, hash: Option<Hash>) -> errors::Result<Option<Bytes>>;
 
-	#[rpc(name = "sync_state")]
-	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<Hash, Number>>>;
+
 
 }
 
@@ -56,6 +58,7 @@ pub struct Misc<P: PoolChainApi, B: BlockT, H, Backend, E, RA> {
 	crfg_state_provider: Arc<RwLock<Option<Arc<CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 	import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 	pool: Arc<Pool<P>>,
+	network: Arc<network::SyncProvider<B>>,
 	foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 	client: Arc<Client<Backend, E, B, RA>>,
 	config: Arc<Config>,
@@ -74,6 +77,7 @@ where
 		crfg_state_provider: Arc<RwLock<Option<Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 		import_crfg_state_providers: Arc<RwLock<HashMap<u16, Arc<dyn CrfgStateProvider<B::Hash, NumberFor<B>>>>>>,
 		pool: Arc<Pool<P>>,
+		network: Arc<network::SyncProvider<B>>,
 		foreign_network: Arc<RwLock<Option<Arc<dyn SyncProvider<B, H>>>>>,
 		client: Arc<Client<Backend, E, B, RA>>,
 		config: Arc<Config>,
@@ -83,6 +87,7 @@ where
 			crfg_state_provider,
 			import_crfg_state_providers,
 			pool,
+			network,
 			foreign_network,
 			client,
 			config,
@@ -132,10 +137,25 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 		let foreign_network = self.foreign_network.read();
 		let foreign_network = foreign_network.as_ref().ok_or(errors::Error::from(errors::ErrorKind::NotReady))?;
 		let client_info = foreign_network.client_info();
+		let network_state = foreign_network.network_state();
+		let main_peer_count = self.network.network_state().connected_peers.len() as u32;
+
+		let mut peer_count_map: HashMap<u16, u32> = HashMap::new();
+		peer_count_map.insert(self.config.shard_num, main_peer_count);
+		for (_peer_id, peer) in &network_state.connected_peers {
+			match peer.shard_num {
+				Some(shard_num) => {
+					let count = peer_count_map.entry(shard_num).or_insert(0);
+					*count = *count + 1;
+				}
+				None => {}
+			}
+		}
 
 		let status = client_info.into_iter().map(|(k, v)|{
 			let status = v.map(|v|{
 				ForeignStatus {
+					peer_count: *peer_count_map.get(&k).unwrap_or(&0u32),
 					best_number: v.chain.best_number,
 					best_hash: v.chain.best_hash,
 					finalized_number: v.chain.finalized_number,
@@ -238,6 +258,7 @@ mod types {
 
 	#[derive(Serialize)]
 	pub struct ForeignStatus<H, N> {
+		pub peer_count: u32,
 		pub best_number: N,
 		pub best_hash: H,
 		pub finalized_number: N,
