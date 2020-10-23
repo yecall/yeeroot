@@ -10,6 +10,8 @@ YeeCo is a permissionless, secure, high performance and scalable public blockcha
 
 ## Latest release
 
+ - [v1.2.0](https://github.com/yeeco/yeeroot/releases/tag/v1.2.0) 
+    ⚠️ mandatory release
  - [v1.1.1](https://github.com/yeeco/yeeroot/releases/tag/v1.1.1) 
     ⚠️ Hard fork release
 
@@ -105,7 +107,7 @@ $ cargo build
     
     Switch can also work as a multi-miner. Since we start the switch with `--mine`, it will mine on the 4 shards.
 
-### Accounts
+#### Accounts
 
 Test accounts: 
     
@@ -117,6 +119,11 @@ tyee14t6jxhs885azsd9v4t75cre9t4crv6a89q2vg8472u3tvwm3f94qgr9w77    2            
 tyee12n2pjuwa5hukpnxjt49q5fal7m5h2ddtxxlju0yepzxty2e2fads5g57yd    3            0xa079ef650520662d08f270c4bc088f0c61abd0224f58243f6d1e6827c3ab234a7a1a0a3b89bbb02f2b10e357fd2a5ddb5050bc528c875a6990874f9dc6496772
 ```
     
+### Revert
+you can revert the chain to certain number by `revert`
+```bash
+$ ./yee revert --shard-num=0 --base-path=/tmp/yee/shard_0 --target="{\"0\":1024, \"1\": 1024, \"2\": 1024, \"3\": 1024}"
+```
 
 ## Roadmap
 1. **[Done]** PoC-1: Tetris consensus demo (2019-02)
