@@ -11,11 +11,11 @@ exit-future = "0.1"
 log = "0.4"
 tokio = "0.1.7"
 sharding_primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-keystore = { package = "substrate-keystore", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-rpc = { package = "substrate-rpc-servers", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "mn/v1.2" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+keystore = { package = "substrate-keystore", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+rpc = { package = "substrate-rpc-servers", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
