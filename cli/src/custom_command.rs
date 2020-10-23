@@ -78,6 +78,7 @@ impl GetLogFilter for CustomCommand {
 pub fn run_custom_command<F, E, S>(params : Option<(CustomCommand, S, E, VersionInfo)>) -> substrate_cli::error::Result<()> where
     F: ServiceFactory,
     S: FnOnce(&str) -> Result<Option<ChainSpec<FactoryGenesis<F>>>, String>,
+    u64: From<<<F::Block as BlockT>::Header as HeaderT>::Number>,
     <<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Digest as Digest>::Item: CrfgChangeDigestItem<<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Number>,
 {
 

@@ -48,6 +48,7 @@ impl substrate_cli::GetLogFilter for RevertCmd {
 pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S) -> error::Result<()> where
     F: ServiceFactory,
     S: FnOnce(&str) -> Result<Option<ChainSpec<FactoryGenesis<F>>>, String>,
+    u64: From<<<F::Block as BlockT>::Header as HeaderT>::Number>,
     <<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Digest as Digest>::Item: CrfgChangeDigestItem<<<<F as ServiceFactory>::Block as BlockT>::Header as HeaderT>::Number>,
 {
     let target = match serde_json::from_str(cli.target.as_str()) {
@@ -68,6 +69,14 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
         if shard == cli.shard_num {
             config.database_path = db_path(&base_path, spec_id.as_str(), true, shard).to_string_lossy().into();
             let client = new_full_client::<F>(&config)?;
+            let best: <<F::Block as BlockT>::Header as HeaderT>::Number = match client.best_block_header() {
+                Ok(h) => *h.number(),
+                Err(e) => panic!("{:?}", e)
+            };
+            if number > best.into() {
+                info!("Shard#{}. Target({}) > Best({})", shard, number, best);
+                continue;
+            }
             let best = client.revert(As::sa(number))?;
             let header = client.header(&BlockId::Number(best))?.expect("can't get header");
             let hash = header.hash();
@@ -92,6 +101,14 @@ pub fn revert_chain<F, S>(cli: RevertCmd, version: VersionInfo, spec_factory: S)
         } else {
             config.database_path = db_path(&base_path, spec_id.as_str(), false, shard).to_string_lossy().into();
             let client = new_light_client::<F>(&config)?;
+            let best = match client.best_block_header() {
+                Ok(h) => *h.number(),
+                Err(e) => panic!("{:?}", e)
+            };
+            if number > best.into() {
+                info!("Shard#{}. Target({}) > Best({})", shard, number, best);
+                continue;
+            }
             let best = client.revert(As::sa(number))?;
             let header = client.header(&BlockId::Number(best))?.expect("can't get header");
             let hash = header.hash();
