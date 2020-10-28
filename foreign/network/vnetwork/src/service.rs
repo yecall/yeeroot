@@ -161,7 +161,8 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	pub fn new<H: ExHashT>(
 		params: Params<B, S, H, I>,
 		import_queue: Box<dyn ImportQueue<B>>,
-	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>, ImportQueuePort<B>), Error> {
+		network_id: Option<u32>,
+	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>, ImportQueuePort<B>, Sender<ProtocolMsg<B, S>>), Error> {
 		let (network_chan, network_port) = network_channel();
 		let status_sinks = Arc::new(Mutex::new(Vec::new()));
 		// Start in off-line mode, since we're not connected to any nodes yet.
@@ -180,6 +181,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 			params.on_demand,
 			params.transaction_pool,
 			params.specialization,
+			network_id
 		)?;
 
 		let service = Arc::new(Service {
@@ -198,14 +200,14 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 
 		// connect the import-queue to the network service.
 		let link = NetworkLink {
-			protocol_sender,
+			protocol_sender: protocol_sender.clone(),
 			network_sender: network_chan.clone(),
 			import_queue_sender,
 		};
 
 		import_queue.start(Box::new(link))?;
 
-		Ok((service, network_chan, network_port, network_to_protocol_sender, import_queue_port))
+		Ok((service, network_chan, network_port, network_to_protocol_sender, import_queue_port, protocol_sender))
 	}
 
 	/*

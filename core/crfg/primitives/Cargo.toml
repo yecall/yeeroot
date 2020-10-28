@@ -5,11 +5,11 @@ authors = ["YeeCo contact@yeefoundation.com"]
 edition = "2018"
 
 [dependencies]
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", default-features = false , branch = "yee-v1.0"}
-substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false , branch = "yee-v1.0" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", default-features = false , rev = "c705591473bea4a5c22b844eebd1b4065c06bb22"}
+substrate-primitives = { git = "https://github.com/yeeco/substrate.git", default-features = false , rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
-sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false , branch = "yee-v1.0" }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, branch = "yee-v1.0" }
+sr-primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default-features = false , rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
 
 [features]
 default = ["std"]

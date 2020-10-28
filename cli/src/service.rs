@@ -457,6 +457,7 @@ construct_service_factory! {
                         },
                         config.custom.context.clone().expect("qed"),
                         config.chain_spec.id().to_string(),
+                        true,
                     ).map_err(Into::into)
                 }
             },
@@ -493,6 +494,7 @@ construct_service_factory! {
                         },
                         config.custom.context.clone().expect("qed"),
                         config.chain_spec.id().to_string(),
+                        false,
                     ).map_err(Into::into)
 
                     // import_queue::<Self, _,  _, <Pair as PairT>::Public>(

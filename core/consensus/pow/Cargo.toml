@@ -12,19 +12,19 @@ parking_lot = "0.7.1"
 tokio = "0.1"
 pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
 yee-srml-pow = { path = "../../../srml/yee-pow" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0"}
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-srml-timestamp = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22"}
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+srml-timestamp = { git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "yee", default-features = false }
 yee-sharding = { package = "yee-sharding", path = "../../sharding" }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
 foreign_chain = { package = "yee-foreign-chain", path = "../../../foreign/chain" }
-yee-merkle = { git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0", default-features = false }
+yee-merkle = { git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22", default-features = false }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 yee-context = { package = "yee-context", path = "../../context" }

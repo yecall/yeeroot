@@ -43,6 +43,9 @@ pub trait MiscApi<Hash, Number> {
 	#[rpc(name = "system_syncState")]
 	fn sync_state(&self) -> errors::Result<HashMap<u16, types::CrfgState<Hash, Number>>>;
 
+	#[rpc(name = "system_syncInspect")]
+	fn sync_inspect(&self) -> errors::Result<()>;
+
 	#[rpc(name = "crfg_state")]
 	fn crfg_state(&self) -> errors::Result<Option<types::CrfgState<Hash, Number>>>;
 
@@ -191,6 +194,15 @@ impl<P, B, H, Backend, E, RA> MiscApi<B::Hash, NumberFor<B>> for Misc<P, B, H, B
 			(*k, v.crfg_state().into())
 		}).collect::<HashMap<_, _>>();
 		Ok(state)
+	}
+
+	fn sync_inspect(&self) -> errors::Result<()> {
+
+		self.network.inspect();
+		let foreign_network = self.foreign_network.read();
+		foreign_network.as_ref().map(|x|x.inspect());
+
+		Ok(())
 	}
 }
 

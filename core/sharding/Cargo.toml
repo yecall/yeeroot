@@ -5,8 +5,8 @@ authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
 
 [dependencies]
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
 regex = "1"
 log = "0.4"
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", branch = "yee-v1.0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
 parity-codec = "3.2"

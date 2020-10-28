@@ -184,6 +184,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
     shard_extra: ShardExtra<AccountId>,
     context: Context<F::Block>,
     chain_spec_id: String,
+    is_full: bool,
 ) -> Result<PowImportQueue<F::Block>, consensus_common::Error> where
     H256: From<<F::Block as Block>::Hash>,
     F: ServiceFactory + Send + Sync,
@@ -204,6 +205,8 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
         register_inherent_data_provider(&inherent_data_providers, coinbase.clone())?;
     }
 
+    let network_id = if is_full { None } else { Some(shard_extra.shard_num as u32) };
+
     let verifier = Arc::new(
         verifier::PowVerifier {
             client,
@@ -215,7 +218,7 @@ pub fn import_queue<F, C, AccountId, AuthorityId>(
             chain_spec_id,
         }
     );
-    Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import))
+    Ok(BasicQueue::<F::Block>::new(verifier, block_import, justification_import, network_id))
 }
 
 pub fn register_inherent_data_provider<AccountId: 'static + Codec + Send + Sync>(
