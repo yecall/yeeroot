@@ -11,11 +11,11 @@ exit-future = "0.1"
 log = "0.4"
 tokio = "0.1.7"
 sharding_primitives = { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-keystore = { package = "substrate-keystore", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-rpc = { package = "substrate-rpc-servers", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
-transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+keystore = { package = "substrate-keystore", git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+rpc = { package = "substrate-rpc-servers", git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
+transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }

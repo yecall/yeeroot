@@ -18,7 +18,7 @@ rand = "0.6"
 serde = { version = "1.0.70", features = ["derive"] }
 serde_json = "1.0.24"
 smallvec = "0.6"
-substrate-peerset = { git = "https://github.com/yeeco/substrate.git", rev = "c705591473bea4a5c22b844eebd1b4065c06bb22" }
+substrate-peerset = { git = "https://github.com/yeeco/substrate.git", rev = "baf15ee6faee628d0f0760dfead706779402bbd8" }
 tokio = "0.1"
 tokio-io = "0.1"
 tokio-timer = "0.2"

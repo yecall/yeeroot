@@ -338,12 +338,24 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 		}
 	}
 
+	fn justification_skipped(&self, hash: &B::Hash, number: NumberFor<B>, success: bool) {
+		let _ = self.protocol_sender.send(ProtocolMsg::JustificationImportResult(hash.clone(), number, success));
+	}
+
 	fn clear_justification_requests(&self) {
 		let _ = self.protocol_sender.send(ProtocolMsg::ClearJustificationRequests);
 	}
 
 	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
 		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number));
+	}
+
+	fn skip_justification(&self, hash: B::Hash, number: NumberFor<B>, signaler: (B::Hash, NumberFor<B>)) {
+		let _ = self.protocol_sender.send(ProtocolMsg::SkipJustification(hash, number, signaler));
+	}
+
+	fn fork(&self, blocks: Vec<(B::Hash, NumberFor<B>)>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::Fork(blocks));
 	}
 
 	fn useless_peer(&self, who: PeerId, reason: &str) {
@@ -364,10 +376,6 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 
 	fn hold(&self) {
 		let _ = self.protocol_sender.send(ProtocolMsg::HoldSync);
-	}
-
-	fn skip_justification_requests(&self, justifications: Vec<(B::Hash, NumberFor<B>)>) {
-		let _ = self.protocol_sender.send(ProtocolMsg::SkipJustificationRequests(justifications));
 	}
 }
 

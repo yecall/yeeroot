@@ -42,6 +42,7 @@ use serde::export::PhantomData;
 use crate::message::generic::{Message as GenericMessage, OutMessage, BestBlockInfo};
 use crate::chain::Client;
 use regex::Regex;
+use rand::seq::SliceRandom;
 
 /// Sync status
 pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
@@ -665,7 +666,12 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 		let protocol = stream::poll_fn(move || {
 
 			let mut error_shard_num = None;
-			for (shard_num, network_port) in &*network_port_list.read(){
+			let read = network_port_list.read();
+			let mut random_list = read.iter().collect::<Vec<_>>();
+			let mut rng = thread_rng();
+			random_list.shuffle(&mut rng);
+
+			for (shard_num, network_port) in random_list {
 				let shard_num = *shard_num;
 				match network_port.take_one_message() {
 					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
@@ -676,6 +682,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 					}
 				}
 			}
+
 			if let Some(error_shard_num) = error_shard_num{
 				network_port_list.write().remove(&error_shard_num);
 			}
@@ -746,7 +753,6 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 			match msg {
 				FromNetworkMsg::PeerConnected(peer_id, debug_info) => {
 					if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
-						let keys : Vec<u16> = network_to_protocol_sender_list.read().keys().cloned().collect();
 						if let Some(sender) = network_to_protocol_sender_list.read().get(&shard_num){
 							sender.send(vnetwork::FromNetworkMsg::PeerConnected(peer_id, debug_info)).map_err(|_|())?;
 						}
@@ -816,7 +822,12 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 		let import_queue = stream::poll_fn(move || {
 
 			let mut error_shard_num = None;
-			for (shard_num, import_queue_port) in &*import_queue_port_list.read(){
+			let read = import_queue_port_list.read();
+			let mut random_list = read.iter().collect::<Vec<_>>();
+			let mut rng = thread_rng();
+			random_list.shuffle(&mut rng);
+
+			for (shard_num, import_queue_port) in random_list{
 				let shard_num = *shard_num;
 				match import_queue_port.take_one_message() {
 					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
@@ -880,6 +891,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 
 use substrate_service::{Components, FactoryBlock, ComponentExHash, ServiceFactory};
 use substrate_network::specialization::NetworkSpecialization;
+use rand::thread_rng;
 
 impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, <F as ServiceFactory>::NetworkProtocol, I, EH> where
 	F: substrate_service::ServiceFactory,
