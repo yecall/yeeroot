@@ -33,6 +33,7 @@ use {
     consensus_common::{
         BlockImport, Environment, Proposer, SyncOracle,
         import_queue::{
+            BlockBuilder,
             BasicQueue,
             SharedBlockImport, SharedJustificationImport,
         },
@@ -92,7 +93,7 @@ pub struct Params<AccountId, B> where
 pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
     local_key: Arc<P>,
     client: Arc<C>,
-    block_import: Arc<I>,
+    block_builder: Arc<I>,
     env: Arc<E>,
     sync_oracle: SO,
     on_exit: OnExit,
@@ -106,7 +107,7 @@ pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
     <P as Pair>::Public: Clone + Debug + Decode + Encode + Send + Sync,
     C: ChainHead<B> + HeaderBackend<B> + ProvideRuntimeApi + 'static,
     <C as ProvideRuntimeApi>::Api: YeePOWApi<B>,
-    I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+    I: BlockBuilder<B> + Send + Sync + 'static,
     E: Environment<B> + Send + Sync + 'static,
     <E as Environment<B>>::Error: Debug + Send,
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
@@ -125,7 +126,7 @@ pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
         env.clone(),
         inherent_data_providers.clone(),
         local_key.public(),
-        block_import.clone(),
+        block_builder.clone(),
         params.shard_extra.clone(),
         params.context.clone(),
         foreign_chains.clone(),
@@ -145,7 +146,7 @@ pub fn start_pow<F, B, P, C, I, E, AccountId, SO, OnExit>(
 
     let worker = Arc::new(worker::DefaultWorker::new(
         inner_job_manager.clone(),
-        block_import,
+        block_builder,
         inherent_data_providers.clone(),
         params.shard_extra.clone(),
     ));

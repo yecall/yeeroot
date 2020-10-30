@@ -22,7 +22,7 @@ use substrate_service::config::Roles;
 use {
     parking_lot::RwLock,
     consensus::{self, import_queue, start_pow, PowImportQueue, JobManager, DefaultJob},
-    consensus_common::import_queue::ImportQueue,
+    consensus_common::import_queue::{ImportQueue, BlockBuilder},
     foreign_chain::{ForeignChain, ForeignChainConfig},
     substrate_service::{
         NetworkProviderParams, FactoryBlock, NetworkProvider, Network, ServiceFactory, ComponentExHash,
@@ -81,7 +81,7 @@ native_executor_instance!(
 pub struct NodeConfig<F: substrate_service::ServiceFactory> {
     /// crfg connection to import block
     // FIXME #1134 rather than putting this on the config, let's have an actual intermediate setup state
-    pub crfg_import_setup: Option<(Arc<crfg::BlockImportForService<F>>, crfg::LinkHalfForService<F>)>,
+    pub crfg_import_setup: Option<(Arc<PowImportQueue<F::Block>>, crfg::LinkHalfForService<F>)>,
     pub inherent_data_providers: InherentDataProviders,
     pub coinbase: Option<AccountId>,
     pub shard_num: u16,
@@ -354,7 +354,7 @@ construct_service_factory! {
                     info!("Running crfg session as Authority: {:?}, next: {:?}", key.as_ref().map(|x|x.public()), next_key.as_ref().map(|x|x.public()));
 
                     // crfg
-                    let (block_import, link_half) = service.config.custom.crfg_import_setup.take()
+                    let (block_builder, link_half) = service.config.custom.crfg_import_setup.take()
                     .expect("Link Half and Block Import are present for Full Services or setup failed before. qed");
 
                     crfg::register_crfg_inherent_data_provider(
@@ -403,7 +403,7 @@ construct_service_factory! {
                     executor.spawn(start_pow::<Self, Self::Block, _, _, _, _, _, _, _>(
                         worker_key.clone(),
                         client.clone(),
-                        block_import.clone(),
+                        block_builder.clone(),
                         proposer,
                         service.network(),
                         service.on_exit(),
@@ -437,12 +437,8 @@ construct_service_factory! {
                     let block_import = Arc::new(block_import);
                     let justification_import = block_import.clone();
 
-                    if validator {
-                        config.custom.crfg_import_setup = Some((block_import.clone(), link_half));
-                    }
-
                     info!("Start full import queue, shard_num: {}", config.custom.shard_num);
-                    import_queue::<Self, _,  _, <Pair as PairT>::Public>(
+                    let import_queue = import_queue::<Self, _,  _, <Pair as PairT>::Public>(
                         block_import,
                         Some(justification_import),
                         client,
@@ -458,7 +454,13 @@ construct_service_factory! {
                         config.custom.context.clone().expect("qed"),
                         config.chain_spec.id().to_string(),
                         true,
-                    ).map_err(Into::into)
+                    ).expect("qed");
+
+                    if validator {
+                        config.custom.crfg_import_setup = Some((Arc::new(import_queue.clone()), link_half));
+                    }
+
+                    Ok(import_queue)
                 }
             },
         LightImportQueue = PowImportQueue<Self::Block>

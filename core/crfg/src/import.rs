@@ -159,7 +159,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 		});
 
 		if valid_signaler.is_none() {
-			return Err(ConsensusError::from(ConsensusErrorKind::ClientImport("no valid signaler to skio".to_string())));
+			return Err(ConsensusError::from(ConsensusErrorKind::ClientImport("no valid signaler to skip".to_string())));
 		}
 
 		self.skip(hash, number)
