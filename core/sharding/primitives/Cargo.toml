@@ -7,9 +7,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "92524273ee4387871e6b8472136edfc19e03b728" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "92524273ee4387871e6b8472136edfc19e03b728" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "92524273ee4387871e6b8472136edfc19e03b728" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", default_features = false, rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
 
 [dev-dependencies]
