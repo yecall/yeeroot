@@ -28,6 +28,7 @@ use client::runtime_api::ApiExt;
 use consensus_common::{
 	BlockImport, Error as ConsensusError, ErrorKind as ConsensusErrorKind,
 	ImportBlock, ImportResult, JustificationImport, well_known_cache_keys,
+	SkipResult,
 };
 use fg_primitives::CrfgApi;
 use runtime_primitives::Justification;
@@ -142,12 +143,20 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 		hash: Block::Hash,
 		number: NumberFor<Block>,
 		signalers: Vec<(Block::Hash, NumberFor<Block>)>,
-	) -> Result<(), Self::Error> {
+	) -> Result<SkipResult, Self::Error> {
 		let chain_info = match self.inner.info() {
 			Ok(info) => info.chain,
 			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
 		};
 		let best_number = chain_info.best_number;
+
+		let ready_signaler = signalers.iter().find(|(signaler_hash, signaler_number)| {
+			let result = signaler_number.clone() + As::sa(2) <= best_number;
+			result
+		});
+		if ready_signaler.is_none() {
+			return Ok(SkipResult::Pending);
+		}
 
 		let valid_signaler = signalers.iter().find(|(signaler_hash, signaler_number)| {
 			let result = signaler_number.clone() + As::sa(2) <= best_number &&
@@ -157,12 +166,13 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> JustificationImport<Block>
 				});
 			result
 		});
-
 		if valid_signaler.is_none() {
 			return Err(ConsensusError::from(ConsensusErrorKind::ClientImport("no valid signaler to skip".to_string())));
 		}
 
-		self.skip(hash, number)
+		self.skip(hash, number)?;
+
+		Ok(SkipResult::Success)
 	}
 }
 

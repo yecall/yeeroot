@@ -6,10 +6,10 @@ edition = "2018"
 
 [dependencies]
 parity-codec = { version = "3.2", features = ["derive"], default-features = false }
-primitives = { package = "sr-primitives",  git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0", default-features = false }
-srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0", default-features = false }
+primitives = { package = "sr-primitives",  git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa", default-features = false }
+srml-support = { git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+system = { package = "srml-system", git = "https://github.com/yeeco/substrate.git", default-features = false, rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+rstd = { package = "sr-std", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa", default-features = false }
 balances = { package =  "yee-srml-balances", path = "../yee-balances", default-features = false }
 assets = { package = "yee-srml-assets", path = "../yee-assets", default-features = false }
 yee-sr-primitives = { package = "yee-sr-primitives", path = "../../core/sr-primitives", default-features = false }

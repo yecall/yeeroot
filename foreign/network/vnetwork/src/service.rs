@@ -21,6 +21,7 @@ use log::{trace};
 use futures::{sync::oneshot, sync::mpsc};
 use parking_lot::{Mutex, RwLock};
 use consensus::import_queue::{ImportQueue, Link};
+use consensus::SkipResult;
 use crate::consensus_gossip::ConsensusGossip;
 use crate::protocol::{Context, FromNetworkMsg, Protocol, ConnectedPeer, ProtocolMsg, ProtocolStatus};
 use crate::config::Params;
@@ -338,8 +339,8 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 		}
 	}
 
-	fn justification_skipped(&self, hash: &B::Hash, number: NumberFor<B>, success: bool) {
-		let _ = self.protocol_sender.send(ProtocolMsg::JustificationImportResult(hash.clone(), number, success));
+	fn justification_skipped(&self, hash: &B::Hash, number: NumberFor<B>, result: SkipResult) {
+		let _ = self.protocol_sender.send(ProtocolMsg::JustificationSkipResult(hash.clone(), number, result));
 	}
 
 	fn clear_justification_requests(&self) {

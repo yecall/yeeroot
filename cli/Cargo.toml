@@ -34,18 +34,18 @@ trie-root = "0.12.0"
 yee-runtime = { path = "../runtime" }
 consensus = { package = "yee-consensus-pow", path = "../core/consensus/pow" }
 sharding_primitives = { package = "yee-sharding-primitives", path = "../core/sharding/primitives" }
-sr-io = { git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-substrate-executor = { git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-substrate-client = { git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
-state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
+sr-io = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+substrate-executor = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+transaction-pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+substrate-client = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+basic-authorship = { package = "substrate-basic-authorship", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+state_machine = { package = "substrate-state-machine", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
 fg_primitives = { package = "crfg-primitives", path = "../core/crfg/primitives" }
 crfg = { package = "yee-crfg", path = "../core/crfg" }
 finality-grandpa = { package = "finality-grandpa", path = "../core/finality-grandpa" }
@@ -61,13 +61,13 @@ yee-dev = { package = "yee-dev", path = "../dev" }
 yee-primitives = { package = "yee-primitives", path = "../core/primitives" }
 yee-pow-primitives = { package = "yee-consensus-pow-primitives", path = "../core/consensus/pow/primitives" }
 srml-sharding = { package = "yee-srml-sharding", path = "../srml/yee-sharding" }
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0" }
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
 srml-crfg = { package = "yee-srml-crfg", path = "../srml/yee-crfg" }
 foreign_chain = { package = "yee-foreign-chain", path = "../foreign/chain" }
 signal-hook = { version = "0.1.11", features = ["tokio-support"] }
 yee-context = { package = "yee-context", path = "../core/context" }
 finality-tracker = { package = "finality-tracker", path = "../core/finality-tracker" }
-fork-tree = { git = "https://github.com/yeeco/substrate.git", rev = "d4b7fa04134a91fede880d292d11eba79ce88ed0"}
+fork-tree = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa"}
 
 [features]
 custom-wasm-code = []
