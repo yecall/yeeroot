@@ -17,11 +17,11 @@ parity-codec = "3.2"
 serde = { version = "1.0", features = ["derive"] }
 impl-serde = { version = "0.1"}
 serde_json = "1.0"
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-runtime_version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-sr-io = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+runtime_version = { package = "sr-version", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+sr-io = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
 yee-runtime = { package = "yee-runtime", path = "../../runtime" }
 yee-sharding-primitives= { package = "yee-sharding-primitives", path = "../../core/sharding/primitives" }
 tokio = "0.1.7"

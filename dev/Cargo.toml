@@ -5,6 +5,6 @@ authors = ["YeeCo <contact@yeefoundation.com>"]
 edition = "2018"
 
 [dependencies]
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+network = { package = "substrate-network", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
 error-chain = "0.12"

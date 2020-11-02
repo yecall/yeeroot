@@ -12,19 +12,19 @@ parking_lot = "0.7.1"
 tokio = "0.1"
 pow_primitives = { package = "yee-consensus-pow-primitives", path = "primitives" }
 yee-srml-pow = { path = "../../../srml/yee-pow" }
-client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa"}
-consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-srml-timestamp = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+client = { package = "substrate-client", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94"}
+consensus_common = { package = "substrate-consensus-common", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+inherents = { package = "substrate-inherents", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+srml-timestamp = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 merkle-light = { package = "merkle_light", git = "https://github.com/yeeco/merkle_light.git", branch = "yee", default-features = false }
 yee-sharding = { package = "yee-sharding", path = "../../sharding" }
 yee-sharding-primitives = { package = "yee-sharding-primitives", path = "../../sharding/primitives" }
 foreign_chain = { package = "yee-foreign-chain", path = "../../../foreign/chain" }
-yee-merkle = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa", default-features = false }
+yee-merkle = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94", default-features = false }
 yee-srml-executive = { path = "../../../srml/yee-executive" }
 yee-runtime = { package = "yee-runtime", path = "../../../runtime" }
 yee-context = { package = "yee-context", path = "../../context" }

@@ -28,9 +28,9 @@ tokio = "0.1.7"
 parking_lot = "0.7.1"
 parity-codec = { version = "3.2", default-features = false, features = ["derive"] }
 hex-literal = { version = "0.1.0", optional = true }
-substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
-transaction_pool =  { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "1f109fbe2aed1f422f252c07b268a110170bb7aa" }
+substrate-cli = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+substrate-primitives = { package = "substrate-primitives", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+transaction_pool =  { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
 yee-switch-rpc-servers = { package = "yee-switch-rpc-servers", path = "rpc-servers" }
 yee-switch-rpc = { package = "yee-switch-rpc", path = "rpc" }
 yee-runtime = { package = "yee-runtime", path = "../runtime" }
