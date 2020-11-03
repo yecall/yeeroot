@@ -829,6 +829,19 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		justification: Justification,
 		enacts_change: bool,
 	) -> Result<(), ConsensusError> {
+
+		let get_finalized_number = || match self.inner.info() {
+			Ok(info) => {
+				let finalized_number = info.chain.finalized_number;
+				if finalized_number >= number{
+					Some(finalized_number)
+				} else {
+					None
+				}
+			},
+			Err(e) => None,
+		};
+
 		let justification = CrfgJustification::decode_and_verify(
 			justification,
 			self.authority_set.set_id(),
@@ -836,7 +849,17 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		);
 
 		let justification = match justification {
-			Err(e) => return Err(ConsensusErrorKind::ClientImport(e.to_string()).into()),
+			Err(e) => {
+				match get_finalized_number() {
+					Some(finalized_number) => {
+						debug!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
+						return Ok(())
+					},
+					None => {
+						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
+					}
+				}
+			},
 			Ok(justification) => justification,
 		};
 
@@ -863,14 +886,22 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				}
 			},
 			Err(CommandOrError::Error(e)) => {
-				return Err(match e {
-					Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-					Error::Network(error) => ConsensusErrorKind::ClientImport(error),
-					Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
-					Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-					Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
-					Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-				}.into());
+				match get_finalized_number() {
+					Some(finalized_number) => {
+						debug!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
+						return Ok(())
+					},
+					None => {
+						return Err(match e {
+							Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+							Error::Network(error) => ConsensusErrorKind::ClientImport(error),
+							Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
+							Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+							Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
+							Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+						}.into());
+					}
+				}
 			},
 			Ok(_) => {
 				assert!(!enacts_change, "returns Ok when no authority set change should be enacted; qed;");
@@ -889,6 +920,18 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		let justification = CrfgJustification::default_justification(hash.clone(), number);
 
 		debug!(target: "afg", "Skip finalize_block: {} {}", number, &hash);
+
+		let get_finalized_number = || match self.inner.info() {
+			Ok(info) => {
+				let finalized_number = info.chain.finalized_number;
+				if finalized_number >= number{
+					Some(finalized_number)
+				} else {
+					None
+				}
+			},
+			Err(e) => None,
+		};
 
 		let result = finalize_block(
 			&*self.inner,
@@ -913,20 +956,9 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				}
 			},
 			Err(CommandOrError::Error(e)) => {
-
-				let finalized_number = match self.inner.info() {
-					Ok(info) => {
-						let finalized_number = info.chain.finalized_number;
-						if finalized_number >= number{
-							Some(finalized_number)
-						} else {
-							None
-						}
-					},
-					Err(e) => None,
-				};
-				match finalized_number {
+				match get_finalized_number() {
 					Some(finalized_number) => {
+						debug!(target: "afg", "Skip justification for finalized block: number: {} hash: {}", number, hash);
 						return Ok(())
 					},
 					None => {
