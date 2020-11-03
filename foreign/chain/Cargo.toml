@@ -19,3 +19,4 @@ runtime_primitives = { package = "sr-primitives", git = "https://github.com/yeec
 substrate-client = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
 substrate-service = { git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
 transaction_pool = { package = "substrate-transaction-pool", git = "https://github.com/yeeco/substrate.git", rev = "0fd106881d80818fe2aa6dd5aecf7c0dfa306e94" }
+rand = "0.6.5"

@@ -830,16 +830,11 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		enacts_change: bool,
 	) -> Result<(), ConsensusError> {
 
-		let get_finalized_number = || match self.inner.info() {
-			Ok(info) => {
-				let finalized_number = info.chain.finalized_number;
-				if finalized_number >= number{
-					Some(finalized_number)
-				} else {
-					None
-				}
+		let finalized = || match (self.inner.backend().blockchain().info(), self.inner.backend().blockchain().hash(number)) {
+			(Ok(info), Ok(expected_hash)) => {
+				info.finalized_number >= number && Some(hash) == expected_hash
 			},
-			Err(e) => None,
+			_ => false,
 		};
 
 		let justification = CrfgJustification::decode_and_verify(
@@ -850,14 +845,11 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		let justification = match justification {
 			Err(e) => {
-				match get_finalized_number() {
-					Some(finalized_number) => {
-						debug!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
-						return Ok(())
-					},
-					None => {
-						return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
-					}
+				if finalized() {
+					debug!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
+					return Ok(())
+				} else {
+					return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
 				}
 			},
 			Ok(justification) => justification,
@@ -886,21 +878,18 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				}
 			},
 			Err(CommandOrError::Error(e)) => {
-				match get_finalized_number() {
-					Some(finalized_number) => {
-						debug!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
-						return Ok(())
-					},
-					None => {
-						return Err(match e {
-							Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-							Error::Network(error) => ConsensusErrorKind::ClientImport(error),
-							Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
-							Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-							Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
-							Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-						}.into());
-					}
+				if finalized() {
+					warn!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
+					return Ok(())
+				} else {
+					return Err(match e {
+						Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+						Error::Network(error) => ConsensusErrorKind::ClientImport(error),
+						Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
+						Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+						Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
+						Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					}.into());
 				}
 			},
 			Ok(_) => {
@@ -921,16 +910,11 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		debug!(target: "afg", "Skip finalize_block: {} {}", number, &hash);
 
-		let get_finalized_number = || match self.inner.info() {
-			Ok(info) => {
-				let finalized_number = info.chain.finalized_number;
-				if finalized_number >= number{
-					Some(finalized_number)
-				} else {
-					None
-				}
+		let finalized = || match (self.inner.backend().blockchain().info(), self.inner.backend().blockchain().hash(number)) {
+			(Ok(info), Ok(expected_hash)) => {
+				info.finalized_number >= number && Some(hash) == expected_hash
 			},
-			Err(e) => None,
+			_ => false,
 		};
 
 		let result = finalize_block(
@@ -956,21 +940,18 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 				}
 			},
 			Err(CommandOrError::Error(e)) => {
-				match get_finalized_number() {
-					Some(finalized_number) => {
-						debug!(target: "afg", "Skip justification for finalized block: number: {} hash: {}", number, hash);
-						return Ok(())
-					},
-					None => {
-						return Err(match e {
-							Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-							Error::Network(error) => ConsensusErrorKind::ClientImport(error),
-							Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
-							Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-							Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
-							Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
-						}.into());
-					}
+				if finalized() {
+					warn!(target: "afg", "Skip justification for finalized block: number: {} hash: {}", number, hash);
+					return Ok(())
+				} else {
+					return Err(match e {
+						Error::Crfg(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+						Error::Network(error) => ConsensusErrorKind::ClientImport(error),
+						Error::Blockchain(error) => ConsensusErrorKind::ClientImport(error),
+						Error::Client(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+						Error::Safety(error) => ConsensusErrorKind::ClientImport(error),
+						Error::Timer(error) => ConsensusErrorKind::ClientImport(error.to_string()),
+					}.into());
 				}
 			},
 			Ok(_) => ()

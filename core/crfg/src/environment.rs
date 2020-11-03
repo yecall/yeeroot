@@ -274,7 +274,7 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 			return Ok(());
 		}
 
-		finalize_block(
+		let result = finalize_block(
 			&*self.inner,
 			&self.authority_set,
 			&self.consensus_changes,
@@ -283,7 +283,26 @@ impl<B, E, Block: BlockT<Hash=H256>, N, RA> voter::Environment<Block::Hash, Numb
 			number,
 			(round, commit).into(),
 			&self.pending_skip,
-		)
+		);
+
+		let finalized = || match (self.inner.backend().blockchain().info(), self.inner.backend().blockchain().hash(number)) {
+			(Ok(info), Ok(expected_hash)) => {
+				info.finalized_number >= number && Some(hash) == expected_hash
+			},
+			_ => false,
+		};
+
+		match result {
+			Err(CommandOrError::Error(e)) => {
+				if finalized() {
+					warn!(target: "afg", "Apply crfg finalization for finalized block: number: {} hash: {}", number, hash);
+					Ok(())
+				} else {
+					Err(CommandOrError::Error(e))
+				}
+			},
+			other => other,
+		}
 	}
 
 	fn round_commit_timer(&self) -> Self::Timer {
