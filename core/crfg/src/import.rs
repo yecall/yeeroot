@@ -868,7 +868,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		match result {
 			Err(CommandOrError::VoterCommand(command)) => {
-				debug!(target: "afg", "Imported justification for block #{} that triggers \
+				warn!(target: "afg", "Imported justification for block #{} that triggers \
 					command {}, signaling voter.", number, command);
 
 				if self.validator {
