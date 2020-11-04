@@ -10,10 +10,12 @@ YeeCo is a permissionless, secure, high performance and scalable public blockcha
 
 ## Latest release
 
+ - [v1.3.0](https://github.com/yeeco/yeeroot/releases/tag/v1.3.0)
+    ⚠️ mandatory release (2020-11-04)
  - [v1.2.0](https://github.com/yeeco/yeeroot/releases/tag/v1.2.0) 
-    ⚠️ mandatory release
+    ⚠️ mandatory release (2020-10-23)
  - [v1.1.1](https://github.com/yeeco/yeeroot/releases/tag/v1.1.1) 
-    ⚠️ Hard fork release
+    ⚠️ Hard fork release (2020-10-01)
 
 ## Table of Contents
 
