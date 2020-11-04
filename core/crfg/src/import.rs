@@ -846,7 +846,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 		let justification = match justification {
 			Err(e) => {
 				if finalized() {
-					debug!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
+					warn!(target: "afg", "Import justification for finalized block: number: {} hash: {}", number, hash);
 					return Ok(())
 				} else {
 					return Err(ConsensusErrorKind::ClientImport(e.to_string()).into())
@@ -868,7 +868,7 @@ impl<B, E, Block: BlockT<Hash=H256>, RA, PRA> CrfgBlockImport<B, E, Block, RA, P
 
 		match result {
 			Err(CommandOrError::VoterCommand(command)) => {
-				warn!(target: "afg", "Imported justification for block #{} that triggers \
+				debug!(target: "afg", "Imported justification for block #{} that triggers \
 					command {}, signaling voter.", number, command);
 
 				if self.validator {
