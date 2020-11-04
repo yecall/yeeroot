@@ -30,6 +30,8 @@ use {
     },
 };
 use substrate_service::Roles;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 
 pub trait ForeignChainConfig {
     fn get_shard_num(&self) -> u16;
@@ -61,7 +63,10 @@ impl<F> ForeignChain<F> where
         );
 
         let mut components = HashMap::new();
-        for i in 0_u16..shard_count {
+        let mut shard_nums = (0_u16..shard_count).collect::<Vec<_>>();
+        let mut rng = thread_rng();
+        shard_nums.shuffle(&mut rng);
+        for i in shard_nums {
             if i == curr_shard {
                 continue;
             }

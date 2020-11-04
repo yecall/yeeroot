@@ -158,7 +158,7 @@ pub struct Params {
 /// }
 /// ```
 pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, executor: &TaskExecutor)
-    -> error::Result<Arc<yee_foreign_network::Service<FactoryBlock<C::Factory>, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
+    -> error::Result<Arc<yee_foreign_network::Service<FactoryBlock<C::Factory>, <C::Factory as ServiceFactory>::NetworkProtocol, ForeignIdentifySpecialization, ComponentExHash<C>>>> where
     C: Components,
 {
     let node_key = node_key_config(param.foreign_node_key_params, &param.net_config_path)?;
@@ -208,7 +208,7 @@ pub fn start_foreign_network<C>(param: Params, client: Arc<ComponentClient<C>>, 
 
     let protocol_id = yee_foreign_network::ProtocolId::from(DEFAULT_PROTOCOL_ID.as_bytes());
 
-    let (service, _network_chan) = yee_foreign_network::Service::<<C::Factory as ServiceFactory>::Block, _, ComponentExHash<C>>::new(
+    let (service, _network_chan) = yee_foreign_network::Service::<<C::Factory as ServiceFactory>::Block, <C::Factory as ServiceFactory>::NetworkProtocol, _, ComponentExHash<C>>::new(
         network_params,
         protocol_id,
     ).map_err(|e| format!("{:?}", e))?;

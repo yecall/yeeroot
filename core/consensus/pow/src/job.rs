@@ -48,6 +48,7 @@ use {
     },
     consensus_common::{
 		BlockImport, BlockOrigin, Environment, Filter, ForkChoiceStrategy, ImportBlock, Proposer,
+        import_queue::BlockBuilder,
 	},
     inherents::InherentDataProviders,
     runtime_primitives::{
@@ -120,7 +121,7 @@ pub struct DefaultJobManager<B, C, E, AccountId, AuthorityId, I, F> where
     env: Arc<E>,
     inherent_data_providers: InherentDataProviders,
     authority_id: AuthorityId,
-    block_import: Arc<I>,
+    block_builder: Arc<I>,
     shard_extra: ShardExtra<AccountId>,
     context: Context<B>,
     foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
@@ -138,7 +139,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
     <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
     AuthorityId: Decode + Encode + Clone,
     AccountId: Encode + Decode + Clone + Default,
-    I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+    I: BlockBuilder<B> + Send + Sync + 'static,
     F: ServiceFactory + Send + Sync,
     <F as ServiceFactory>::Configuration: Send + Sync,
 {
@@ -147,7 +148,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
         env: Arc<E>,
         inherent_data_providers: InherentDataProviders,
         authority_id: AuthorityId,
-        block_import: Arc<I>,
+        block_builder: Arc<I>,
         shard_extra: ShardExtra<AccountId>,
         context: Context<B>,
         foreign_chains: Arc<RwLock<Option<ForeignChain<F>>>>,
@@ -158,7 +159,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> DefaultJobManager<B, C, E, AccountId
             env,
             inherent_data_providers,
             authority_id,
-            block_import,
+            block_builder,
             shard_extra: shard_extra.clone(),
             context,
             foreign_chains,
@@ -181,7 +182,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
           <<<E as Environment<B>>::Proposer as Proposer<B>>::Create as IntoFuture>::Future: Send + 'static,
           AuthorityId: Decode + Encode + Clone + Send + Sync + 'static,
           AccountId: Decode + Encode + Clone + Default + Send + Sync + 'static,
-          I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+          I: BlockBuilder<B> + Send + Sync + 'static,
           <B as Block>::Hash: From<H256> + Ord,
           F: ServiceFactory + Send + Sync,
           <F as ServiceFactory>::Configuration: ForeignChainConfig + Send + Sync,
@@ -275,7 +276,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
     }
 
     fn submit_job(&self, job: Self::Job) -> Box<dyn Future<Item=<Self::Job as Job>::Hash, Error=consensus_common::Error> + Send> {
-        let block_import = self.block_import.clone();
+        let block_builder = self.block_builder.clone();
 
         let check_job = move |job: Self::Job| -> Result<<Self::Job as Job>::Hash, consensus_common::Error>{
             let number = &job.header.number().clone();
@@ -294,7 +295,7 @@ impl<B, C, E, AccountId, AuthorityId, I, F> JobManager for DefaultJobManager<B, 
                 auxiliary: Vec::new(),
                 fork_choice: ForkChoiceStrategy::LongestChain,
             };
-            block_import.import_block(import_block, Default::default())?;
+            block_builder.build(import_block, Default::default())?;
             info!("{} @ {} {:?}", Colour::Green.bold().paint("Block mined"), number, hash);
             Ok(hash)
         };

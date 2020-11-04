@@ -33,6 +33,7 @@ use {
     consensus_common::{
         SyncOracle, ImportBlock,
         BlockImport, BlockOrigin, ForkChoiceStrategy,
+        import_queue::BlockBuilder,
     },
     inherents::InherentDataProviders,
     runtime_primitives::{
@@ -70,7 +71,7 @@ pub trait PowWorker<JM: JobManager> {
 
 pub struct DefaultWorker<B, I, JM, AccountId, AuthorityId> {
     job_manager: Arc<JM>,
-    block_import: Arc<I>,
+    block_builder: Arc<I>,
     inherent_data_providers: InherentDataProviders,
     stop_sign: Arc<RwLock<bool>>,
     shard_extra: ShardExtra<AccountId>,
@@ -83,13 +84,13 @@ impl<B, I, JM, AccountId, AuthorityId> DefaultWorker<B, I, JM, AccountId, Author
 {
     pub fn new(
         job_manager: Arc<JM>,
-        block_import: Arc<I>,
+        block_builder: Arc<I>,
         inherent_data_providers: InherentDataProviders,
         shard_extra: ShardExtra<AccountId>,
     ) -> Self {
         DefaultWorker {
             job_manager,
-            block_import,
+            block_builder,
             inherent_data_providers,
             stop_sign: Default::default(),
             shard_extra,
@@ -101,7 +102,7 @@ impl<B, I, JM, AccountId, AuthorityId> DefaultWorker<B, I, JM, AccountId, Author
 impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM, AccountId, AuthorityId> where
     B: Block,
     DigestFor<B>: Digest,
-    I: BlockImport<B, Error=consensus_common::Error> + Send + Sync + 'static,
+    I: BlockBuilder<B> + Send + Sync + 'static,
     DigestItemFor<B>: CompatibleDigestItem<B, AuthorityId> + ShardingDigestItem<u16> + ScaleOutPhaseDigestItem<NumberFor<B>, u16>,
     JM: JobManager<Job=DefaultJob<B, AuthorityId>>,
     AccountId: Codec + Send + Sync + Clone + 'static,
@@ -128,7 +129,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
     fn on_work(&self,
               iter: u64,
     ) -> Self::OnWork {
-        let block_import = self.block_import.clone();
+        let block_builder = self.block_builder.clone();
 
         let job = self.on_job().into_future();
 
@@ -170,7 +171,7 @@ impl<B, I, JM, AccountId, AuthorityId> PowWorker<JM> for DefaultWorker<B, I, JM,
                         auxiliary: Vec::new(),
                         fork_choice: ForkChoiceStrategy::LongestChain,
                     };
-                    block_import.import_block(import_block, Default::default())?;
+                    block_builder.build(import_block, Default::default())?;
 
                     info!("{} @ {} {:?}", Colour::Green.bold().paint("Block mined"), header_num, hash);
                     return Ok(());

@@ -42,6 +42,7 @@ use serde::export::PhantomData;
 use crate::message::generic::{Message as GenericMessage, OutMessage, BestBlockInfo};
 use crate::chain::Client;
 use regex::Regex;
+use rand::seq::SliceRandom;
 
 /// Sync status
 pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
@@ -53,8 +54,11 @@ pub trait SyncProvider<B: BlockT, H: ExHashT>: Send + Sync {
 	/// Get network state.
 	fn network_state(&self) -> NetworkState;
 
-	// Get client info.
+	/// Get client info.
 	fn client_info(&self) -> HashMap<u16, Option<client::ClientInfo<B>>>;
+
+	/// Inspect
+	fn inspect(&self);
 }
 
 /// Minimum Requirements for a Hash within Networking
@@ -68,7 +72,7 @@ impl<T> ExHashT for T where
 }
 
 /// Substrate network service. Handles network IO and manages connectivity.
-pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
+pub struct Service<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization, H: ExHashT> {
 	/// Sinks to propagate out messages.
 	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
 	/// Are we connected to any peer?
@@ -87,7 +91,7 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 	/// This is an `Option` because we need to extract it in the destructor.
 	bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
 
-	vnetwork_holder: VNetworkHolder<B, I>,
+	vnetwork_holder: VNetworkHolder<B, S, I>,
 
 	vnetwork_bg_thread: Option<(oneshot::Sender<()>, thread::JoinHandle<()>)>,
 
@@ -99,12 +103,12 @@ pub struct Service<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> {
 	chain: Arc<dyn Client<B>>,
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H> {
+impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization, H: ExHashT> Service<B, S, I, H> {
 	/// Creates and register protocol with the network service
 	pub fn new(
 		params: Params<B, I>,
 		protocol_id: ProtocolId,
-	) -> Result<(Arc<Service<B, I, H>>, NetworkChan<B>), Error> {
+	) -> Result<(Arc<Service<B, S, I, H>>, NetworkChan<B>), Error> {
 		let shard_num = params.network_config.shard_num;
 		let shard_count = params.network_config.shard_count;
 		let (network_chan, network_port) = network_channel();
@@ -139,8 +143,9 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 			network_service: network.clone(),
 			network_port_list: Arc::new(RwLock::new(HashMap::new())),
 			from_network_port: Arc::new(from_network_port),
-			protocol_sender_list: Arc::new(RwLock::new(HashMap::new())),
+			network_to_protocol_sender_list: Arc::new(RwLock::new(HashMap::new())),
 			chain_list: Arc::new(RwLock::new(HashMap::new())),
+			protocol_sender_list: Arc::new(RwLock::new(HashMap::new())),
 			from_network_chan,
 			import_queue_port_list: Arc::new(RwLock::new(HashMap::new())),
 			out_message_sinks: out_message_sinks.clone(),
@@ -201,7 +206,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Service<B, I, H
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Service<B, I, H> {
+impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization, H: ExHashT> Drop for Service<B, S, I, H> {
 	fn drop(&mut self) {
 		info!("Foreign network service dropping");
 		if let Some((sender, join)) = self.bg_thread.take() {
@@ -219,7 +224,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> Drop for Servic
 	}
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization, H: ExHashT> SyncProvider<B, H> for Service<B, I, H>
+impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization, H: ExHashT> SyncProvider<B, H> for Service<B, S, I, H>
 where
 	B: BlockT + 'static,
 {
@@ -248,6 +253,12 @@ where
 		info.insert(self.shard_num, self.chain.info().ok());
 
 		info
+	}
+
+	fn inspect(&self) {
+		self.vnetwork_holder.protocol_sender_list.read().iter().for_each(|(shard, sender)|{
+			sender.send(substrate_network::protocol::ProtocolMsg::Inspect);
+		})
 	}
 }
 
@@ -573,14 +584,15 @@ impl<B: BlockT + 'static> FromNetworkPort<B> {
 	}
 }
 
-struct VNetworkHolder<B: BlockT + 'static, I: IdentifySpecialization>{
+struct VNetworkHolder<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization>{
 
 	peerset: ForeignPeersetHandle,
 	network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
 	network_port_list: Arc<RwLock<HashMap<u16, substrate_network::service::NetworkPort<B>>>>,
 	from_network_port: Arc<FromNetworkPort<B>>,
-	protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
+	network_to_protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
 	chain_list: Arc<RwLock<HashMap<u16, Arc<dyn substrate_network::chain::Client<B>>>>>,
+	protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::ProtocolMsg<B, S>>>>>,
 	from_network_chan: FromNetworkChan<B>,
 	import_queue_port_list: Arc<RwLock<HashMap<u16, vnetwork::ImportQueuePort<B>>>>,
 	out_message_sinks: Arc<Mutex<Vec<mpsc::UnboundedSender<OutMessage<B>>>>>,
@@ -588,7 +600,7 @@ struct VNetworkHolder<B: BlockT + 'static, I: IdentifySpecialization>{
 	network_ready_channel: Arc<RwLock<(NetworkReadyChan, Option<NetworkReadyPort>)>>,
 }
 
-impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
+impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization> VNetworkHolder<B, S, I>{
 
 	fn start_thread(&self) -> Result<(oneshot::Sender<()>, thread::JoinHandle<()>), Error> {
 
@@ -599,7 +611,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		let network_service = self.network_service.clone();
 		let network_port_list = self.network_port_list.clone();
 		let from_network_port = self.from_network_port.clone();
-		let protocol_sender_list = self.protocol_sender_list.clone();
+		let network_to_protocol_sender_list = self.network_to_protocol_sender_list.clone();
 		let from_network_chan = self.from_network_chan.clone();
 		let import_queue_port_list = self.import_queue_port_list.clone();
 		let chain_list = self.chain_list.clone();
@@ -612,7 +624,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 				network_service,
 				network_port_list,
 				from_network_port,
-				protocol_sender_list,
+				network_to_protocol_sender_list,
 				from_network_chan,
 				import_queue_port_list,
 				chain_list,
@@ -640,7 +652,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		network_service: Arc<Mutex<NetworkService<Message<B>, I>>>,
 		network_port_list: Arc<RwLock<HashMap<u16, substrate_network::service::NetworkPort<B>>>>,
 		from_network_port: Arc<FromNetworkPort<B>>,
-		protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
+		network_to_protocol_sender_list: Arc<RwLock<HashMap<u16, Sender<substrate_network::protocol::FromNetworkMsg<B>>>>>,
 		from_network_chan: FromNetworkChan<B>,
 		import_queue_port_list: Arc<RwLock<HashMap<u16, vnetwork::ImportQueuePort<B>>>>,
 		chain_list: Arc<RwLock<HashMap<u16, Arc<dyn substrate_network::chain::Client<B>>>>>,
@@ -654,7 +666,12 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		let protocol = stream::poll_fn(move || {
 
 			let mut error_shard_num = None;
-			for (shard_num, network_port) in &*network_port_list.read(){
+			let read = network_port_list.read();
+			let mut random_list = read.iter().collect::<Vec<_>>();
+			let mut rng = thread_rng();
+			random_list.shuffle(&mut rng);
+
+			for (shard_num, network_port) in random_list {
 				let shard_num = *shard_num;
 				match network_port.take_one_message() {
 					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
@@ -665,6 +682,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 					}
 				}
 			}
+
 			if let Some(error_shard_num) = error_shard_num{
 				network_port_list.write().remove(&error_shard_num);
 			}
@@ -735,8 +753,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 			match msg {
 				FromNetworkMsg::PeerConnected(peer_id, debug_info) => {
 					if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
-						let keys : Vec<u16> = protocol_sender_list.read().keys().cloned().collect();
-						if let Some(sender) = protocol_sender_list.read().get(&shard_num){
+						if let Some(sender) = network_to_protocol_sender_list.read().get(&shard_num){
 							sender.send(vnetwork::FromNetworkMsg::PeerConnected(peer_id, debug_info)).map_err(|_|())?;
 						}
 					}else{
@@ -747,7 +764,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 				FromNetworkMsg::PeerDisconnected(peer_id, debug_info) => {
 					pending_connected.write().remove(&peer_id);
 					if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
-						if let Some(sender) = protocol_sender_list.read().get(&shard_num){
+						if let Some(sender) = network_to_protocol_sender_list.read().get(&shard_num){
 							sender.send(vnetwork::FromNetworkMsg::PeerDisconnected(peer_id, debug_info)).map_err(|_|())?;
 						}
 					}
@@ -756,7 +773,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 					if let GenericMessage::VMessage(vmessage_shard_num, vmessage) = message{
 						if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
 							if vmessage_shard_num == shard_num {
-								if let Some(sender) = protocol_sender_list.read().get(&shard_num) {
+								if let Some(sender) = network_to_protocol_sender_list.read().get(&shard_num) {
 
 									// send PeerConnected if pending
 									if let vnetwork::generic_message::Message::Status(_) = vmessage {
@@ -783,7 +800,7 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 					if let Some(GenericMessage::VMessage(vmessage_shard_num, vmessage)) = message{
 						if let Some(shard_num) = peerset_router.get_shard_num(&peer_id){
 							if vmessage_shard_num == shard_num {
-								if let Some(sender) = protocol_sender_list.read().get(&shard_num) {
+								if let Some(sender) = network_to_protocol_sender_list.read().get(&shard_num) {
 									sender.send(vnetwork::FromNetworkMsg::PeerClogged(peer_id, Some(vmessage))).map_err(|_| ())?;
 								}
 							}
@@ -805,7 +822,12 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 		let import_queue = stream::poll_fn(move || {
 
 			let mut error_shard_num = None;
-			for (shard_num, import_queue_port) in &*import_queue_port_list.read(){
+			let read = import_queue_port_list.read();
+			let mut random_list = read.iter().collect::<Vec<_>>();
+			let mut rng = thread_rng();
+			random_list.shuffle(&mut rng);
+
+			for (shard_num, import_queue_port) in random_list{
 				let shard_num = *shard_num;
 				match import_queue_port.take_one_message() {
 					Ok(Some(message)) => return Ok(Async::Ready(Some((shard_num, message)))),
@@ -867,9 +889,11 @@ impl<B: BlockT + 'static, I: IdentifySpecialization> VNetworkHolder<B, I>{
 	}
 }
 
-use substrate_service::{Components, FactoryBlock, ComponentExHash};
+use substrate_service::{Components, FactoryBlock, ComponentExHash, ServiceFactory};
+use substrate_network::specialization::NetworkSpecialization;
+use rand::thread_rng;
 
-impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, I, EH> where
+impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBlock<F>, <F as ServiceFactory>::NetworkProtocol, I, EH> where
 	F: substrate_service::ServiceFactory,
 	I: IdentifySpecialization,
 	EH: substrate_network::ExHashT,
@@ -887,13 +911,14 @@ impl<F, I, EH> substrate_service::NetworkProvider<F, EH> for Service<FactoryBloc
 		let chain = params.chain.clone();
 
 		let (service, network_chan,
-			network_port, network_to_protocol_sender, import_queue_port) =
-			vnetwork::Service::new(params, import_queue)?;
+			network_port, network_to_protocol_sender, import_queue_port, protocol_sender) =
+			vnetwork::Service::new(params, import_queue, Some(network_id))?;
 
 		self.vnetwork_holder.network_port_list.write().entry(shard_num).or_insert(network_port);
-		self.vnetwork_holder.protocol_sender_list.write().entry(shard_num).or_insert(network_to_protocol_sender);
+		self.vnetwork_holder.network_to_protocol_sender_list.write().entry(shard_num).or_insert(network_to_protocol_sender);
 		self.vnetwork_holder.chain_list.write().entry(shard_num).or_insert(chain);
 		self.vnetwork_holder.import_queue_port_list.write().entry(shard_num).or_insert(import_queue_port);
+		self.vnetwork_holder.protocol_sender_list.write().entry(shard_num).or_insert(protocol_sender);
 
 		let mut network_count = self.vnetwork_holder.network_count.write();
 		*network_count = *network_count + 1;

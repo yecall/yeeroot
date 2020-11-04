@@ -21,6 +21,7 @@ use log::{trace};
 use futures::{sync::oneshot, sync::mpsc};
 use parking_lot::{Mutex, RwLock};
 use consensus::import_queue::{ImportQueue, Link};
+use consensus::SkipResult;
 use crate::consensus_gossip::ConsensusGossip;
 use crate::protocol::{Context, FromNetworkMsg, Protocol, ConnectedPeer, ProtocolMsg, ProtocolStatus};
 use crate::config::Params;
@@ -161,7 +162,8 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 	pub fn new<H: ExHashT>(
 		params: Params<B, S, H, I>,
 		import_queue: Box<dyn ImportQueue<B>>,
-	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>, ImportQueuePort<B>), Error> {
+		network_id: Option<u32>,
+	) -> Result<(Arc<Service<B, S, I>>, NetworkChan<B>,  NetworkPort<B>, Sender<FromNetworkMsg<B>>, ImportQueuePort<B>, Sender<ProtocolMsg<B, S>>), Error> {
 		let (network_chan, network_port) = network_channel();
 		let status_sinks = Arc::new(Mutex::new(Vec::new()));
 		// Start in off-line mode, since we're not connected to any nodes yet.
@@ -180,6 +182,7 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 			params.on_demand,
 			params.transaction_pool,
 			params.specialization,
+			network_id
 		)?;
 
 		let service = Arc::new(Service {
@@ -198,14 +201,14 @@ impl<B: BlockT + 'static, S: NetworkSpecialization<B>, I: IdentifySpecialization
 
 		// connect the import-queue to the network service.
 		let link = NetworkLink {
-			protocol_sender,
+			protocol_sender: protocol_sender.clone(),
 			network_sender: network_chan.clone(),
 			import_queue_sender,
 		};
 
 		import_queue.start(Box::new(link))?;
 
-		Ok((service, network_chan, network_port, network_to_protocol_sender, import_queue_port))
+		Ok((service, network_chan, network_port, network_to_protocol_sender, import_queue_port, protocol_sender))
 	}
 
 	/*
@@ -336,12 +339,24 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 		}
 	}
 
+	fn justification_skipped(&self, hash: &B::Hash, number: NumberFor<B>, result: SkipResult) {
+		let _ = self.protocol_sender.send(ProtocolMsg::JustificationSkipResult(hash.clone(), number, result));
+	}
+
 	fn clear_justification_requests(&self) {
 		let _ = self.protocol_sender.send(ProtocolMsg::ClearJustificationRequests);
 	}
 
 	fn request_justification(&self, hash: &B::Hash, number: NumberFor<B>) {
 		let _ = self.protocol_sender.send(ProtocolMsg::RequestJustification(hash.clone(), number));
+	}
+
+	fn skip_justification(&self, hash: B::Hash, number: NumberFor<B>, signaler: (B::Hash, NumberFor<B>)) {
+		let _ = self.protocol_sender.send(ProtocolMsg::SkipJustification(hash, number, signaler));
+	}
+
+	fn fork(&self, blocks: Vec<(B::Hash, NumberFor<B>)>) {
+		let _ = self.protocol_sender.send(ProtocolMsg::Fork(blocks));
 	}
 
 	fn useless_peer(&self, who: PeerId, reason: &str) {
@@ -362,10 +377,6 @@ impl<B: BlockT, S: NetworkSpecialization<B>> Link<B> for NetworkLink<B, S> {
 
 	fn hold(&self) {
 		let _ = self.protocol_sender.send(ProtocolMsg::HoldSync);
-	}
-
-	fn skip_justification_requests(&self, justifications: Vec<(B::Hash, NumberFor<B>)>) {
-		let _ = self.protocol_sender.send(ProtocolMsg::SkipJustificationRequests(justifications));
 	}
 }
 
